@@ -1,5 +1,5 @@
 import Levenshtein as levenshtein
-from tokenize import malayalam_tokenizer
+from .tokenize import malayalam_tokenizer
 
 def levenshtein_distance(s1, s2):
     """Calculate the Levenshtein distance between two strings."""
@@ -154,6 +154,8 @@ def main():
     text2 = "ಹತ್ತು ವರ್ಷವಾದ ಮಕ್ಕಳಿಗೆ ಅದರ ಒಂದು ಸ್ವಲ್ಪ ಜ್ಞಾನ ಮನವರಿಕೆ ಒಂದು ಪ್ರಾರಂಭ ಆಗುತ್ತದೆ."
     # arr1 = ['ഇന്ന്', '9', 'ാം', 'തീയതിയാണ്', ',', 'സമയം', '9', ':', '60',  'വന്നു', 'ഞാ','പോയി']
     # arr2 = ['ഇന്ന്', '9', 'ആം', 'തീയതിയാണ്', 'സമയം', ',', '9', '30', 'ഞാൻ', 'ഞാങ്ങോട്ട്', 'പോയി']
+    text1 = "പണം അക്കൗണ്ടിൽ എത്തിയപ്പോൾ ആദ്യ, ഗഡുവായി 180000 രൂപയായി നൽകിയത്."
+    text2 = "പണം അക്കൗണ്ടിൽ എത്തിയപ്പോൾ, ആദ്യ ഘടുവായി 180000 രൂപയാണ് നൽകിയത്:"
 
     arr1 = malayalam_tokenizer(text1)
     arr2 = malayalam_tokenizer(text2)

@@ -1,5 +1,5 @@
-from align import is_punctuation, is_number, is_word
-from tokenize import malayalam_tokenizer
+from .align import is_punctuation, is_number, is_word
+from .tokenize import malayalam_tokenizer
 
 def token_error_rates(aligned_ref, aligned_hyp):
     """
@@ -110,7 +110,7 @@ def text_error_rates(ref_text, hyp_text):
     hyp_tokens = malayalam_tokenizer(hyp_text)
     
     # Import align_arrays here to avoid circular imports
-    from align import align_arrays
+    from .align import align_arrays
     
     # Align the token arrays
     aligned_ref, aligned_hyp, align_score = align_arrays(ref_tokens, hyp_tokens)
