@@ -19,14 +19,14 @@ DictErrors is a specialized tool for analyzing and evaluating speech recognition
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd dicterrors
+cd dict-errors
 
-# Create and activate a virtual environment
-python -m venv .venv
+# Create and activate a virtual environment using uv
+uv venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# Install the package
-pip install -e .
+# Install the package using uv
+uv pip install -e .
 ```
 
 ## Usage
@@ -132,6 +132,21 @@ The alignment algorithm uses a modified version of the Needleman-Wunsch algorith
 - Python 3.11+
 - Levenshtein 0.27.1+ (for string distance calculations)
 
+### Managing Dependencies
+
+This project uses uv for dependency management. To synchronize dependencies with the lockfile:
+
+```bash
+# Update dependencies according to the lockfile
+uv sync
+
+# Add a new dependency
+uv pip install <package-name>
+
+# Update the lockfile with new dependencies
+uv pip freeze > requirements.txt
+```
+
 ## Acknowledgements
 
-This tool was developed as part of the Adalat AI initiative focusing on Indic language technologies.
+This tool is developed as part of the Adalat AI initiative focusing on Indic language technologies.
