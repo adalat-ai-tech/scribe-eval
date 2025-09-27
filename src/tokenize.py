@@ -25,8 +25,12 @@ def malayalam_tokenizer(text: str) -> list[str]:
     # 3. Handle specific number suffixes (like 'ാം', 'ആം') when attached to digits.
     #    This regex looks for a sequence of digits followed immediately by 'ാം' or 'ആം'.
     #    It inserts a space between them, ensuring they are tokenized separately.
-    number_suffix_pattern = r'(\d+)(ാം|ആം)'
+    number_suffix_pattern = r'(\d+)(ാം|ആം|ൽ|ലെ|ന്|ഓ)'
     text = re.sub(number_suffix_pattern, r'\1 \2', text)
+    
+    # 3.1 Handle hyphenated numbers like '3-ഓ' to tokenize as [3, -, ഓ]
+    hyphenated_pattern = r'(\d+)(-)(ാം|ആം|ൽ|ലെ|ന്|ഓ)'
+    text = re.sub(hyphenated_pattern, r'\1 \2 \3', text)
 
     # 4. Tokenize by splitting on any whitespace.
     tokens = text.split()
@@ -37,7 +41,7 @@ def malayalam_tokenizer(text: str) -> list[str]:
     return tokens
 
 def main():
-    text = "ഇത് ഒരു മലയാളം സ്ട്രിംഗ് ആണ്."
+    text = "ഈ 3-ഓ 4-ഓ വയസ്സുള്ള കുട്ടിക്ക് ഈ മൊബൈൽ ഫോൺ എവിടുന്ന് കിട്ടി?"
     tokens = malayalam_tokenizer(text)
     print(tokens)
 
