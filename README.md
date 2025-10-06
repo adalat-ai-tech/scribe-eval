@@ -6,7 +6,9 @@ DictErrors is a specialized tool for analyzing and evaluating speech recognition
 
 ## Features
 
-- **Advanced Token Alignment**: Utilizes dynamic programming with language-specific scoring to optimally align reference and hypothesis texts
+- **Advanced Token Alignment**: Utilizes dynamic programming with token-specific scoring to optimally align reference and hypothesis texts
+  - High negative score for substituting punctuations with words or numbers.
+  - Character aware substitutions
 - **Specialized Error Rates**:
   - **Word Error Rate (WER)**: Measures errors in word tokens
   - **Punctuation Error Rate (PER)**: Specifically analyzes punctuation errors
@@ -29,63 +31,34 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv pip install -e .
 ```
 
+
 ## Algorithm Overview
 
 The alignment algorithm uses a modified version of the Needleman-Wunsch algorithm with specialized scoring functions to handle different token types (words, punctuation, and numbers) in Indic languages. The error rates are calculated by comparing the aligned tokens and categorizing them based on token type.
 
-## Dependencies
-
-- Python 3.11+
-- Levenshtein 0.27.1+ (for string distance calculations)
-
-### Managing Dependencies
-
-This project uses uv for dependency management. To synchronize dependencies with the lockfile:
-
-```bash
-# Update dependencies according to the lockfile
-uv sync
-
-# Add a new dependency
-uv pip install <package-name>
-
-# Update the lockfile with new dependencies
-uv pip freeze > requirements.txt
-```
-
-
-## Usage
-
-### Text Alignment
+For the Hindi strings:
 
 ```
-cd examples/
-uv run text_alignment.py
+text1 = "भारत एक महान राष्ट्र है"
+text2 = "भारत, महान राष्ट्र है"
 ```
 
-=== MALAYALAM EXAMPLE ===
-Original texts:
-Text 1: പണം അക്കൗണ്ടിൽ എത്തിയപ്പോൾ ആദ്യ, ഗഡുവായി 180000 രൂപയായി നൽകിയത്.
-Text 2: പണം അക്കൗണ്ടിൽ എത്തിയപ്പോൾ, ആദ്യ ഘടുവായി 180000 രൂപയാണ് നൽകിയത്:
+Regular alignemnet algorithms in [jiwer](https://github.com/jitsi/jiwer) and [kaldialign](https://github.com/rhasspy/kaldi-align) gives the alignment as:
 
-Alignment (score: 9.0):
-Text 1:        പണം | അക്കൗണ്ടിൽ | എത്തിയപ്പോൾ |         ** |       ആദ്യ |          , |    ഗഡുവായി |     180000 |    രൂപയായി |    നൽകിയത് |          .
-Match:           ✓ |          ✓ |          ✓ |            |          ✓ |            |          ✗ |          ✓ |          ✗ |          ✓ |          ✗
-Text 2:        പണം | അക്കൗണ്ടിൽ | എത്തിയപ്പോൾ |          , |       ആദ്യ |         ** |    ഘടുവായി |     180000 |    രൂപയാണ് |    നൽകിയത് |          :
+```
+Array 1:       भारत |         एक |      महान |    राष्ट्र |         है
+Match:            ✓ |          ✗ |           ✓ |          ✓ |          ✓
+Array 2:       भारत |          , |        महान |    राष्ट्र |         है
+```
 
+Our algorithm gives the alignment as:
+```
+Array 1:       भारत |         ** |         एक |       महान |    राष्ट्र |         है
+Match:            ✓ |          ✗ |          ✗ |          ✓ |          ✓ |          ✓
+Array 2:       भारत |          , |         ** |       महान |    राष्ट्र |         है
+```
 
-
-=== KANNADA EXAMPLE ===
-Original texts:
-Text 1: 10 ವರ್ಷವಾದ ಮಕ್ಕಳಿಗೆ ಅದರ ಒಂದು ಸ್ವಲ್ಪ ಜ್ಞಾನ ಮನವರಿಕೆ ಒಂದು ಪ್ರಾರಂಭ ಆಗುತ್ತದೆ।
-Text 2: ಹತ್ತು ವರ್ಷವಾದ ಮಕ್ಕಳಿಗೆ ಅದರ ಒಂದು ಸ್ವಲ್ಪ ಜ್ಞಾನ ಮನವರಿಕೆ ಒಂದು ಪ್ರಾರಂಭ ಆಗುತ್ತದೆ.
-
-Alignment (score: 19.0):
-Text 1:         10 |    ವರ್ಷವಾದ |   ಮಕ್ಕಳಿಗೆ |        ಅದರ |       ಒಂದು |     ಸ್ವಲ್ಪ |      ಜ್ಞಾನ |    ಮನವರಿಕೆ |       ಒಂದು |    ಪ್ರಾರಂಭ |  ಆಗುತ್ತದೆ। |         **
-Match:           ✗ |          ✓ |          ✓ |          ✓ |          ✓ |          ✓ |          ✓ |          ✓ |          ✓ |          ✓ |          ✗ |           
-Text 2:      ಹತ್ತು |    ವರ್ಷವಾದ |   ಮಕ್ಕಳಿಗೆ |        ಅದರ |       ಒಂದು |     ಸ್ವಲ್ಪ |      ಜ್ಞಾನ |    ಮನವರಿಕೆ |       ಒಂದು |    ಪ್ರಾರಂಭ |   ಆಗುತ್ತದೆ |          .
-
-
+This aloows to evaluate the word error rates independent of punctuation errors and also specific error rates for punctuation and numeral errors.
 
 === ENGLISH EXAMPLE ===
 Original texts:
@@ -116,6 +89,21 @@ Text 2:        The |         ** |       bron |        fox |      jumps |       o
 cd examples/
 uv run error_report.py
 ```
+## Usage
+
+```bash
+cd examples
+uv run evaluate.py
+```
+
+The evaluate.py script will generate a report in the `dictation-eval` directory.
+
+## TODO
+- Define a generic tokenizer with language specific features
+- Add language code as a parameter to tokenizer
+- Add a token-type tag to each token <word>, <punctuation>, <numeral> <abbreviation> etc
+- Improve the token-type based scoring function
+- Interactive front-end for alignment visualization and WER/PER/NER analysis
 
 ### Batch Evaluation
 
