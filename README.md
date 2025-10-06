@@ -63,6 +63,7 @@ cd examples/
 uv run text_alignment.py
 ```
 
+```bash
 === MALAYALAM EXAMPLE ===
 Original texts:
 Text 1: പണം അക്കൗണ്ടിൽ എത്തിയപ്പോൾ ആദ്യ, ഗഡുവായി 180000 രൂപയായി നൽകിയത്.
@@ -108,18 +109,18 @@ Alignment (score: 7.5):
 Text 1:        The |      quick |      brown |        fox |      jumps |       over |        the |       lazy |        dog |          .
 Match:           ✓ |            |          ✗ |          ✓ |          ✓ |          ✓ |          ✗ |          ✓ |          ✓ |           
 Text 2:        The |         ** |       bron |        fox |      jumps |       over |          a |       lazy |        dog |         **
-
+```
 
 ### Error Analysis
 
-```
+```bash
 cd examples/
 uv run error_report.py
 ```
 
 ### Batch Evaluation
 
-```
+```bash
 cd examples/
 uv run evaluate.py
 ```
