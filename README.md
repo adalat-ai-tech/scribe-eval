@@ -31,34 +31,9 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv pip install -e .
 ```
 
-
 ## Algorithm Overview
 
 The alignment algorithm uses a modified version of the Needleman-Wunsch algorithm with specialized scoring functions to handle different token types (words, punctuation, and numbers) in Indic languages. The error rates are calculated by comparing the aligned tokens and categorizing them based on token type.
-
-For the Hindi strings:
-
-```
-text1 = "भारत एक महान राष्ट्र है"
-text2 = "भारत, महान राष्ट्र है"
-```
-
-Regular alignemnet algorithms in [jiwer](https://github.com/jitsi/jiwer) and [kaldialign](https://github.com/rhasspy/kaldi-align) gives the alignment as:
-
-```
-Array 1:       भारत |         एक |      महान |    राष्ट्र |         है
-Match:            ✓ |          ✗ |           ✓ |          ✓ |          ✓
-Array 2:       भारत |          , |        महान |    राष्ट्र |         है
-```
-
-Our algorithm gives the alignment as:
-```
-Array 1:       भारत |         ** |         एक |       महान |    राष्ट्र |         है
-Match:            ✓ |          ✗ |          ✗ |          ✓ |          ✓ |          ✓
-Array 2:       भारत |          , |         ** |       महान |    राष्ट्र |         है
-```
-
-This aloows to evaluate the word error rates independent of punctuation errors and also specific error rates for punctuation and numeral errors.
 
 ## Dependencies
 
@@ -79,6 +54,78 @@ uv pip install <package-name>
 # Update the lockfile with new dependencies
 uv pip freeze > requirements.txt
 ```
+
+
+## Usage
+
+### Text Alignment
+
+```
+cd examples/
+uv run text_alignment.py
+```
+
+```bash
+=== MALAYALAM EXAMPLE ===
+Original texts:
+Text 1: പണം അക്കൗണ്ടിൽ എത്തിയപ്പോൾ ആദ്യ, ഗഡുവായി 180000 രൂപയായി നൽകിയത്.
+Text 2: പണം അക്കൗണ്ടിൽ എത്തിയപ്പോൾ, ആദ്യ ഘടുവായി 180000 രൂപയാണ് നൽകിയത്:
+
+Alignment (score: 9.0):
+Text 1:        പണം | അക്കൗണ്ടിൽ | എത്തിയപ്പോൾ |         ** |       ആദ്യ |          , |    ഗഡുവായി |     180000 |    രൂപയായി |    നൽകിയത് |          .
+Match:           ✓ |          ✓ |          ✓ |            |          ✓ |            |          ✗ |          ✓ |          ✗ |          ✓ |          ✗
+Text 2:        പണം | അക്കൗണ്ടിൽ | എത്തിയപ്പോൾ |          , |       ആദ്യ |         ** |    ഘടുവായി |     180000 |    രൂപയാണ് |    നൽകിയത് |          :
+
+
+
+=== KANNADA EXAMPLE ===
+Original texts:
+Text 1: 10 ವರ್ಷವಾದ ಮಕ್ಕಳಿಗೆ ಅದರ ಒಂದು ಸ್ವಲ್ಪ ಜ್ಞಾನ ಮನವರಿಕೆ ಒಂದು ಪ್ರಾರಂಭ ಆಗುತ್ತದೆ।
+Text 2: ಹತ್ತು ವರ್ಷವಾದ ಮಕ್ಕಳಿಗೆ ಅದರ ಒಂದು ಸ್ವಲ್ಪ ಜ್ಞಾನ ಮನವರಿಕೆ ಒಂದು ಪ್ರಾರಂಭ ಆಗುತ್ತದೆ.
+
+Alignment (score: 19.0):
+Text 1:         10 |    ವರ್ಷವಾದ |   ಮಕ್ಕಳಿಗೆ |        ಅದರ |       ಒಂದು |     ಸ್ವಲ್ಪ |      ಜ್ಞಾನ |    ಮನವರಿಕೆ |       ಒಂದು |    ಪ್ರಾರಂಭ |  ಆಗುತ್ತದೆ। |         **
+Match:           ✗ |          ✓ |          ✓ |          ✓ |          ✓ |          ✓ |          ✓ |          ✓ |          ✓ |          ✓ |          ✗ |           
+Text 2:      ಹತ್ತು |    ವರ್ಷವಾದ |   ಮಕ್ಕಳಿಗೆ |        ಅದರ |       ಒಂದು |     ಸ್ವಲ್ಪ |      ಜ್ಞಾನ |    ಮನವರಿಕೆ |       ಒಂದು |    ಪ್ರಾರಂಭ |   ಆಗುತ್ತದೆ |          .
+
+
+
+=== ENGLISH EXAMPLE ===
+Original texts:
+Text 1: The brown quick fox jumps over the lazy dog.
+Text 2: The bron fox jumps over a lazy, dog
+
+Alignment (score: 6.5):
+Text 1:        The |      brown |      quick |        fox |      jumps |       over |        the |       lazy |         ** |        dogs|          .
+Match:           ✓ |          ✗ |            |          ✓ |          ✓ |          ✓ |          ✗ |          ✓ |            |            |           
+Text 2:        The |       bron |         ** |        fox |      jumps |       over |          a |       lazy |          , |        dog |         **
+
+
+
+=== ENGLISH EXAMPLE ===
+Original texts:
+Text 1: The quick brown fox jumps over the lazy dog.
+Text 2: The bron fox jumps over a lazy dog
+
+Alignment (score: 7.5):
+Text 1:        The |      quick |      brown |        fox |      jumps |       over |        the |       lazy |        dog |          .
+Match:           ✓ |            |          ✗ |          ✓ |          ✓ |          ✓ |          ✗ |          ✓ |          ✓ |           
+Text 2:        The |         ** |       bron |        fox |      jumps |       over |          a |       lazy |        dog |         **
+```
+
+### Error Analysis
+
+```bash
+cd examples/
+uv run error_report.py
+```
+
+### Batch Evaluation
+
+```bash
+cd examples/
+uv run evaluate.py
+```
 ## Usage
 
 ```bash
@@ -94,6 +141,7 @@ The evaluate.py script will generate a report in the `dictation-eval` directory.
 - Add a token-type tag to each token <word>, <punctuation>, <numeral> <abbreviation> etc
 - Improve the token-type based scoring function
 - Interactive front-end for alignment visualization and WER/PER/NER analysis
+
 
 ## Acknowledgements
 
