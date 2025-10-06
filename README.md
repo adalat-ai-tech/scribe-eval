@@ -6,7 +6,9 @@ DictErrors is a specialized tool for analyzing and evaluating speech recognition
 
 ## Features
 
-- **Advanced Token Alignment**: Utilizes dynamic programming with language-specific scoring to optimally align reference and hypothesis texts
+- **Advanced Token Alignment**: Utilizes dynamic programming with token-specific scoring to optimally align reference and hypothesis texts
+  - High negative score for substituting punctuations with words or numbers.
+  - Character aware substitutions
 - **Specialized Error Rates**:
   - **Word Error Rate (WER)**: Measures errors in word tokens
   - **Punctuation Error Rate (PER)**: Specifically analyzes punctuation errors
@@ -124,6 +126,21 @@ uv run error_report.py
 cd examples/
 uv run evaluate.py
 ```
+## Usage
+
+```bash
+cd examples
+uv run evaluate.py
+```
+
+The evaluate.py script will generate a report in the `dictation-eval` directory.
+
+## TODO
+- Define a generic tokenizer with language specific features
+- Add language code as a parameter to tokenizer
+- Add a token-type tag to each token <word>, <punctuation>, <numeral> <abbreviation> etc
+- Improve the token-type based scoring function
+- Interactive front-end for alignment visualization and WER/PER/NER analysis
 
 
 ## Acknowledgements
