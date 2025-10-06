@@ -1,6 +1,6 @@
 import json
 import os
-from src.measure import text_error_rates
+from dicterrors import text_error_rates
 import json
 from collections import defaultdict
 from tabulate import tabulate
@@ -369,9 +369,9 @@ def evaluate_predictions(input_file, output_file):
 
 def main():
     # Default paths
-    input_file = "dictation-eval/predictions.jsonl"  # Updated to correct path
-    evaluation_file = "dictation-eval/evaluation.json"
-    report_file = "dictation-eval/evaluation_report.md"
+    input_file = "kn1`0`1``/predictions.jsonl"  # Updated to correct path
+    evaluation_file = "kn1`0`1``/evaluation.json"
+    report_file = "kn1`0`1``/evaluation_report.md"
     
     # Check if input file exists
     if not os.path.exists(input_file):
