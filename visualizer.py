@@ -1,255 +1,230 @@
 import streamlit as st
 import sys
 import os
-import Levenshtein as levenshtein
+import jiwer
 
 # --- SETUP PATHS ---
-# Ensure we can import from src directory relative to this file
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 try:
     from dicterrors.tokenize import tokenizer
     from dicterrors.measure import token_error_rates
-    from dicterrors.align import is_punctuation, is_number, is_word, words_match
+    from dicterrors.align import align_arrays, DEFAULT_WEIGHTS, is_number, is_word, is_punctuation
 except ImportError as e:
     st.error(f"Error importing modules: {e}. Make sure you are running this from the project root.")
     st.stop()
 
-# --- DYNAMIC ALIGNMENT LOGIC ---
-# These functions mirror your 'align.py' but accept a 'weights' dictionary 
-# so you can control them via sliders.
-
-def get_dynamic_gap_penalty(token, weights):
-    if token == '**': return 0
-    # Penalty for inserting/deleting punctuation or numbers
-    if is_punctuation(token) or is_number(token):
-        return weights['gap_punct_num']
-    else: 
-        # Penalty for inserting/deleting words (base + length factor)
-        return weights['gap_word_base'] - (levenshtein.distance(token, '') * weights['gap_word_factor'])
-
-def get_dynamic_mismatch_penalty(w1, w2, weights):
-    # Cross-type penalties (e.g. Word vs Punctuation)
-    if (is_punctuation(w1) and (is_word(w2) or is_number(w2))) or \
-       ((is_word(w1) or is_number(w1)) and is_punctuation(w2)):
-        return weights['mismatch_punct_cross']
-    
-    # Word vs Number
-    elif (is_word(w1) and is_number(w2)) or (is_number(w1) and is_word(w2)):
-        return weights['mismatch_word_num']
-    
-    # Number vs Number
-    elif is_number(w1) and is_number(w2):
-        return weights['mismatch_num_num']
-    
-    # Punctuation vs Punctuation
-    elif is_punctuation(w1) and is_punctuation(w2):
-        return weights['mismatch_punct_punct']
-    
-    # Word vs Word (Base penalty + Levenshtein distance)
-    else:  
-        return weights['mismatch_word_base'] - levenshtein.distance(w1, w2)
-
-def get_dynamic_match_score(w1, w2, weights):
-    # Reward for a match (Base + length bonus)
-    return weights['match_base'] + (levenshtein.distance(w1, w2)/(len(w1)+len(w2)))
-
-def run_dynamic_alignment(arr1, arr2, weights):
-    m, n = len(arr1), len(arr2)
-    dp = [[0 for _ in range(n + 1)] for _ in range(m + 1)]
-
-    # Initialize DP Table (First row and column are gap penalties)
-    for i in range(1, m + 1):
-        dp[i][0] = dp[i-1][0] + get_dynamic_gap_penalty(arr1[i-1], weights)
-    for j in range(1, n + 1):
-        dp[0][j] = dp[0][j-1] + get_dynamic_gap_penalty(arr2[j-1], weights)
-
-    # Fill DP Table
-    for i in range(1, m + 1):
-        for j in range(1, n + 1):
-            # Check for Match
-            # Note: Currently using exact match or your 'words_match' logic
-            if words_match(arr1[i-1], arr2[j-1], 0): 
-                score = get_dynamic_match_score(arr1[i-1], arr2[j-1], weights)
-                match_val = dp[i-1][j-1] + score
-            else:
-                score = get_dynamic_mismatch_penalty(arr1[i-1], arr2[j-1], weights)
-                match_val = dp[i-1][j-1] + score
-
-            # Calculate Deletion (Gap in Hyp) and Insertion (Gap in Ref)
-            delete_val = dp[i-1][j] + get_dynamic_gap_penalty(arr1[i-1], weights)
-            insert_val = dp[i][j-1] + get_dynamic_gap_penalty(arr2[j-1], weights)
-
-            dp[i][j] = max(match_val, delete_val, insert_val)
-
-    # Traceback to build alignment strings
-    aligned_arr1, aligned_arr2 = [], []
-    i, j = m, n
-
-    while i > 0 or j > 0:
-        if i > 0 and j > 0:
-            current = dp[i][j]
-            diag = dp[i-1][j-1]
-            
-            # Re-calculate match score to see if we came from diagonal
-            if words_match(arr1[i-1], arr2[j-1], 0):
-                step_score = get_dynamic_match_score(arr1[i-1], arr2[j-1], weights)
-            else:
-                step_score = get_dynamic_mismatch_penalty(arr1[i-1], arr2[j-1], weights)
-            
-            # Check path (using small float tolerance)
-            if abs(current - (diag + step_score)) < 1e-9:
-                aligned_arr1.append(arr1[i-1])
-                aligned_arr2.append(arr2[j-1])
-                i -= 1; j -= 1
-            elif i > 0 and abs(current - (dp[i-1][j] + get_dynamic_gap_penalty(arr1[i-1], weights))) < 1e-9:
-                aligned_arr1.append(arr1[i-1])
-                aligned_arr2.append('**')
-                i -= 1
-            else:
-                aligned_arr1.append('**')
-                aligned_arr2.append(arr2[j-1])
-                j -= 1
-        elif i > 0:
-            aligned_arr1.append(arr1[i-1])
-            aligned_arr2.append('**')
-            i -= 1
+# --- HELPER: HTML GENERATOR ---
+def generate_alignment_html(ref_tokens, hyp_tokens):
+    """Generates the HTML table for alignment visualization."""
+    html = '<div class="scroll-container"><table class="alignment-table"><tr>'
+    for r, h in zip(ref_tokens, hyp_tokens):
+        # Determine error status (substitution, insertion, deletion, correct)
+        if r == "**" or r == "<eps>": 
+            status = "s-ins"
+        elif h == "**" or h == "<eps>":
+            status = "s-del"
+        elif r != h:
+            status = "s-sub"
         else:
-            aligned_arr1.append('**')
-            aligned_arr2.append(arr2[j-1])
-            j -= 1
-
-    return aligned_arr1[::-1], aligned_arr2[::-1], dp[m][n]
+            status = "s-correct"
+        
+        # Determine token type (word, number, punctuation)
+        token_type = ""
+        
+        # For insertion, only the hypothesis token matters
+        if r == "**" or r == "<eps>":
+            if is_number(h):
+                token_type = "t-number"
+            elif is_punctuation(h):
+                token_type = "t-punct"
+            else:
+                token_type = "t-word"
+        # For deletion, only the reference token matters
+        elif h == "**" or h == "<eps>":
+            if is_number(r):
+                token_type = "t-number"
+            elif is_punctuation(r):
+                token_type = "t-punct"
+            else:
+                token_type = "t-word"
+        # For substitution or correct match, we use the more specific type
+        else:
+            if is_number(r) or is_number(h):
+                token_type = "t-number"
+            elif is_punctuation(r) and is_punctuation(h):
+                token_type = "t-punct"
+            else:
+                token_type = "t-word"
+        
+        # Display Text
+        disp_r = r if (r != "**" and r != "<eps>") else "&nbsp;"
+        disp_h = h if (h != "**" and h != "<eps>") else "&nbsp;"
+        
+        html += f"<td class=\"token-cell {status} {token_type}\"><div class=\"top-text\">{disp_r}</div><div class=\"bot-text\">{disp_h}</div></td>"
+    html += "</tr></table></div>"
+    return html
 
 # --- UI CONFIG ---
-st.set_page_config(layout="wide", page_title="DictErrors Alignment Lab")
+st.set_page_config(layout="wide", page_title="DictErrors vs Jiwer")
 
-st.title("🧬 DictErrors: Alignment Laboratory")
-st.markdown("Test and tune alignment heuristics for Indic Dictation.")
+st.title("⚖️ Benchmark: DictErrors vs Jiwer")
+st.markdown("Compare your custom Indic-aware alignment against standard Jiwer.")
 
 # --- SIDEBAR: CONTROLS ---
-st.sidebar.header("⚖️ Penalty Tuning")
-st.sidebar.info("Adjust these weights to fix alignment errors.")
-
+st.sidebar.header("🔧 Custom Penalty Tuning")
 weights = {}
-# Default values match your python logic roughly
-with st.sidebar.expander("Gap Penalties (Ins/Del)", expanded=True):
-    weights['gap_punct_num'] = st.sidebar.slider("Gap: Punct/Num", -5.0, 0.0, -1.0, 0.5)
-    weights['gap_word_base'] = st.sidebar.slider("Gap: Word Base", -5.0, 0.0, -1.0, 0.5)
-    weights['gap_word_factor'] = st.sidebar.slider("Gap: Word Length Factor", 0.0, 2.0, 0.5, 0.1)
+with st.sidebar.expander("Gap Penalties", expanded=False):
+    weights['gap_punct_num'] = st.slider("Gap: Punct/Num", -5.0, 0.0, float(DEFAULT_WEIGHTS['gap_punct_num']), 0.5)
+    weights['gap_word_base'] = st.slider("Gap: Word Base", -5.0, 0.0, float(DEFAULT_WEIGHTS['gap_word_base']), 0.5)
+    weights['gap_word_factor'] = st.slider("Gap: Word Length Factor", 0.0, 2.0, float(DEFAULT_WEIGHTS['gap_word_factor']), 0.1)
 
-with st.sidebar.expander("Mismatch Penalties (Substitution)", expanded=True):
-    weights['mismatch_punct_cross'] = st.sidebar.slider("Sub: Punct ↔ Word/Num", -10.0, -1.0, -6.0, 0.5)
-    weights['mismatch_word_num'] = st.sidebar.slider("Sub: Word ↔ Num", -10.0, -1.0, -5.0, 0.5)
-    weights['mismatch_num_num'] = st.sidebar.slider("Sub: Num ↔ Num", -5.0, 0.0, -2.0, 0.5)
-    weights['mismatch_punct_punct'] = st.sidebar.slider("Sub: Punct ↔ Punct", -5.0, 0.0, -1.0, 0.5)
-    weights['mismatch_word_base'] = st.sidebar.slider("Sub: Word Base", -5.0, 0.0, -1.0, 0.5)
+with st.sidebar.expander("Mismatch Penalties", expanded=False):
+    weights['mismatch_punct_cross'] = st.slider("Sub: Punct ↔ Word", -10.0, -1.0, float(DEFAULT_WEIGHTS['mismatch_punct_cross']), 0.5)
+    weights['mismatch_word_num'] = st.slider("Sub: Word ↔ Num", -10.0, -1.0, float(DEFAULT_WEIGHTS['mismatch_word_num']), 0.5)
+    weights['mismatch_num_num'] = st.slider("Sub: Num ↔ Num", -5.0, 0.0, float(DEFAULT_WEIGHTS['mismatch_num_num']), 0.5)
+    weights['mismatch_punct_punct'] = st.slider("Sub: Punct ↔ Punct", -5.0, 0.0, float(DEFAULT_WEIGHTS['mismatch_punct_punct']), 0.5)
+    weights['mismatch_word_base'] = st.slider("Sub: Word Base", -5.0, 0.0, float(DEFAULT_WEIGHTS['mismatch_word_base']), 0.5)
+    weights['match_base'] = st.slider("Match Reward", 1.0, 5.0, float(DEFAULT_WEIGHTS['match_base']), 0.5)
 
-with st.sidebar.expander("Match Rewards", expanded=False):
-    weights['match_base'] = st.sidebar.slider("Match Base Reward", 1.0, 5.0, 3.0, 0.5)
 
-# --- MAIN AREA ---
+# --- MAIN INPUT ---
 col1, col2 = st.columns(2)
 with col1:
-    ref_text = st.text_area("Reference (Ground Truth)", height=150,
-        value="ഇന്ന് 9ാം തീയതിയാണ്, സമയം 9:60 വന്നു ഞാ പോയി")
+    ref_text = st.text_area("Reference", height=120, value="ഇന്ന് 9ാം തീയതിയാണ്, സമയം 9:60 വന്നു ഞാ പോയി")
 with col2:
-    hyp_text = st.text_area("Hypothesis (Prediction)", height=150,
-        value="ഇന്ന് 9 ആം തീയതിയാണ് സമയം, 9 30 ഞാൻ ഞാങ്ങോട്ട് പോയി")
+    hyp_text = st.text_area("Hypothesis", height=120, value="ഇന്ന് 9 ആം തീയതിയാണ് സമയം, 9 30 ഞാൻ ഞാങ്ങോട്ട് പോയി")
 
-if st.button("Run Alignment", type="primary"):
-    # 1. Tokenize
-    ref_tokens = tokenizer(ref_text)
-    hyp_tokens = tokenizer(hyp_text)
+if st.button("Compare Alignments", type="primary"):
     
-    # 2. Align (Using Dynamic Logic defined above)
-    a_ref, a_hyp, score = run_dynamic_alignment(ref_tokens, hyp_tokens, weights)
+    # --- 1. DictErrors Calculation ---
+    custom_ref_tok = tokenizer(ref_text)
+    custom_hyp_tok = tokenizer(hyp_text)
+    c_ref, c_hyp, c_score = align_arrays(custom_ref_tok, custom_hyp_tok, weights=weights)
+    c_wer, c_per, c_ner, c_report = token_error_rates(c_ref, c_hyp)
+
+    # --- 2. Jiwer Calculation ---
+    # Jiwer needs standard string input. It does its own basic tokenization (usually just splitting by space)
+    # To make it a fair fight, we can feed it our tokenized strings joined by space, 
+    # OR let it handle raw text. Let's use raw text to see "Standard Behavior".
+    jiwer_out = jiwer.process_words(ref_text, hyp_text)
     
-    # 3. Measure Errors (Using your existing logic)
-    wer, per, ner, report = token_error_rates(a_ref, a_hyp)
-
-    # --- VISUALIZATION ---
-    st.divider()
+    # Extract Jiwer Alignment for visualization
+    # jiwer output alignment is a list of AlignmentChunk objects. We need to flatten it.
+    j_ref_viz = []
+    j_hyp_viz = []
     
-    # Metrics Header
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Alignment Score", f"{score:.2f}")
-    m2.metric("WER (Word)", f"{wer:.2%}")
-    m3.metric("PER (Punct)", f"{per:.2%}")
-    m4.metric("NER (Numeral)", f"{ner:.2%}")
+    for chunk in jiwer_out.alignments[0]:
+        if chunk.type == 'equal':
+            j_ref_viz.extend([ref_text.split()[i] for i in range(chunk.ref_start_idx, chunk.ref_end_idx)])
+            j_hyp_viz.extend([hyp_text.split()[i] for i in range(chunk.hyp_start_idx, chunk.hyp_end_idx)])
+        elif chunk.type == 'substitute':
+            j_ref_viz.extend([ref_text.split()[i] for i in range(chunk.ref_start_idx, chunk.ref_end_idx)])
+            j_hyp_viz.extend([hyp_text.split()[i] for i in range(chunk.hyp_start_idx, chunk.hyp_end_idx)])
+        elif chunk.type == 'delete':
+            for i in range(chunk.ref_start_idx, chunk.ref_end_idx):
+                j_ref_viz.append(ref_text.split()[i])
+                j_hyp_viz.append("**")
+        elif chunk.type == 'insert':
+            for i in range(chunk.hyp_start_idx, chunk.hyp_end_idx):
+                j_ref_viz.append("**")
+                j_hyp_viz.append(hyp_text.split()[i])
 
-    st.subheader("Visual Alignment")
-
-    # 1. CSS (Styling)
+    # --- CSS STYLING ---
     st.markdown("""
     <style>
-        .scroll-container {
-            overflow-x: auto;
-            white-space: nowrap;
-            padding-bottom: 15px;
-            width: 100%;
-            border: 1px solid #eee;
-            border-radius: 8px;
-            background: #fafafa;
-        }
-        table.alignment-table {
-            border-collapse: separate;
-            border-spacing: 6px;
-            margin: 10px;
-        }
-        td.token-cell {
-            border-radius: 6px;
-            padding: 8px 12px;
-            text-align: center;
-            min-width: 60px;
-            border: 1px solid #ddd;
-            font-family: sans-serif;
-            vertical-align: middle;
-        }
-        .top-text {
-            font-size: 0.85em;
-            color: #666;
-            border-bottom: 1px solid rgba(0,0,0,0.1);
-            margin-bottom: 4px;
-            padding-bottom: 2px;
-        }
-        .bot-text {
-            font-size: 1.1em;
-            font-weight: bold;
-        }
-        /* Status Colors */
-        .s-correct { background-color: #d1e7dd; border-color: #a3cfbb; color: #0f5132; }
-        .s-sub     { background-color: #f8d7da; border-color: #f1aeb5; color: #842029; }
-        .s-ins     { background-color: #cfe2ff; border-color: #9ec5fe; color: #052c65; }
-        .s-del     { background-color: #fff3cd; border-color: #ffe69c; color: #664d03; }
+        .scroll-container { overflow-x: auto; white-space: nowrap; padding-bottom: 15px; width: 100%; border: 1px solid #eee; border-radius: 8px; background: #fafafa; }
+        table.alignment-table { border-collapse: separate; border-spacing: 8px; margin: 10px; }
+        td.token-cell { border-radius: 6px; padding: 8px 12px; text-align: center; min-width: 60px; font-family: sans-serif; vertical-align: middle; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .top-text { font-size: 0.85em; color: #666; border-bottom: 1px solid rgba(0,0,0,0.1); margin-bottom: 4px; padding-bottom: 2px; }
+        .bot-text { font-size: 1.1em; font-weight: bold; }
+        /* Base styles for error types */
+        .s-correct { background-color: #d1e7dd; color: #0f5132; }
+        .s-sub     { background-color: #f8d7da; color: #842029; }
+        .s-ins     { background-color: #cfe2ff; color: #052c65; }
+        .s-del     { background-color: #fff3cd; color: #664d03; }
+        
+        /* Token type distinctions with highly visible borders */
+        .t-word   { border: 3px solid #2e7d32; outline: 1px solid #2e7d32; outline-offset: -2px; }
+        .t-number { border: 5px double #d32f2f; box-shadow: inset 0 0 0 1px #d32f2f; }
+        .t-punct  { border: 3px dashed #9c27b0; background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(156, 39, 176, 0.1) 5px, rgba(156, 39, 176, 0.1) 10px); }
+        .metric-box { padding: 10px; border-radius: 5px; background-color: #f0f2f6; text-align: center; }
+        .wer-primary { font-size: 28px; font-weight: bold; color: #1e88e5; }
+        .ner-primary { font-size: 28px; font-weight: bold; color: #fb8c00; }
+        .per-primary { font-size: 28px; font-weight: bold; color: #43a047; }
+        .wer-label, .ner-label, .per-label { font-size: 14px; font-weight: 500; color: #555; text-transform: uppercase; }
+        .metrics-row { display: flex; justify-content: space-between; margin-bottom: 15px; }
+        .metric-column { flex: 1; text-align: center; padding: 0 10px; }
+        .metrics-container { border: 1px solid #eee; border-radius: 10px; padding: 15px; background-color: #fafafa; }
     </style>
     """, unsafe_allow_html=True)
 
-    # 2. HTML GENERATION (Using Table)
-    # Build a clean HTML string without unwanted whitespace
+    # --- DISPLAY RESULTS ---
     
-    table_html = '<div class="scroll-container"><table class="alignment-table"><tr>'
+    st.header("1. Metric Comparison")
     
-    for r, h in zip(a_ref, a_hyp):
-        # Determine Status
-        status = "s-correct"
-        if r == "**": status = "s-ins"
-        elif h == "**": status = "s-del"
-        elif r != h: status = "s-sub"
-        
-        # Display Text (Handle Gaps)
-        disp_r = r if r != "**" else "&nbsp;"
-        disp_h = h if h != "**" else "&nbsp;"
-        
-        # Add Cell - without extra newlines and indentation that break rendering
-        table_html += f"<td class=\"token-cell {status}\"><div class=\"top-text\">{disp_r}</div><div class=\"bot-text\">{disp_h}</div></td>"
+    m_col1, m_col2 = st.columns(2)
     
-    table_html += "</tr></table></div>"
-    
-    # 3. RENDER
-    st.markdown(table_html, unsafe_allow_html=True)
+    with m_col1:
+        st.subheader("Your DictErrors")
+        st.markdown(f"""
+        <div class="metrics-container">
+            <div class="metrics-row">
+                <div class="metric-column">
+                    <div class="wer-label">Word Error Rate</div>
+                    <div class="wer-primary">{c_wer:.2%}</div>
+                </div>
+                <div class="metric-column">
+                    <div class="ner-label">Number Error Rate</div>
+                    <div class="ner-primary">{c_ner:.2%}</div>
+                </div>
+                <div class="metric-column">
+                    <div class="per-label">Punct Error Rate</div>
+                    <div class="per-primary">{c_per:.2%}</div>
+                </div>
+            </div>
+        </div>
+        <div style="font-size:13px; color:#444; margin-top:8px;">
+            Based on {len(custom_ref_tok)} custom tokens
+        </div>
+        """, unsafe_allow_html=True)
 
-    # Detailed Stats
+    with m_col2:
+        st.subheader("Standard Jiwer")
+        st.markdown(f"""
+        <div class="metrics-container">
+            <div class="metrics-row">
+                <div class="metric-column">
+                    <div class="wer-label">Word Error Rate</div>
+                    <div class="wer-primary">{jiwer_out.wer:.2%}</div>
+                </div>
+                <div class="metric-column">
+                    <div class="ner-label">Match Error Rate</div>
+                    <div class="ner-primary">{jiwer_out.mer:.2%}</div>
+                </div>
+            </div>
+        </div>
+        <div style="font-size:13px; color:#444; margin-top:8px;">
+            Based on standard space-split tokens
+        </div>
+        """, unsafe_allow_html=True)
+
     st.divider()
-    with st.expander("See Detailed Error Report"):
-        st.json(report)
+
+    st.header("2. Alignment Visualization")
+
+    tab1, tab2 = st.tabs(["✨ Your Custom Alignment", "🐢 Standard Jiwer Alignment"])
+
+    with tab1:
+        st.write("#### DictErrors Logic")
+        st.write("Notice how punctuation and numbers are handled specifically.")
+        st.markdown(generate_alignment_html(c_ref, c_hyp), unsafe_allow_html=True)
+        with st.expander("Detailed Report"):
+            st.json(c_report)
+
+    with tab2:
+        st.write("#### Jiwer Logic")
+        st.write("Standard Levenshtein on space-separated tokens.")
+        st.markdown(generate_alignment_html(j_ref_viz, j_hyp_viz), unsafe_allow_html=True)
+        with st.expander("Jiwer Raw Output"):
+            st.text(jiwer.visualize_alignment(jiwer_out))

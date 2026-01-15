@@ -1,6 +1,19 @@
 import Levenshtein as levenshtein
 from .tokenize import tokenizer
 
+# --- DEFAULT CONFIGURATION ---
+DEFAULT_WEIGHTS = {
+    'gap_punct_num': -1,
+    'gap_word_base': -1,
+    'gap_word_factor': 0.5, # Previously hardcoded as /2
+    'mismatch_punct_cross': -6,
+    'mismatch_word_num': -5,
+    'mismatch_num_num': -2,
+    'mismatch_punct_punct': -1,
+    'mismatch_word_base': -1,
+    'match_base': 3
+}
+
 def levenshtein_distance(s1, s2):
     """Calculate the Levenshtein distance between two strings."""
     return levenshtein.distance(s1, s2)
@@ -21,45 +34,41 @@ def words_match(w1, w2, max_distance=0):
     """Check if two words are within a specified Levenshtein distance."""
     return levenshtein_distance(w1, w2) <= max_distance
 
-def get_match_score(w1, w2):
+def get_match_score(w1, w2, weights=DEFAULT_WEIGHTS):
     """Calculate dynamic match score based on Levenshtein distance."""
-    return 3 + (levenshtein_distance(w1, w2)/(len(w1)+len(w2)))
+    return weights['match_base'] + (levenshtein_distance(w1, w2)/(len(w1)+len(w2)))
 
-def get_gap_penalty(token):
+def get_gap_penalty(token, weights=DEFAULT_WEIGHTS):
     """Calculate dynamic gap penalty based on token type."""
     if token == '**':  # Handle the case when we're checking a gap
         return 0
     if is_punctuation(token) or is_number(token):
-        return -1
+        return weights['gap_punct_num']
     else:  # Assuming it's a word with alphabet unicode
-        return -1-levenshtein_distance(token, '')/2
+        return weights['gap_word_base'] - (levenshtein_distance(token, '') * weights['gap_word_factor'])
 
-def get_mismatch_penalty(w1, w2):
+def get_mismatch_penalty(w1, w2, weights=DEFAULT_WEIGHTS):
     """Calculate dynamic mismatch penalty based on token types."""
-    if is_punctuation(w1) and (is_word(w2) or is_number(w2)) or (is_word(w1) or is_number(w1) ) and is_punctuation(w2):
-        return -6
+    if (is_punctuation(w1) and (is_word(w2) or is_number(w2))) or \
+       ((is_word(w1) or is_number(w1)) and is_punctuation(w2)):
+        return weights['mismatch_punct_cross']
     elif (is_word(w1) and is_number(w2)) or (is_number(w1) and is_word(w2)):
-        return -5
+        return weights['mismatch_word_num']
     elif is_number(w1) and is_number(w2):
-        return -2
+        return weights['mismatch_num_num']
     elif is_punctuation(w1) and is_punctuation(w2):
-        return -1
+        return weights['mismatch_punct_punct']
     else:  # Both are words
-        return  -1-levenshtein_distance(w1, w2)
+        return weights['mismatch_word_base'] - levenshtein_distance(w1, w2)
 
-def align_arrays(arr1, arr2, max_distance=0):
+def align_arrays(arr1, arr2, max_distance=0, weights=None):
     """
     Align two arrays using dynamic programming with dynamic scoring based on token types.
-
-    Parameters:
-    - arr1, arr2: arrays to align
-    - max_distance: maximum Levenshtein distance to consider as a match
-
-    Returns:
-    - aligned_arr1: first array with gaps ('-') inserted
-    - aligned_arr2: second array with gaps ('-') inserted
-    - score: alignment score
     """
+    # Use defaults if no weights provided
+    if weights is None:
+        weights = DEFAULT_WEIGHTS
+
     m, n = len(arr1), len(arr2)
 
     # Initialize DP table
@@ -67,22 +76,22 @@ def align_arrays(arr1, arr2, max_distance=0):
 
     # Initialize first row and column (gap penalties)
     for i in range(1, m + 1):
-        dp[i][0] = dp[i-1][0] + get_gap_penalty(arr1[i-1])
+        dp[i][0] = dp[i-1][0] + get_gap_penalty(arr1[i-1], weights)
     for j in range(1, n + 1):
-        dp[0][j] = dp[0][j-1] + get_gap_penalty(arr2[j-1])
+        dp[0][j] = dp[0][j-1] + get_gap_penalty(arr2[j-1], weights)
 
     # Fill DP table
     for i in range(1, m + 1):
         for j in range(1, n + 1):
             if words_match(arr1[i-1], arr2[j-1], max_distance):
-                match_score = get_match_score(arr1[i-1], arr2[j-1])
+                match_score = get_match_score(arr1[i-1], arr2[j-1], weights)
                 match = dp[i-1][j-1] + match_score
             else:
-                mismatch_penalty = get_mismatch_penalty(arr1[i-1], arr2[j-1])
+                mismatch_penalty = get_mismatch_penalty(arr1[i-1], arr2[j-1], weights)
                 match = dp[i-1][j-1] + mismatch_penalty
 
-            delete = dp[i-1][j] + get_gap_penalty(arr1[i-1])
-            insert = dp[i][j-1] + get_gap_penalty(arr2[j-1])
+            delete = dp[i-1][j] + get_gap_penalty(arr1[i-1], weights)
+            insert = dp[i][j-1] + get_gap_penalty(arr2[j-1], weights)
 
             dp[i][j] = max(match, delete, insert)
 
@@ -98,19 +107,20 @@ def align_arrays(arr1, arr2, max_distance=0):
 
             # Calculate expected diagonal score
             if words_match(arr1[i-1], arr2[j-1], max_distance):
-                match_score = get_match_score(arr1[i-1], arr2[j-1])
+                match_score = get_match_score(arr1[i-1], arr2[j-1], weights)
                 expected_diagonal = diagonal_score + match_score
             else:
-                mismatch_penalty = get_mismatch_penalty(arr1[i-1], arr2[j-1])
+                mismatch_penalty = get_mismatch_penalty(arr1[i-1], arr2[j-1], weights)
                 expected_diagonal = diagonal_score + mismatch_penalty
 
-            if current_score == expected_diagonal:
+            # Use small tolerance for float comparison
+            if abs(current_score - expected_diagonal) < 1e-9:
                 # Match or mismatch
                 aligned_arr1.append(arr1[i-1])
                 aligned_arr2.append(arr2[j-1])
                 i -= 1
                 j -= 1
-            elif i > 0 and current_score == dp[i-1][j] + get_gap_penalty(arr1[i-1]):
+            elif i > 0 and abs(current_score - (dp[i-1][j] + get_gap_penalty(arr1[i-1], weights))) < 1e-9:
                 # Deletion from arr1
                 aligned_arr1.append(arr1[i-1])
                 aligned_arr2.append('**')
@@ -137,38 +147,8 @@ def align_arrays(arr1, arr2, max_distance=0):
 
     return aligned_arr1, aligned_arr2, dp[m][n]
 
-def align_text(text1, text2):
+def align_text(text1, text2, weights=None):
     arr1 = tokenizer(text1)
     arr2 = tokenizer(text2)
-    aligned1, aligned2, score = align_arrays(arr1, arr2)
+    aligned1, aligned2, score = align_arrays(arr1, arr2, weights=weights)
     return aligned1, aligned2, score
-
-def main():
-    def print_alignment(arr1, arr2, aligned1, aligned2, score):
-        """Pretty print the alignment results."""
-        print("Original arrays:")
-        print(f"Input 1: {arr1}")
-        print(f"Input 2: {arr2}")
-        print(f"\nAlignment (score: {score}):")
-
-        # Print aligned arrays with visual indicators
-        print("Array 1:", " | ".join(f"{w:>10}" for w in aligned1))
-        print("Match:  ", " | ".join(f"{'✓' if w1 != '-' and w2 != '-' and words_match(w1, w2) else '✗' if w1 != '-' and w2 != '-' else ' ':>10}" for w1, w2 in zip(aligned1, aligned2)))
-        print("Array 2:", " | ".join(f"{w:>10}" for w in aligned2))
-        print("\n")
-
-    arr1 = ['ഇന്ന്', '9', 'ാം', 'തീയതിയാണ്', ',', 'സമയം', '9', ':', '60',  'വന്നു', 'ഞാ','പോയി']
-    arr2 = ['ഇന്ന്', '9', 'ആം', 'തീയതിയാണ്', 'സമയം', ',', '9', '30', 'ഞാൻ', 'ഞാങ്ങോട്ട്', 'പോയി']
-    aligned1, aligned2, score = align_arrays(arr1, arr2)
-    print_alignment(arr1, arr2, aligned1, aligned2, score)
-    
-    
-    text1 = "പണം അക്കൗണ്ടിൽ എത്തിയപ്പോൾ ആദ്യ, ഗഡുവായി 180000 രൂപയായി നൽകിയത്."
-    text2 = "പണം അക്കൗണ്ടിൽ എത്തിയപ്പോൾ, ആദ്യ ഘടുവായി 180000 രൂപയാണ് നൽകിയത്:"
-    # text1 = "10 ವರ್ಷವಾದ ಮಕ್ಕಳಿಗೆ ಅದರ ಒಂದು ಸ್ವಲ್ಪ ಜ್ಞಾನ ಮನವರಿಕೆ ಒಂದು ಪ್ರಾರಂಭ ಆಗುತ್ತದೆ।"
-    # text2 = "ಹತ್ತು ವರ್ಷವಾದ ಮಕ್ಕಳಿಗೆ ಅದರ ಒಂದು ಸ್ವಲ್ಪ ಜ್ಞಾನ ಮನವರಿಕೆ ಒಂದು ಪ್ರಾರಂಭ ಆಗುತ್ತದೆ."
-    aligned1, aligned2, score = align_text(text1, text2)
-    print_alignment(text1, text2, aligned1, aligned2, score)
-    
-if __name__ == "__main__":
-    main()
