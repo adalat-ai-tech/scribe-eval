@@ -5,24 +5,54 @@ def token_error_rates(aligned_ref, aligned_hyp):
     """
     Calculate Word Error Rate (WER), Punctuation Error Rate (PER), and Numeral Error Rate (NER)
     from aligned arrays.
-
-    Parameters:
-    - aligned_ref: Reference array with gaps (-)
-    - aligned_hyp: Hypothesis array with gaps (-)
-
-    Returns:
-    - wer: Word Error Rate
-    - per: Punctuation Error Rate
-    - ner: Numeral Error Rate
+    
+    Handles special alignment tags:
+    - SPLIT:word1 word2 (Ref has 1 token, Hyp has 2) -> Counts as Correct Match (if semantically valid)
+    - MERGE:word1 word2 (Ref has 2 tokens, Hyp has 1) -> Counts as Correct Match
     """
 
     # Initialize counters for each category
     word_sub = word_ins = word_del = word_correct = word_total = 0
     punct_sub = punct_ins = punct_del = punct_correct = punct_total = 0
     num_sub = num_ins = num_del = num_correct = num_total = 0
+    
+    # New counters for Sandhi/Agglutination stats (Optional, but useful for your paper)
+    sandhi_splits = 0
+    sandhi_merges = 0
 
     # Count errors by comparing aligned tokens
     for ref_token, hyp_token in zip(aligned_ref, aligned_hyp):
+        
+        # --- 1. HANDLE SPECIAL SANDHI TAGS ---
+        is_split = hyp_token.startswith("SPLIT:")
+        is_merge = ref_token.startswith("MERGE:")
+        
+        if is_split:
+            # Scenario: Ref="mazhakkalathu", Hyp="SPLIT:mazha kalathu"
+            # We treat this as a semantic match (Correct)
+            sandhi_splits += 1
+            word_total += 1
+            word_correct += 1
+            continue
+            
+        if is_merge:
+            # Scenario: Ref="MERGE:mazha kalathu", Hyp="mazhakkalathu"
+            # We treat this as a semantic match (Correct)
+            # Note: Ref technically had 2 tokens, but we aligned them to 1.
+            # For WER standard, we count "Total Ref Words".
+            # If Ref was "mazha" "kalathu", that's 2 words.
+            # But our alignment collapsed them. 
+            # To be mathematically rigorous for WER:
+            # We should count this as 2 Reference Words and 2 Correct Matches 
+            # (effectively saying both words were successfully captured, just merged).
+            
+            sandhi_merges += 1
+            word_total += 2 # We count the original 2 words
+            word_correct += 2
+            continue
+
+        # --- 2. STANDARD LOGIC ---
+        
         # Skip if both are gaps (shouldn't happen in proper alignment)
         if ref_token == '**' and hyp_token == '**':
             continue
@@ -81,6 +111,8 @@ def token_error_rates(aligned_ref, aligned_hyp):
             "insertions": word_ins,
             "deletions": word_del,
             "correct": word_correct,
+            "sandhi_splits": sandhi_splits,
+            "sandhi_merges": sandhi_merges,
             "total_reference": word_total,
             "error_rate": wer
         },
@@ -105,34 +137,7 @@ def token_error_rates(aligned_ref, aligned_hyp):
 
 def text_error_rates(ref_text, hyp_text):
     """Calculate error rates between two text strings."""
-
     # Align the token arrays
     aligned_ref, aligned_hyp, _ = align_text(ref_text, hyp_text)
-    
     # Calculate error rates based on aligned tokens
     return token_error_rates(aligned_ref, aligned_hyp)
-
-def main():
-    aligned_ref = ['**', '**', '2026', 'ಮಾರ್ಚ್', '19-ರಂದು', 'ಸಾಕ್ಷಿ', 'ಸಲೀಂ', 'ತಮ್ಮ', 'ಹೇಳಿಕೆಯನ್ನು', 'ನ್ಯಾಯಾಲಯದಲ್ಲಿ', 'ನೀಡಲಿದ್ದಾರೆ', '.']
-    aligned_hyp = ['ಎರಡು', 'ಸಾವಿರದ', 'ಇಪ್ಪತ್ತಾರು', 'ಮಾರ್ಚ್', '19ರಂದು', 'ಸಾಕ್ಷಿ', 'ಸಲೀಂ', 'ತಮ್ಮ', 'ಹೇಳಿಕೆಯನ್ನು', 'ನ್ಯಾಯಾಲಯದಲ್ಲಿ', 'ನೀಡಲಿದ್ದಾರೆ', '.']
-    wer, per, ner, report = token_error_rates(aligned_ref, aligned_hyp)
-
-    # Print the results
-    print(f"Word Error Rate (WER): {wer:.4f}")
-    print(f"Punctuation Error Rate (PER): {per:.4f}")
-    print(f"Numeral Error Rate (NER): {ner:.4f}")
-
-    # Print detailed report
-    print("\nDetailed Error Report:")
-    for category, stats in report.items():
-        print(f"\n{category.upper()} STATISTICS:")
-        print(f"  Substitutions: {stats['substitutions']}")
-        print(f"  Insertions: {stats['insertions']}")
-        print(f"  Deletions: {stats['deletions']}")
-        print(f"  Correct: {stats['correct']}")
-        print(f"  Total in reference: {stats['total_reference']}")
-        print(f"  Error rate: {stats['error_rate']:.4f}")
-
-if __name__ == "__main__":
-    main()
-    

@@ -19,61 +19,67 @@ def generate_alignment_html(ref_tokens, hyp_tokens):
     """Generates the HTML table for alignment visualization."""
     html = '<div class="scroll-container"><table class="alignment-table"><tr>'
     for r, h in zip(ref_tokens, hyp_tokens):
-        # Determine error status (substitution, insertion, deletion, correct)
-        if r == "**" or r == "<eps>": 
+        
+        # --- 1. Detect Status & Clean Text ---
+        status = "s-correct"
+        token_type = "t-word"
+        
+        # Handle Special Split/Merge Tags from align.py
+        if r.startswith("MERGE:"):
+            status = "s-merge"  # Only purple box, not an error
+            r = r.replace("MERGE:", "") # Clean text
+        elif h.startswith("SPLIT:"):
+            status = "s-merge"  # Use same style for both split/merge (only purple box)
+            h = h.replace("SPLIT:", "") # Clean text
+        
+        # Handle Standard Errors
+        elif r == "**" or r == "<eps>": 
             status = "s-ins"
         elif h == "**" or h == "<eps>":
             status = "s-del"
         elif r != h:
             status = "s-sub"
+        
+        # --- 2. Determine Border Type (Word vs Num vs Punct) ---
+        # We check the content of the cleaned text
+        check_content = r if r not in ["**", "<eps>"] else h
+        
+        # If it's a split/merge, we treat it as a word usually, but let's check content
+        if " " in check_content: # It's a compound token
+            token_type = "t-word"
+        elif is_number(check_content):
+            token_type = "t-number"
+        elif is_punctuation(check_content):
+            token_type = "t-punct"
         else:
-            status = "s-correct"
+            token_type = "t-word"
         
-        # Determine token type (word, number, punctuation)
-        token_type = ""
-        
-        # For insertion, only the hypothesis token matters
-        if r == "**" or r == "<eps>":
-            if is_number(h):
-                token_type = "t-number"
-            elif is_punctuation(h):
-                token_type = "t-punct"
-            else:
-                token_type = "t-word"
-        # For deletion, only the reference token matters
-        elif h == "**" or h == "<eps>":
-            if is_number(r):
-                token_type = "t-number"
-            elif is_punctuation(r):
-                token_type = "t-punct"
-            else:
-                token_type = "t-word"
-        # For substitution or correct match, we use the more specific type
-        else:
-            if is_number(r) or is_number(h):
-                token_type = "t-number"
-            elif is_punctuation(r) and is_punctuation(h):
-                token_type = "t-punct"
-            else:
-                token_type = "t-word"
-        
-        # Display Text
+        # --- 3. Prepare Display Text ---
         disp_r = r if (r != "**" and r != "<eps>") else "&nbsp;"
         disp_h = h if (h != "**" and h != "<eps>") else "&nbsp;"
         
+        # Render Cell
         html += f"<td class=\"token-cell {status} {token_type}\"><div class=\"top-text\">{disp_r}</div><div class=\"bot-text\">{disp_h}</div></td>"
+    
     html += "</tr></table></div>"
     return html
 
 # --- UI CONFIG ---
 st.set_page_config(layout="wide", page_title="DictErrors vs Jiwer")
 
-st.title("⚖️ Benchmark: DictErrors vs Jiwer")
-st.markdown("Compare your custom Indic-aware alignment against standard Jiwer.")
+st.title("⚖️ Error Analysis: DictErrors vs Jiwer")
+st.markdown("Compare custom Indic-aware alignment against standard Jiwer.")
 
 # --- SIDEBAR: CONTROLS ---
 st.sidebar.header("🔧 Custom Penalty Tuning")
 weights = {}
+
+# We create sliders based on DEFAULT_WEIGHTS
+# Note: We added new weights for Sandhi in align.py, so we add sliders for them too
+with st.sidebar.expander("Agglutination (Sandhi)", expanded=True):
+    weights['split_merge_penalty'] = st.slider("Split/Merge Penalty", -2.0, 0.0, float(DEFAULT_WEIGHTS.get('split_merge_penalty', -0.5)), 0.1, help="Cost for combining 2 words to match 1. Closer to 0 means easier to merge.")
+    weights['sandhi_threshold'] = st.slider("Sandhi Char Tolerance", 0, 5, int(DEFAULT_WEIGHTS.get('sandhi_threshold', 2)), 1, help="How many characters can differ when merging? (e.g. 'kk' in Mazhakkalathu)")
+
 with st.sidebar.expander("Gap Penalties", expanded=False):
     weights['gap_punct_num'] = st.slider("Gap: Punct/Num", -5.0, 0.0, float(DEFAULT_WEIGHTS['gap_punct_num']), 0.5)
     weights['gap_word_base'] = st.slider("Gap: Word Base", -5.0, 0.0, float(DEFAULT_WEIGHTS['gap_word_base']), 0.5)
@@ -91,9 +97,10 @@ with st.sidebar.expander("Mismatch Penalties", expanded=False):
 # --- MAIN INPUT ---
 col1, col2 = st.columns(2)
 with col1:
-    ref_text = st.text_area("Reference", height=120, value="ഇന്ന് 9ാം തീയതിയാണ്, സമയം 9:60 വന്നു ഞാ പോയി")
+    # Default example updated to show Sandhi
+    ref_text = st.text_area("Reference", height=120, value="മഴക്കാലത്ത് വെള്ളം പൊങ്ങി")
 with col2:
-    hyp_text = st.text_area("Hypothesis", height=120, value="ഇന്ന് 9 ആം തീയതിയാണ് സമയം, 9 30 ഞാൻ ഞാങ്ങോട്ട് പോയി")
+    hyp_text = st.text_area("Hypothesis", height=120, value="മഴ കാലത്ത് വെള്ളം പൊങ്ങി")
 
 if st.button("Compare Alignments", type="primary"):
     
@@ -101,16 +108,16 @@ if st.button("Compare Alignments", type="primary"):
     custom_ref_tok = tokenizer(ref_text)
     custom_hyp_tok = tokenizer(hyp_text)
     c_ref, c_hyp, c_score = align_arrays(custom_ref_tok, custom_hyp_tok, weights=weights)
+    
+    # Note: calculate_error_rates might need updates to handle "SPLIT:" tags if you want strict counting
+    # For now, it will likely treat "SPLIT:..." as a string mismatch unless we clean it inside token_error_rates too.
+    # But for visualization, this is fine.
     c_wer, c_per, c_ner, c_report = token_error_rates(c_ref, c_hyp)
 
     # --- 2. Jiwer Calculation ---
-    # Jiwer needs standard string input. It does its own basic tokenization (usually just splitting by space)
-    # To make it a fair fight, we can feed it our tokenized strings joined by space, 
-    # OR let it handle raw text. Let's use raw text to see "Standard Behavior".
     jiwer_out = jiwer.process_words(ref_text, hyp_text)
     
-    # Extract Jiwer Alignment for visualization
-    # jiwer output alignment is a list of AlignmentChunk objects. We need to flatten it.
+    # Extract Jiwer Alignment
     j_ref_viz = []
     j_hyp_viz = []
     
@@ -136,95 +143,68 @@ if st.button("Compare Alignments", type="primary"):
         .scroll-container { overflow-x: auto; white-space: nowrap; padding-bottom: 15px; width: 100%; border: 1px solid #eee; border-radius: 8px; background: #fafafa; }
         table.alignment-table { border-collapse: separate; border-spacing: 8px; margin: 10px; }
         td.token-cell { border-radius: 6px; padding: 8px 12px; text-align: center; min-width: 60px; font-family: sans-serif; vertical-align: middle; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .top-text { font-size: 0.85em; color: #666; border-bottom: 1px solid rgba(0,0,0,0.1); margin-bottom: 4px; padding-bottom: 2px; }
-        .bot-text { font-size: 1.1em; font-weight: bold; }
-        /* Base styles for error types */
-        .s-correct { background-color: #d1e7dd; color: #0f5132; }
-        .s-sub     { background-color: #f8d7da; color: #842029; }
-        .s-ins     { background-color: #cfe2ff; color: #052c65; }
-        .s-del     { background-color: #fff3cd; color: #664d03; }
+        .top-text { font-size: 1em; font-weight: bold; color: #666; border-bottom: 1px solid rgba(0,0,0,0.1);}
+        .bot-text { font-size: 1em; margin-bottom: 4px; padding-bottom: 2px; }
         
-        /* Token type distinctions with highly visible borders */
-        .t-word   { border: 3px solid #2e7d32; outline: 1px solid #2e7d32; outline-offset: -2px; }
-        .t-number { border: 5px double #d32f2f; box-shadow: inset 0 0 0 1px #d32f2f; }
-        .t-punct  { border: 3px dashed #9c27b0; background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(156, 39, 176, 0.1) 5px, rgba(156, 39, 176, 0.1) 10px); }
-        .metric-box { padding: 10px; border-radius: 5px; background-color: #f0f2f6; text-align: center; }
+        /* Standard Status Colors */
+        .s-correct { background-color: #d1e7dd; color: #0f5132; } /* Green */
+        .s-sub     { background-color: #f8d7da; color: #842029; } /* Red */
+        .s-ins     { background-color: #ffe0b2; color: #7d4e00; } /* Orange */
+        .s-del     { background-color: #ffe0b2; color: #7d4e00; } /* Orange */
+        
+        /* Sandhi: Split/Merge Colors (Purple/Indigo) - not considered an error */
+        .s-merge { 
+            background-color: #e0e7ff; 
+            color: #3730a3; 
+            border: 1px solid #6366f1 !important; 
+        }
+
+        /* Token Type Borders */
+        .t-word   { border: 4px solid #a3cfbb; } 
+        .t-number { border: 2px double #d32f2f; }
+        .t-punct  { border: 4px dashed #9c27b0; }
+
         .wer-primary { font-size: 28px; font-weight: bold; color: #1e88e5; }
-        .ner-primary { font-size: 28px; font-weight: bold; color: #fb8c00; }
-        .per-primary { font-size: 28px; font-weight: bold; color: #43a047; }
-        .wer-label, .ner-label, .per-label { font-size: 14px; font-weight: 500; color: #555; text-transform: uppercase; }
-        .metrics-row { display: flex; justify-content: space-between; margin-bottom: 15px; }
-        .metric-column { flex: 1; text-align: center; padding: 0 10px; }
         .metrics-container { border: 1px solid #eee; border-radius: 10px; padding: 15px; background-color: #fafafa; }
     </style>
     """, unsafe_allow_html=True)
 
     # --- DISPLAY RESULTS ---
-    
-    st.header("1. Metric Comparison")
-    
-    m_col1, m_col2 = st.columns(2)
-    
-    with m_col1:
-        st.subheader("Your DictErrors")
-        st.markdown(f"""
-        <div class="metrics-container">
-            <div class="metrics-row">
-                <div class="metric-column">
-                    <div class="wer-label">Word Error Rate</div>
-                    <div class="wer-primary">{c_wer:.2%}</div>
-                </div>
-                <div class="metric-column">
-                    <div class="ner-label">Number Error Rate</div>
-                    <div class="ner-primary">{c_ner:.2%}</div>
-                </div>
-                <div class="metric-column">
-                    <div class="per-label">Punct Error Rate</div>
-                    <div class="per-primary">{c_per:.2%}</div>
-                </div>
-            </div>
-        </div>
-        <div style="font-size:13px; color:#444; margin-top:8px;">
-            Based on {len(custom_ref_tok)} custom tokens
-        </div>
-        """, unsafe_allow_html=True)
+    st.subheader("1. Alignment Visualization")
 
-    with m_col2:
-        st.subheader("Standard Jiwer")
-        st.markdown(f"""
-        <div class="metrics-container">
-            <div class="metrics-row">
-                <div class="metric-column">
-                    <div class="wer-label">Word Error Rate</div>
-                    <div class="wer-primary">{jiwer_out.wer:.2%}</div>
-                </div>
-                <div class="metric-column">
-                    <div class="ner-label">Match Error Rate</div>
-                    <div class="ner-primary">{jiwer_out.mer:.2%}</div>
-                </div>
-            </div>
-        </div>
-        <div style="font-size:13px; color:#444; margin-top:8px;">
-            Based on standard space-split tokens
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.divider()
-
-    st.header("2. Alignment Visualization")
-
-    tab1, tab2 = st.tabs(["✨ Your Custom Alignment", "🐢 Standard Jiwer Alignment"])
+    tab1, tab2 = st.tabs(["✨ DictErrors Alignment", "Jiwer Alignment"])
 
     with tab1:
         st.write("#### DictErrors Logic")
-        st.write("Notice how punctuation and numbers are handled specifically.")
+        st.write("Look for the **Purple Boxes** indicating Split/Merge handling. These are not considered errors.")
         st.markdown(generate_alignment_html(c_ref, c_hyp), unsafe_allow_html=True)
         with st.expander("Detailed Report"):
             st.json(c_report)
 
     with tab2:
         st.write("#### Jiwer Logic")
-        st.write("Standard Levenshtein on space-separated tokens.")
         st.markdown(generate_alignment_html(j_ref_viz, j_hyp_viz), unsafe_allow_html=True)
-        with st.expander("Jiwer Raw Output"):
-            st.text(jiwer.visualize_alignment(jiwer_out))
+
+    st.subheader("2. Metric Comparison")
+    
+    m_col1, m_col2 = st.columns(2)
+    
+    with m_col1:
+        st.subheader("[DictErrors](https://github.com/kavyamanohar/dicterrors)")
+        st.markdown(f"""
+        <div class="metrics-container">
+            <div style="font-size: 20px; font-weight: bold; color: #1e88e5;">WER: {c_wer:.2%}</div>
+            <div>PER: {c_per:.2%} | NER: {c_ner:.2%}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with m_col2:
+        st.subheader("[Jiwer](https://github.com/jitsi/jiwer)")
+        st.markdown(f"""
+        <div class="metrics-container">
+            <div style="font-size: 20px; font-weight: bold; color: #666;">WER: {jiwer_out.wer:.2%}</div>
+            <div>MER: {jiwer_out.mer:.2%}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+

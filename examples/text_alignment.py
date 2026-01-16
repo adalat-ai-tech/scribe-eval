@@ -42,44 +42,44 @@ def main():
         print("No text arguments provided. Using default examples...")
         
         # Malayalam example
-        text1 = "പണം അക്കൗണ്ടിൽ എത്തിയപ്പോൾ ആദ്യ, ഗഡുവായി 180000 രൂപയായി നൽകിയത്."
-        text2 = "പണം അക്കൗണ്ടിൽ എത്തിയപ്പോൾ, ആദ്യ ഘടുവായി 180000 രൂപയാണ് നൽകിയത്:"
+        text1 = "ആദ്യഗഡുവായി 180000 രൂപയായി നൽകിയത്."
+        text2 = "ആദ്യ ഗഡുവായി 180000 രൂപയായി നൽകിയത്:"
         
         print("\n=== MALAYALAM EXAMPLE 1 ===")
         aligned1, aligned2, score = align_text(text1, text2)
         print_alignment(text1, text2, aligned1, aligned2, score)
 
-        # Malayalam example
-        text1 = "നിർദ്ദിഷ്ട ഭേദഗതി ഇരുസഭകളും 2011-ൽ തന്നെ പാസാക്കി."
-        text2 = "നിർദ്ദിഷ്ട ട ഭേദഗതി ഇരുസഭകളും 201-ൽ തന്നെ പാസാക്കി."
+        # # Malayalam example
+        # text1 = "നിർദ്ദിഷ്ട ഭേദഗതി ഇരുസഭകളും 2011-ൽ തന്നെ പാസാക്കി."
+        # text2 = "നിർദ്ദിഷ്ട ട ഭേദഗതി ഇരുസഭകളും 201-ൽ തന്നെ പാസാക്കി."
         
-        print("\n=== MALAYALAM EXAMPLE 2 ===")
-        aligned1, aligned2, score = align_text(text1, text2)
-        print_alignment(text1, text2, aligned1, aligned2, score)
+        # print("\n=== MALAYALAM EXAMPLE 2 ===")
+        # aligned1, aligned2, score = align_text(text1, text2)
+        # print_alignment(text1, text2, aligned1, aligned2, score)
 
-        # Kannada example
-        text1 = "10 ವರ್ಷವಾದ ಮಕ್ಕಳಿಗೆ ಅದರ ಒಂದು ಸ್ವಲ್ಪ ಜ್ಞಾನ ಮನವರಿಕೆ ಒಂದು ಪ್ರಾರಂಭ ಆಗುತ್ತದೆ।"
-        text2 = "ಹತ್ತು ವರ್ಷವಾದ ಮಕ್ಕಳಿಗೆ ಅದರ ಒಂದು ಸ್ವಲ್ಪ ಜ್ಞಾನ ಮನವರಿಕೆ ಒಂದು ಪ್ರಾರಂಭ ಆಗುತ್ತದೆ."
+        # # Kannada example
+        # text1 = "10 ವರ್ಷವಾದ ಮಕ್ಕಳಿಗೆ ಅದರ ಒಂದು ಸ್ವಲ್ಪ ಜ್ಞಾನ ಮನವರಿಕೆ ಒಂದು ಪ್ರಾರಂಭ ಆಗುತ್ತದೆ।"
+        # text2 = "ಹತ್ತು ವರ್ಷವಾದ ಮಕ್ಕಳಿಗೆ ಅದರ ಒಂದು ಸ್ವಲ್ಪ ಜ್ಞಾನ ಮನವರಿಕೆ ಒಂದು ಪ್ರಾರಂಭ ಆಗುತ್ತದೆ."
         
-        print("\n=== KANNADA EXAMPLE ===")
-        aligned1, aligned2, score = align_text(text1, text2)
-        print_alignment(text1, text2, aligned1, aligned2, score)
+        # print("\n=== KANNADA EXAMPLE ===")
+        # aligned1, aligned2, score = align_text(text1, text2)
+        # print_alignment(text1, text2, aligned1, aligned2, score)
         
-        # English example
-        text1 = "The brown quick fox jumps over the lazy dogs."
-        text2 = "The bron fox jumps over a lazy, dog"
+        # # English example
+        # text1 = "The brown quick fox jumps over the lazy dogs."
+        # text2 = "The bron fox jumps over a lazy, dog"
         
-        print("\n=== ENGLISH EXAMPLE ===")
-        aligned1, aligned2, score = align_text(text1, text2)
-        print_alignment(text1, text2, aligned1, aligned2, score)
+        # print("\n=== ENGLISH EXAMPLE ===")
+        # aligned1, aligned2, score = align_text(text1, text2)
+        # print_alignment(text1, text2, aligned1, aligned2, score)
         
-                # English example
-        text1 = "The quick brown fox jumps over the lazy dog."
-        text2 = "The bron fox jumps over a lazy dog"
+        #         # English example
+        # text1 = "The quick brown fox jumps over the lazy dog."
+        # text2 = "The bron fox jumps over a lazy dog"
         
-        print("\n=== ENGLISH EXAMPLE ===")
-        aligned1, aligned2, score = align_text(text1, text2)
-        print_alignment(text1, text2, aligned1, aligned2, score)
+        # print("\n=== ENGLISH EXAMPLE ===")
+        # aligned1, aligned2, score = align_text(text1, text2)
+        # print_alignment(text1, text2, aligned1, aligned2, score)
         
         return
     
