@@ -50,16 +50,19 @@ def generate_asr_report_tables(data):
     Parses ASR evaluation results and generates three detailed reports by source dataset:
     Words, Punctuation, and Numerals.
     Each table includes "Dataset Average" and "Weighted Average (Overall)" rows.
+    
+    Returns:
+        tuple: (report_content, overall_wer, overall_per, overall_ner)
     """
     aggregated_data = defaultdict(lambda: {
-        "word": {"substitutions": 0, "insertions": 0, "deletions": 0, "correct": 0, "total_reference": 0},
+        "word": {"substitutions": 0, "insertions": 0, "deletions": 0, "correct": 0, "sandhi_splits": 0, "sandhi_merges": 0, "total_reference": 0},
         "punctuation": {"substitutions": 0, "insertions": 0, "deletions": 0, "correct": 0, "total_reference": 0},
         "numeral": {"substitutions": 0, "insertions": 0, "deletions": 0, "correct": 0, "total_reference": 0}
     })
 
     # Initialize grand totals for overall weighted averages
     grand_totals = {
-        "word": {"substitutions": 0, "insertions": 0, "deletions": 0, "correct": 0, "total_reference": 0},
+        "word": {"substitutions": 0, "insertions": 0, "deletions": 0, "correct": 0, "sandhi_splits": 0, "sandhi_merges": 0, "total_reference": 0},
         "punctuation": {"substitutions": 0, "insertions": 0, "deletions": 0, "correct": 0, "total_reference": 0},
         "numeral": {"substitutions": 0, "insertions": 0, "deletions": 0, "correct": 0, "total_reference": 0}
     }
@@ -149,7 +152,7 @@ def generate_asr_report_tables(data):
     overall_wer = calculate_error_rate(grand_word_err['substitutions'], grand_word_err['insertions'], grand_word_err['deletions'], grand_total_ref)
 
     table1_data.append([
-        "--- Weighted Average (Overall) ---",
+        "--- Dataset Weighted Average ---",
         format_value(grand_total_ref, is_percentage=False),
         format_value(overall_correct_rate),
         format_value(overall_sub_rate),
@@ -233,7 +236,7 @@ def generate_asr_report_tables(data):
     overall_per = calculate_error_rate(grand_punc_err['substitutions'], grand_punc_err['insertions'], grand_punc_err['deletions'], grand_total_ref)
 
     table2_data.append([
-        "--- Weighted Average (Overall) ---",
+        "--- Dataset Weighted Average ---",
         format_value(grand_total_ref, is_percentage=False),
         format_value(overall_correct_rate),
         format_value(overall_sub_rate),
@@ -327,7 +330,8 @@ def generate_asr_report_tables(data):
     ])
     all_tables_output.append("\n### Table 3: Numeral Details\n" + tabulate(table3_data, headers=table3_headers, tablefmt="pipe"))
 
-    return "\n".join(all_tables_output)
+    report_content = "\n".join(all_tables_output)
+    return (report_content, overall_wer, overall_per, overall_ner)
 
 def evaluate_predictions(input_file, output_file):
     """Evaluate predictions and save results to a JSON file."""
@@ -368,10 +372,19 @@ def evaluate_predictions(input_file, output_file):
     return results
 
 def main():
-    # Default paths
-    input_file = "dictation-eval/predictions.jsonl"  # Updated to correct path
-    evaluation_file = "dictation-eval/evaluation.json"
-    report_file = "dictation-eval/evaluation_report.md"
+    # Parse command line arguments with default paths
+    parser = argparse.ArgumentParser(description="Evaluate ASR predictions")
+    parser.add_argument("--input", "-i", default="dictation-eval/predictions.jsonl",
+                        help="Path to input JSONL file with predictions")
+    parser.add_argument("--output", "-o", default="dictation-eval/evaluation.json",
+                        help="Path to output JSON file for evaluation results")
+    parser.add_argument("--report", "-r", default="dictation-eval/evaluation_report.md",
+                        help="Path to output Markdown report file")
+    args = parser.parse_args()
+    
+    input_file = args.input
+    evaluation_file = args.output
+    report_file = args.report
     
     # Check if input file exists
     if not os.path.exists(input_file):
@@ -383,7 +396,7 @@ def main():
         with open(evaluation_file, 'r', encoding='utf-8') as f:
             json_data = json.load(f)
 
-        report_content = generate_asr_report_tables(json_data)
+        report_content, overall_wer, overall_per, overall_ner = generate_asr_report_tables(json_data)
 
         if report_file:
             with open(report_file, 'w', encoding='utf-8') as outfile:
@@ -391,6 +404,13 @@ def main():
             print(f"Report successfully saved to '{report_file}'")
         else:
             print(report_content)
+            
+        # Return the results as a dictionary
+        return {
+           "overall_wer": overall_wer,
+            "overall_per": overall_per,
+            "overall_ner": overall_ner,
+      }
 
     except FileNotFoundError:
         print(f"Error: The input file '{evaluation_file}' was not found.")
