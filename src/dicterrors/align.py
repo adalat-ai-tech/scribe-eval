@@ -56,20 +56,70 @@ def get_mismatch_penalty(w1, w2, weights=DEFAULT_WEIGHTS):
         return weights['mismatch_word_base'] - levenshtein_distance(w1, w2)
 
 # --- NEW HELPER FOR SANDHI ---
-def check_sandhi_match(combined_text, single_text, weights):
+def check_sandhi_match(combined_words, single_text, weights):
     """
-    Checks if 'combined_text' (e.g., "മഴ" + "കാലത്ത്") is roughly equivalent 
+    Checks if 'combined_words' (e.g., ["മഴ", "കാലത്ത്"]) is roughly equivalent 
     to 'single_text' (e.g., "മഴക്കാലത്ത്").
-    """
-    # Simple concatenation often misses Sandhi chars (like double k).
-    # We check Levenshtein distance.
-    dist = levenshtein_distance(combined_text, single_text)
     
-    # If distance is small enough, we consider it a valid split/merge
-    if dist <= weights.get('sandhi_threshold'):
-        # Score: Base match reward - small penalty for the split - character error penalty
-        return weights['match_base'] + weights['split_merge_penalty'] - (dist / len(single_text))
-    return -float('inf')
+    Args:
+        combined_words: List of two words to combine
+        single_text: Single word to compare against
+        weights: Dictionary of scoring weights
+    
+    Returns:
+        Score for the match (higher is better, -inf for invalid)
+    """
+    if not isinstance(combined_words, list) or len(combined_words) != 2:
+        return -float('inf')
+    
+    word1, word2 = combined_words[0], combined_words[1]
+    
+    # Algorithm Step 1: Further split the words for boundary analysis
+    # For word1 = "mazha", extract "mazh" and "a"
+    # For word2 = "kalam", extract "k" and "alam"
+    if len(word1) < 2 or len(word2) < 2:
+        return -float('inf')  # Words too short for meaningful boundary analysis
+    
+    s1 = word1[:-1]  # mazh
+    s2 = word1[-1:]   # a
+    s3 = word2[:1]    # k
+    s4 = word2[1:]    # alam
+    
+    # Algorithm Step 2: Check if beginning and end match
+    # Check if s1 (mazh) matches beginning of single_text
+    if not single_text.startswith(s1):
+        return -float('inf')
+        
+    # Check if s4 (alam) matches end of single_text
+    if not single_text.endswith(s4):
+        return -float('inf')
+    
+    # Algorithm Step 3: Extract the boundary region and compare
+    # Remove the matched portions from single_text to get the boundary region
+    boundary_start = len(s1)
+    boundary_end = len(single_text) - len(s4)
+    boundary_region = single_text[boundary_start:boundary_end]
+    print("joint boundary:", boundary_region)
+    
+    # The boundary from the split words is s2+s3 (a+k)
+    split_boundary = s2 + s3
+    print("split boundary:", split_boundary)
+
+    
+    # Calculate Levenshtein distance between the boundary regions
+    boundary_dist = levenshtein_distance(split_boundary, boundary_region)
+    print("boundary_dist:", boundary_dist)
+    
+    # If the boundary distance is within threshold, it's a valid sandhi match
+    sandhi_threshold = weights.get('sandhi_threshold')
+    if boundary_dist <= sandhi_threshold:
+        # Score calculation: match reward - split penalty - boundary error penalty
+        score = weights['match_base'] + weights['split_merge_penalty']
+        if boundary_dist > 0:
+            score -= (boundary_dist / len(single_text))
+        return score
+    
+    return -float('inf')  # Not a valid sandhi match
 
 def align_arrays(arr1, arr2, max_distance=0, weights=None):
     if weights is None: weights = DEFAULT_WEIGHTS
@@ -105,7 +155,7 @@ def align_arrays(arr1, arr2, max_distance=0, weights=None):
                 # Only apply split check if all tokens involved are words (not numbers or punctuations)
                 if is_word(arr1[i-1]) and is_word(arr2[j-2]) and is_word(arr2[j-1]):
                     # Combine current and previous hypothesis tokens
-                    combined_hyp = arr2[j-2] + arr2[j-1] 
+                    combined_hyp = [arr2[j-2], arr2[j-1]] 
                     score_split = check_sandhi_match(combined_hyp, arr1[i-1], weights)
                     split_val = dp[i-1][j-2] + score_split
 
@@ -114,7 +164,7 @@ def align_arrays(arr1, arr2, max_distance=0, weights=None):
             if i >= 2:
                 # Only apply merge check if all tokens involved are words (not numbers or punctuations)
                 if is_word(arr1[i-2]) and is_word(arr1[i-1]) and is_word(arr2[j-1]):
-                    combined_ref = arr1[i-2] + arr1[i-1]
+                    combined_ref = [arr1[i-2] , arr1[i-1]]
                     score_merge = check_sandhi_match(combined_ref, arr2[j-1], weights)
                     merge_val = dp[i-2][j-1] + score_merge
 
@@ -135,7 +185,7 @@ def align_arrays(arr1, arr2, max_distance=0, weights=None):
         if j >= 2 and i > 0:
             # Only check split for word tokens (not numbers or punctuations)
             if is_word(arr1[i-1]) and is_word(arr2[j-2]) and is_word(arr2[j-1]):
-                combined_hyp = arr2[j-2] + arr2[j-1]
+                combined_hyp = [arr2[j-2] , arr2[j-1]]
                 score_split = check_sandhi_match(combined_hyp, arr1[i-1], weights)
                 if is_close(dp[i-1][j-2] + score_split):
                     # We align 1 Ref with 2 Hyps
@@ -148,7 +198,7 @@ def align_arrays(arr1, arr2, max_distance=0, weights=None):
         if i >= 2 and j > 0:
             # Only check merge for word tokens (not numbers or punctuations)
             if is_word(arr1[i-2]) and is_word(arr1[i-1]) and is_word(arr2[j-1]):
-                combined_ref = arr1[i-2] + arr1[i-1]
+                combined_ref = [arr1[i-2] , arr1[i-1]]
                 score_merge = check_sandhi_match(combined_ref, arr2[j-1], weights)
                 if is_close(dp[i-2][j-1] + score_merge):
                     aligned_arr1.append(f"MERGE:{arr1[i-2]} {arr1[i-1]}")

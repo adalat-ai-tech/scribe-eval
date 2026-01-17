@@ -1,7 +1,10 @@
 import streamlit as st
 import sys
 import os
+import json
+import pandas as pd
 import jiwer
+from pathlib import Path
 
 # --- SETUP PATHS ---
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
@@ -95,14 +98,168 @@ with st.sidebar.expander("Mismatch Penalties", expanded=False):
 
 
 # --- MAIN INPUT ---
-col1, col2 = st.columns(2)
-with col1:
-    # Default example updated to show Sandhi
-    ref_text = st.text_area("Reference", height=120, value="മഴക്കാലത്ത് വെള്ളം പൊങ്ങി")
-with col2:
-    hyp_text = st.text_area("Hypothesis", height=120, value="മഴ കാലത്ത് വെള്ളം പൊങ്ങി")
+tab1, tab2 = st.tabs(["Text Input", "JSON File"])
 
-if st.button("Compare Alignments", type="primary"):
+# Initialize action flags
+use_manual_input = False
+use_json_single = False
+use_json_batch = False
+
+# Tab 1: Manual text input
+with tab1:
+    col1, col2 = st.columns(2)
+    with col1:
+        # Default example updated to show Sandhi
+        ref_text = st.text_area("Reference", height=120, value="മഴക്കാലത്ത് വെള്ളം പൊങ്ങി")
+    with col2:
+        hyp_text = st.text_area("Hypothesis", height=120, value="മഴ കാലത്ത് വെള്ളം പൊങ്ങി")
+        
+    use_manual_input = st.button("Compare Alignments", type="primary")
+
+# Tab 2: JSON file input
+with tab2:
+    # Default JSONL file path
+    default_jsonl_path = os.path.join(os.path.dirname(__file__), 'examples', 'dictation-eval', 'predictions.jsonl')
+    
+    # Check if default file exists
+    default_exists = os.path.exists(default_jsonl_path)
+    
+    if default_exists:
+        st.info(f"Default example file available: examples/dictation-eval/predictions.jsonl")
+        use_default = st.checkbox("Use default example file", value=False)
+    else:
+        use_default = False
+    
+    # File uploader for custom files
+    uploaded_file = st.file_uploader("Upload JSON file with predictions", type=["json", "jsonl"])
+    
+    # Use either uploaded file or default file
+    using_default = False
+    
+    if uploaded_file is not None:
+        st.success("Using uploaded file")
+    elif use_default and default_exists:
+        using_default = True
+        st.success("Using default example file")
+    
+    if uploaded_file is not None or (use_default and default_exists):
+        # Read the uploaded file
+        try:
+            # Check if it's a JSONL file (multiple JSON objects, one per line)
+            if (uploaded_file is not None and uploaded_file.name.endswith('.jsonl')) or (using_default):
+                # Read as lines and parse each line as JSON
+                if using_default:
+                    # Read from default file path
+                    with open(default_jsonl_path, 'r', encoding='utf-8') as f:
+                        content = f.read().splitlines()
+                else:
+                    # Read from uploaded file
+                    content = uploaded_file.getvalue().decode('utf-8').splitlines()
+                
+                records = [json.loads(line) for line in content if line.strip()]
+                st.success(f"Successfully loaded {len(records)} records from JSONL file")
+            else:
+                # Regular JSON file
+                content = json.load(uploaded_file)
+                # Check if it's an array of objects or a single object
+                if isinstance(content, list):
+                    records = content
+                else:
+                    records = [content]
+                st.success(f"Successfully loaded {len(records)} records from JSON file")
+            
+            # Check for required fields in the first record
+            first_record = records[0] if records else {}
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                # For the sample JSONL file, the reference field is 'transcript_cleaned'
+                default_ref_index = 0
+                if "transcript_cleaned" in first_record:
+                    default_ref_index = list(first_record.keys()).index("transcript_cleaned")
+                elif "text" in first_record:
+                    default_ref_index = list(first_record.keys()).index("text")
+                elif "reference" in first_record:
+                    default_ref_index = list(first_record.keys()).index("reference")
+                    
+                ref_field = st.selectbox(
+                    "Select reference field", 
+                    options=list(first_record.keys()),
+                    index=default_ref_index,
+                    help="Field containing the reference/ground truth text"
+                )
+            
+            with col2:
+                # For the sample JSONL file, the hypothesis field is 'prediction'
+                default_hyp_index = 0
+                if "prediction" in first_record:
+                    default_hyp_index = list(first_record.keys()).index("prediction")
+                elif "hypothesis" in first_record:
+                    default_hyp_index = list(first_record.keys()).index("hypothesis")
+                    
+                hyp_field = st.selectbox(
+                    "Select hypothesis field", 
+                    options=list(first_record.keys()),
+                    index=default_hyp_index,
+                    help="Field containing the prediction/hypothesis text"
+                )
+            
+            # Show a preview of the data
+            if st.checkbox("Show data preview"):
+                preview_df = pd.DataFrame([
+                    {ref_field: r.get(ref_field, ""), hyp_field: r.get(hyp_field, "")} 
+                    for r in records[:5]  # Show only first 5 records
+                ])
+                st.dataframe(preview_df)
+            
+            # Option to analyze all or a specific record
+            analysis_choice = st.radio(
+                "Choose what to analyze:",
+                options=["Analyze specific record", "Analyze all records (summary statistics)"],
+                horizontal=True
+            )
+            
+            if analysis_choice == "Analyze specific record":
+                # Let user select a specific record
+                record_idx = st.number_input(
+                    "Select record index", 
+                    min_value=0, 
+                    max_value=len(records)-1, 
+                    value=0,
+                    step=1,
+                    help="Index of the record to analyze"
+                )
+                
+                # Get the selected record
+                selected_record = records[record_idx]
+                ref_text = selected_record.get(ref_field, "")
+                hyp_text = selected_record.get(hyp_field, "")
+                
+                # Show the selected texts
+                st.markdown("**Selected Record:**")
+                st.markdown(f"**Reference:** {ref_text}")
+                st.markdown(f"**Hypothesis:** {hyp_text}")
+                
+                if st.button("Analyze Selected Record", type="primary"):
+                    use_json_single = True
+            
+            else:  # Analyze all records
+                # Extract all texts for batch processing
+                all_refs = [r.get(ref_field, "") for r in records]
+                all_hyps = [r.get(hyp_field, "") for r in records]
+                
+                if st.button("Analyze All Records", type="primary"):
+                    use_json_batch = True
+                
+        except Exception as e:
+            st.error(f"Error processing the JSON file: {str(e)}")
+            use_json_single = False
+            use_json_batch = False
+    else:
+        use_json_single = False
+        use_json_batch = False
+
+if use_manual_input or use_json_single:
     
     # --- 1. DictErrors Calculation ---
     custom_ref_tok = tokenizer(ref_text)
@@ -190,7 +347,7 @@ if st.button("Compare Alignments", type="primary"):
     m_col1, m_col2 = st.columns(2)
     
     with m_col1:
-        st.subheader("[DictErrors](https://github.com/kavyamanohar/dicterrors)")
+        st.subheader("[DictErrors](https://github.com/adalat-ai-tech/dict-errors)")
         st.markdown(f"""
         <div class="metrics-container">
             <div style="font-size: 20px; font-weight: bold; color: #1e88e5;">WER: {c_wer:.2%}</div>
@@ -206,5 +363,65 @@ if st.button("Compare Alignments", type="primary"):
             <div>MER: {jiwer_out.mer:.2%}</div>
         </div>
         """, unsafe_allow_html=True)
+
+# Add batch analysis for JSON files
+elif use_json_batch:
+    # Calculate metrics for all records
+    all_c_wer = []
+    all_c_per = []
+    all_c_ner = []
+    all_j_wer = []
+    all_j_mer = []
+    
+    # Process each record
+    for ref, hyp in zip(all_refs, all_hyps):
+        if not ref or not hyp:  # Skip empty records
+            continue
+            
+        # DictErrors
+        try:
+            custom_ref_tok = tokenizer(ref)
+            custom_hyp_tok = tokenizer(hyp)
+            _, _, _ = align_arrays(custom_ref_tok, custom_hyp_tok, weights=weights)
+            c_wer, c_per, c_ner, _ = token_error_rates(custom_ref_tok, custom_hyp_tok)
+            all_c_wer.append(c_wer)
+            all_c_per.append(c_per)
+            all_c_ner.append(c_ner)
+        except Exception as e:
+            st.warning(f"DictErrors error on text: '{ref[:30]}...': {str(e)}")
+        
+        # Jiwer
+        try:
+            jiwer_out = jiwer.process_words(ref, hyp)
+            all_j_wer.append(jiwer_out.wer)
+            all_j_mer.append(jiwer_out.mer)
+        except Exception as e:
+            st.warning(f"Jiwer error on text: '{ref[:30]}...': {str(e)}")
+    
+    # Display results
+    st.subheader("Batch Analysis Results")
+    st.write(f"Processed {len(all_c_wer)} records successfully")
+    
+    # Metrics summary
+    metrics_df = pd.DataFrame({
+        "DictErrors WER": all_c_wer,
+        "DictErrors PER": all_c_per,
+        "DictErrors NER": all_c_ner,
+        "Jiwer WER": all_j_wer,
+        "Jiwer MER": all_j_mer
+    })
+    
+    # Summary statistics
+    st.subheader("Summary Statistics")
+    st.write(metrics_df.describe())
+    
+    # Option to download results
+    csv = metrics_df.to_csv(index=False)
+    st.download_button(
+        label="Download metrics as CSV",
+        data=csv,
+        file_name="alignment_metrics.csv",
+        mime="text/csv"
+    )
 
 

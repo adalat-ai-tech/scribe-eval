@@ -27,8 +27,6 @@ def print_alignment(text1, text2, aligned1, aligned2, score):
     from dicterrors.align import words_match  # Import for match checking
     
     print("Text 1:", " | ".join(f"{w:>10}" for w in aligned1))
-    print("Match: ", " | ".join(f"{'✓' if w1 != '**' and w2 != '**' and words_match(w1, w2) else '✗' if w1 != '**' and w2 != '**' else ' ':>10}" 
-                              for w1, w2 in zip(aligned1, aligned2)))
     print("Text 2:", " | ".join(f"{w:>10}" for w in aligned2))
     print("\n")
 
