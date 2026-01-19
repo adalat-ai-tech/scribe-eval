@@ -133,7 +133,7 @@ uv run evaluate.py
 
 ```bash
 cd examples
-uv run evaluate.py
+uv run batch_evaluate.py
 ```
 
 The evaluate.py script will generate a report in the `dictation-eval` directory.
@@ -152,6 +152,8 @@ Generates a web interface for interactive alignment visualization and error anal
 - Add language code as a parameter to tokenizer
 - Add a token-type tag to each token <word>, <punctuation>, <numeral> <abbreviation> etc
 - Improve the token-type based scoring function
+- Improve batch evaluate.py to return values and use them in visualizer.py
+- Add provision to report CER in case of substitutions (It is already chracter aware)
 
 
 ## Acknowledgements

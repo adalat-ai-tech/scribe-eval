@@ -110,9 +110,9 @@ with tab1:
     col1, col2 = st.columns(2)
     with col1:
         # Default example updated to show Sandhi
-        ref_text = st.text_area("Reference", height=120, value="മഴക്കാലത്ത് വെള്ളം പൊങ്ങി")
+        ref_text = st.text_area("Reference", height=120, value="തദ്ദേശ സ്വയംഭരണ സ്ഥാപനങ്ങൾ")
     with col2:
-        hyp_text = st.text_area("Hypothesis", height=120, value="മഴ കാലത്ത് വെള്ളം പൊങ്ങി")
+        hyp_text = st.text_area("Hypothesis", height=120, value="തദ്ദേശ സ്വയംഭരണസ്ഥാപനങ്ങൾ")
         
     use_manual_input = st.button("Compare Alignments", type="primary")
 

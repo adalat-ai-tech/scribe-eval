@@ -1,5 +1,4 @@
 from .align import is_punctuation, is_number, is_word, align_text
-from .tokenize import tokenizer
 
 def token_error_rates(aligned_ref, aligned_hyp):
     """
