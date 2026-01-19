@@ -4,18 +4,10 @@ import os
 import json
 import pandas as pd
 import jiwer
-from pathlib import Path
+from collections import defaultdict
+from dicterrors import tokenizer, token_error_rates, align_arrays, DEFAULT_WEIGHTS, is_number, is_punctuation, compute_aggregate_metrics, compute_sample_errors
+import tempfile 
 
-# --- SETUP PATHS ---
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
-
-try:
-    from dicterrors.tokenize import tokenizer
-    from dicterrors.measure import token_error_rates
-    from dicterrors.align import align_arrays, DEFAULT_WEIGHTS, is_number, is_word, is_punctuation
-except ImportError as e:
-    st.error(f"Error importing modules: {e}. Make sure you are running this from the project root.")
-    st.stop()
 
 # --- HELPER: HTML GENERATOR ---
 def generate_alignment_html(ref_tokens, hyp_tokens):
@@ -27,15 +19,12 @@ def generate_alignment_html(ref_tokens, hyp_tokens):
         status = "s-correct"
         token_type = "t-word"
         
-        # Handle Special Split/Merge Tags from align.py
         if r.startswith("MERGE:"):
-            status = "s-merge"  # Only purple box, not an error
-            r = r.replace("MERGE:", "") # Clean text
+            status = "s-merge"
+            r = r.replace("MERGE:", "")
         elif h.startswith("SPLIT:"):
-            status = "s-merge"  # Use same style for both split/merge (only purple box)
-            h = h.replace("SPLIT:", "") # Clean text
-        
-        # Handle Standard Errors
+            status = "s-merge"
+            h = h.replace("SPLIT:", "")
         elif r == "**" or r == "<eps>": 
             status = "s-ins"
         elif h == "**" or h == "<eps>":
@@ -43,258 +32,48 @@ def generate_alignment_html(ref_tokens, hyp_tokens):
         elif r != h:
             status = "s-sub"
         
-        # --- 2. Determine Border Type (Word vs Num vs Punct) ---
-        # We check the content of the cleaned text
+        # --- 2. Determine Border Type ---
         check_content = r if r not in ["**", "<eps>"] else h
+        if " " in check_content: token_type = "t-word"
+        elif is_number(check_content): token_type = "t-number"
+        elif is_punctuation(check_content): token_type = "t-punct"
+        else: token_type = "t-word"
         
-        # If it's a split/merge, we treat it as a word usually, but let's check content
-        if " " in check_content: # It's a compound token
-            token_type = "t-word"
-        elif is_number(check_content):
-            token_type = "t-number"
-        elif is_punctuation(check_content):
-            token_type = "t-punct"
-        else:
-            token_type = "t-word"
-        
-        # --- 3. Prepare Display Text ---
         disp_r = r if (r != "**" and r != "<eps>") else "&nbsp;"
         disp_h = h if (h != "**" and h != "<eps>") else "&nbsp;"
         
-        # Render Cell
         html += f"<td class=\"token-cell {status} {token_type}\"><div class=\"top-text\">{disp_r}</div><div class=\"bot-text\">{disp_h}</div></td>"
     
     html += "</tr></table></div>"
     return html
 
-# --- UI CONFIG ---
-st.set_page_config(layout="wide", page_title="DictErrors vs Jiwer")
-
-st.title("⚖️ Error Analysis: DictErrors vs Jiwer")
-st.markdown("Compare custom Indic-aware alignment against standard Jiwer.")
-
-# --- SIDEBAR: CONTROLS ---
-st.sidebar.header("🔧 Custom Penalty Tuning")
-weights = {}
-
-# We create sliders based on DEFAULT_WEIGHTS
-# Note: We added new weights for Sandhi in align.py, so we add sliders for them too
-with st.sidebar.expander("Agglutination (Sandhi)", expanded=True):
-    weights['split_merge_penalty'] = st.slider("Split/Merge Penalty", -2.0, 0.0, float(DEFAULT_WEIGHTS.get('split_merge_penalty', -0.5)), 0.1, help="Cost for combining 2 words to match 1. Closer to 0 means easier to merge.")
-    weights['sandhi_threshold'] = st.slider("Sandhi Char Tolerance", 0, 5, int(DEFAULT_WEIGHTS.get('sandhi_threshold', 2)), 1, help="How many characters can differ when merging? (e.g. 'kk' in Mazhakkalathu)")
-
-with st.sidebar.expander("Gap Penalties", expanded=False):
-    weights['gap_punct_num'] = st.slider("Gap: Punct/Num", -5.0, 0.0, float(DEFAULT_WEIGHTS['gap_punct_num']), 0.5)
-    weights['gap_word_base'] = st.slider("Gap: Word Base", -5.0, 0.0, float(DEFAULT_WEIGHTS['gap_word_base']), 0.5)
-    weights['gap_word_factor'] = st.slider("Gap: Word Length Factor", 0.0, 2.0, float(DEFAULT_WEIGHTS['gap_word_factor']), 0.1)
-
-with st.sidebar.expander("Mismatch Penalties", expanded=False):
-    weights['mismatch_punct_cross'] = st.slider("Sub: Punct ↔ Word", -10.0, -1.0, float(DEFAULT_WEIGHTS['mismatch_punct_cross']), 0.5)
-    weights['mismatch_word_num'] = st.slider("Sub: Word ↔ Num", -10.0, -1.0, float(DEFAULT_WEIGHTS['mismatch_word_num']), 0.5)
-    weights['mismatch_num_num'] = st.slider("Sub: Num ↔ Num", -5.0, 0.0, float(DEFAULT_WEIGHTS['mismatch_num_num']), 0.5)
-    weights['mismatch_punct_punct'] = st.slider("Sub: Punct ↔ Punct", -5.0, 0.0, float(DEFAULT_WEIGHTS['mismatch_punct_punct']), 0.5)
-    weights['mismatch_word_base'] = st.slider("Sub: Word Base", -5.0, 0.0, float(DEFAULT_WEIGHTS['mismatch_word_base']), 0.5)
-    weights['match_base'] = st.slider("Match Reward", 1.0, 5.0, float(DEFAULT_WEIGHTS['match_base']), 0.5)
-
-
-# --- MAIN INPUT ---
-tab1, tab2 = st.tabs(["Text Input", "JSON File"])
-
-# Initialize action flags
-use_manual_input = False
-use_json_single = False
-use_json_batch = False
-
-# Tab 1: Manual text input
-with tab1:
-    col1, col2 = st.columns(2)
-    with col1:
-        # Default example updated to show Sandhi
-        ref_text = st.text_area("Reference", height=120, value="മഴക്കാലത്ത് വെള്ളം പൊങ്ങി")
-    with col2:
-        hyp_text = st.text_area("Hypothesis", height=120, value="മഴ കാലത്ത് വെള്ളം പൊങ്ങി")
-        
-    use_manual_input = st.button("Compare Alignments", type="primary")
-
-# Tab 2: JSON file input
-with tab2:
-    # Default JSONL file path
-    default_jsonl_path = os.path.join(os.path.dirname(__file__), 'examples', 'dictation-eval', 'predictions.jsonl')
+# --- HELPER: RENDER ANALYSIS ---
+def render_analysis(ref_text, hyp_text, weights):
+    """Reusable function to render the metrics and visualization."""
     
-    # Check if default file exists
-    default_exists = os.path.exists(default_jsonl_path)
-    
-    if default_exists:
-        st.info(f"Default example file available: examples/dictation-eval/predictions.jsonl")
-        use_default = st.checkbox("Use default example file", value=False)
-    else:
-        use_default = False
-    
-    # File uploader for custom files
-    uploaded_file = st.file_uploader("Upload JSON file with predictions", type=["json", "jsonl"])
-    
-    # Use either uploaded file or default file
-    using_default = False
-    
-    if uploaded_file is not None:
-        st.success("Using uploaded file")
-    elif use_default and default_exists:
-        using_default = True
-        st.success("Using default example file")
-    
-    if uploaded_file is not None or (use_default and default_exists):
-        # Read the uploaded file
-        try:
-            # Check if it's a JSONL file (multiple JSON objects, one per line)
-            if (uploaded_file is not None and uploaded_file.name.endswith('.jsonl')) or (using_default):
-                # Read as lines and parse each line as JSON
-                if using_default:
-                    # Read from default file path
-                    with open(default_jsonl_path, 'r', encoding='utf-8') as f:
-                        content = f.read().splitlines()
-                else:
-                    # Read from uploaded file
-                    content = uploaded_file.getvalue().decode('utf-8').splitlines()
-                
-                records = [json.loads(line) for line in content if line.strip()]
-                st.success(f"Successfully loaded {len(records)} records from JSONL file")
-            else:
-                # Regular JSON file
-                content = json.load(uploaded_file)
-                # Check if it's an array of objects or a single object
-                if isinstance(content, list):
-                    records = content
-                else:
-                    records = [content]
-                st.success(f"Successfully loaded {len(records)} records from JSON file")
-            
-            # Check for required fields in the first record
-            first_record = records[0] if records else {}
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                # For the sample JSONL file, the reference field is 'transcript_cleaned'
-                default_ref_index = 0
-                if "transcript_cleaned" in first_record:
-                    default_ref_index = list(first_record.keys()).index("transcript_cleaned")
-                elif "text" in first_record:
-                    default_ref_index = list(first_record.keys()).index("text")
-                elif "reference" in first_record:
-                    default_ref_index = list(first_record.keys()).index("reference")
-                    
-                ref_field = st.selectbox(
-                    "Select reference field", 
-                    options=list(first_record.keys()),
-                    index=default_ref_index,
-                    help="Field containing the reference/ground truth text"
-                )
-            
-            with col2:
-                # For the sample JSONL file, the hypothesis field is 'prediction'
-                default_hyp_index = 0
-                if "prediction" in first_record:
-                    default_hyp_index = list(first_record.keys()).index("prediction")
-                elif "hypothesis" in first_record:
-                    default_hyp_index = list(first_record.keys()).index("hypothesis")
-                    
-                hyp_field = st.selectbox(
-                    "Select hypothesis field", 
-                    options=list(first_record.keys()),
-                    index=default_hyp_index,
-                    help="Field containing the prediction/hypothesis text"
-                )
-            
-            # Show a preview of the data
-            if st.checkbox("Show data preview"):
-                preview_df = pd.DataFrame([
-                    {ref_field: r.get(ref_field, ""), hyp_field: r.get(hyp_field, "")} 
-                    for r in records[:5]  # Show only first 5 records
-                ])
-                st.dataframe(preview_df)
-            
-            # Option to analyze all or a specific record
-            analysis_choice = st.radio(
-                "Choose what to analyze:",
-                options=["Analyze specific record", "Analyze all records (summary statistics)"],
-                horizontal=True
-            )
-            
-            if analysis_choice == "Analyze specific record":
-                # Let user select a specific record
-                record_idx = st.number_input(
-                    "Select record index", 
-                    min_value=0, 
-                    max_value=len(records)-1, 
-                    value=0,
-                    step=1,
-                    help="Index of the record to analyze"
-                )
-                
-                # Get the selected record
-                selected_record = records[record_idx]
-                ref_text = selected_record.get(ref_field, "")
-                hyp_text = selected_record.get(hyp_field, "")
-                
-                # Show the selected texts
-                st.markdown("**Selected Record:**")
-                st.markdown(f"**Reference:** {ref_text}")
-                st.markdown(f"**Hypothesis:** {hyp_text}")
-                
-                if st.button("Analyze Selected Record", type="primary"):
-                    use_json_single = True
-            
-            else:  # Analyze all records
-                # Extract all texts for batch processing
-                all_refs = [r.get(ref_field, "") for r in records]
-                all_hyps = [r.get(hyp_field, "") for r in records]
-                
-                if st.button("Analyze All Records", type="primary"):
-                    use_json_batch = True
-                
-        except Exception as e:
-            st.error(f"Error processing the JSON file: {str(e)}")
-            use_json_single = False
-            use_json_batch = False
-    else:
-        use_json_single = False
-        use_json_batch = False
-
-if use_manual_input or use_json_single:
-    
-    # --- 1. DictErrors Calculation ---
+    # 1. DictErrors Calculation
     custom_ref_tok = tokenizer(ref_text)
     custom_hyp_tok = tokenizer(hyp_text)
     c_ref, c_hyp, c_score = align_arrays(custom_ref_tok, custom_hyp_tok, weights=weights)
-    
-    # Note: calculate_error_rates might need updates to handle "SPLIT:" tags if you want strict counting
-    # For now, it will likely treat "SPLIT:..." as a string mismatch unless we clean it inside token_error_rates too.
-    # But for visualization, this is fine.
     c_wer, c_per, c_ner, c_report = token_error_rates(c_ref, c_hyp)
 
-    # --- 2. Jiwer Calculation ---
+    # 2. Jiwer Calculation
     jiwer_out = jiwer.process_words(ref_text, hyp_text)
     
     # Extract Jiwer Alignment
-    j_ref_viz = []
-    j_hyp_viz = []
-    
+    j_ref_viz, j_hyp_viz = [], []
     for chunk in jiwer_out.alignments[0]:
-        if chunk.type == 'equal':
-            j_ref_viz.extend([ref_text.split()[i] for i in range(chunk.ref_start_idx, chunk.ref_end_idx)])
-            j_hyp_viz.extend([hyp_text.split()[i] for i in range(chunk.hyp_start_idx, chunk.hyp_end_idx)])
-        elif chunk.type == 'substitute':
+        if chunk.type in ['equal', 'substitute']:
             j_ref_viz.extend([ref_text.split()[i] for i in range(chunk.ref_start_idx, chunk.ref_end_idx)])
             j_hyp_viz.extend([hyp_text.split()[i] for i in range(chunk.hyp_start_idx, chunk.hyp_end_idx)])
         elif chunk.type == 'delete':
             for i in range(chunk.ref_start_idx, chunk.ref_end_idx):
-                j_ref_viz.append(ref_text.split()[i])
-                j_hyp_viz.append("**")
+                j_ref_viz.append(ref_text.split()[i]); j_hyp_viz.append("**")
         elif chunk.type == 'insert':
             for i in range(chunk.hyp_start_idx, chunk.hyp_end_idx):
-                j_ref_viz.append("**")
-                j_hyp_viz.append(hyp_text.split()[i])
+                j_ref_viz.append("**"); j_hyp_viz.append(hyp_text.split()[i])
 
-    # --- CSS STYLING ---
+    # 3. Render CSS
     st.markdown("""
     <style>
         .scroll-container { overflow-x: auto; white-space: nowrap; padding-bottom: 15px; width: 100%; border: 1px solid #eee; border-radius: 8px; background: #fafafa; }
@@ -302,126 +81,221 @@ if use_manual_input or use_json_single:
         td.token-cell { border-radius: 6px; padding: 8px 12px; text-align: center; min-width: 60px; font-family: sans-serif; vertical-align: middle; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .top-text { font-size: 1em; font-weight: bold; color: #666; border-bottom: 1px solid rgba(0,0,0,0.1);}
         .bot-text { font-size: 1em; margin-bottom: 4px; padding-bottom: 2px; }
-        
-        /* Standard Status Colors */
-        .s-correct { background-color: #d1e7dd; color: #0f5132; } /* Green */
-        .s-sub     { background-color: #f8d7da; color: #842029; } /* Red */
-        .s-ins     { background-color: #ffe0b2; color: #7d4e00; } /* Orange */
-        .s-del     { background-color: #ffe0b2; color: #7d4e00; } /* Orange */
-        
-        /* Sandhi: Split/Merge Colors (Purple/Indigo) - not considered an error */
-        .s-merge { 
-            background-color: #e0e7ff; 
-            color: #3730a3; 
-            border: 1px solid #6366f1 !important; 
-        }
-
-        /* Token Type Borders */
+        .s-correct { background-color: #d1e7dd; color: #0f5132; }
+        .s-sub     { background-color: #f8d7da; color: #842029; }
+        .s-ins, .s-del { background-color: #ffe0b2; color: #7d4e00; }
+        .s-merge { background-color: #e0e7ff; color: #3730a3; border: 1px solid #6366f1 !important; }
         .t-word   { border: 4px solid #a3cfbb; } 
         .t-number { border: 2px double #d32f2f; }
         .t-punct  { border: 4px dashed #9c27b0; }
-
-        .wer-primary { font-size: 28px; font-weight: bold; color: #1e88e5; }
-        .metrics-container { border: 1px solid #eee; border-radius: 10px; padding: 15px; background-color: #fafafa; }
+        .metrics-container { border: 1px solid rgba(128, 128, 128, 0.3); border-radius: 10px; padding: 15px; background-color: rgba(250, 250, 250, 0.8); color: rgba(0, 0, 0, 0.87); }
+        .metric-value { font-size: 24px; font-weight: bold; color: #1e88e5; }
+        .jiwer-metric { color: #9c27b0; }
+        .metric-secondary { font-size: 16px; color: rgba(0, 0, 0, 0.8); }
     </style>
     """, unsafe_allow_html=True)
 
-    # --- DISPLAY RESULTS ---
+    # 4. Render UI
     st.subheader("1. Alignment Visualization")
-
-    tab1, tab2 = st.tabs(["✨ DictErrors Alignment", "Jiwer Alignment"])
-
-    with tab1:
-        st.write("#### DictErrors Logic")
-        st.write("Look for the **Purple Boxes** indicating Split/Merge handling. These are not considered errors.")
+    t1, t2 = st.tabs(["✨ DictErrors Alignment", "Jiwer Alignment"])
+    
+    with t1:
+        st.write("**Purple Boxes** indicate Split/Merge handling (Sandhi).")
         st.markdown(generate_alignment_html(c_ref, c_hyp), unsafe_allow_html=True)
-        with st.expander("Detailed Report"):
-            st.json(c_report)
-
-    with tab2:
-        st.write("#### Jiwer Logic")
+        with st.expander("Detailed Report"): st.json(c_report)
+    with t2:
         st.markdown(generate_alignment_html(j_ref_viz, j_hyp_viz), unsafe_allow_html=True)
 
     st.subheader("2. Metric Comparison")
-    
-    m_col1, m_col2 = st.columns(2)
-    
-    with m_col1:
-        st.subheader("[DictErrors](https://github.com/adalat-ai-tech/dict-errors)")
-        st.markdown(f"""
-        <div class="metrics-container">
-            <div style="font-size: 20px; font-weight: bold; color: #1e88e5;">WER: {c_wer:.2%}</div>
-            <div>PER: {c_per:.2%} | NER: {c_ner:.2%}</div>
-        </div>
-        """, unsafe_allow_html=True)
+    mc1, mc2 = st.columns(2)
+    with mc1:
+        st.subheader("DictErrors")
+        st.markdown(f"""<div class="metrics-container"><div class="metric-value">WER: {c_wer:.2%}</div><div class="metric-secondary">PER: {c_per:.2%} | NER: {c_ner:.2%}</div></div>""", unsafe_allow_html=True)
+    with mc2:
+        st.subheader("Jiwer")
+        st.markdown(f"""<div class="metrics-container"><div class="metric-value jiwer-metric">WER: {jiwer_out.wer:.2%}</div><div class="metric-secondary">MER: {jiwer_out.mer:.2%}</div></div>""", unsafe_allow_html=True)
 
-    with m_col2:
-        st.subheader("[Jiwer](https://github.com/jitsi/jiwer)")
-        st.markdown(f"""
-        <div class="metrics-container">
-            <div style="font-size: 20px; font-weight: bold; color: #666;">WER: {jiwer_out.wer:.2%}</div>
-            <div>MER: {jiwer_out.mer:.2%}</div>
-        </div>
-        """, unsafe_allow_html=True)
 
-# Add batch analysis for JSON files
-elif use_json_batch:
-    # Calculate metrics for all records
-    all_c_wer = []
-    all_c_per = []
-    all_c_ner = []
-    all_j_wer = []
-    all_j_mer = []
+# --- UI CONFIG ---
+st.set_page_config(layout="wide", page_title="DictErrors vs Jiwer")
+st.title("⚖️ Error Analysis: DictErrors vs Jiwer")
+
+# --- SIDEBAR ---
+st.sidebar.header("🔧 Custom Penalty Tuning")
+weights = {}
+with st.sidebar.expander("Agglutination (Sandhi)", expanded=True):
+    weights['split_merge_penalty'] = st.slider("Split/Merge Penalty", -2.0, 0.0, float(DEFAULT_WEIGHTS.get('split_merge_penalty', -0.5)), 0.1)
+    weights['sandhi_threshold'] = st.slider("Sandhi Char Tolerance", 0, 5, int(DEFAULT_WEIGHTS.get('sandhi_threshold', 2)), 1)
+with st.sidebar.expander("Gap & Mismatch", expanded=False):
+    weights['gap_punct_num'] = st.slider("Gap: Punct/Num", -5.0, 0.0, float(DEFAULT_WEIGHTS['gap_punct_num']), 0.5)
+    weights['gap_word_base'] = st.slider("Gap: Word Base", -5.0, 0.0, float(DEFAULT_WEIGHTS['gap_word_base']), 0.5)
+    weights['gap_word_factor'] = st.slider("Gap: Word Length Factor", 0.0, 2.0, float(DEFAULT_WEIGHTS['gap_word_factor']), 0.1)
+    weights['mismatch_word_base'] = st.slider("Sub: Word Base", -5.0, 0.0, float(DEFAULT_WEIGHTS['mismatch_word_base']), 0.5)
+    weights['match_base'] = st.slider("Match Reward", 1.0, 5.0, float(DEFAULT_WEIGHTS['match_base']), 0.5)
+    # Add other weights as needed...
+    weights['mismatch_punct_cross'] = float(DEFAULT_WEIGHTS['mismatch_punct_cross'])
+    weights['mismatch_word_num'] = float(DEFAULT_WEIGHTS['mismatch_word_num'])
+    weights['mismatch_num_num'] = float(DEFAULT_WEIGHTS['mismatch_num_num'])
+    weights['mismatch_punct_punct'] = float(DEFAULT_WEIGHTS['mismatch_punct_punct'])
+
+# --- MAIN INPUT ---
+tab_manual, tab_json = st.tabs(["Text Input", "JSON File"])
+
+# --- TAB 1: MANUAL ---
+with tab_manual:
+    mc1, mc2 = st.columns(2)
+    with mc1:
+        m_ref = st.text_area("Reference", height=100, value="തദ്ദേശ സ്വയംഭരണ സ്ഥാപനങ്ങൾ")
+    with mc2:
+        m_hyp = st.text_area("Hypothesis", height=100, value="തദ്ദേശ സ്വയംഭരണസ്ഥാപനങ്ങൾ")
     
-    # Process each record
-    for ref, hyp in zip(all_refs, all_hyps):
-        if not ref or not hyp:  # Skip empty records
-            continue
-            
-        # DictErrors
-        try:
-            custom_ref_tok = tokenizer(ref)
-            custom_hyp_tok = tokenizer(hyp)
-            _, _, _ = align_arrays(custom_ref_tok, custom_hyp_tok, weights=weights)
-            c_wer, c_per, c_ner, _ = token_error_rates(custom_ref_tok, custom_hyp_tok)
-            all_c_wer.append(c_wer)
-            all_c_per.append(c_per)
-            all_c_ner.append(c_ner)
-        except Exception as e:
-            st.warning(f"DictErrors error on text: '{ref[:30]}...': {str(e)}")
+    if st.button("Compare Manual Input", type="primary"):
+        render_analysis(m_ref, m_hyp, weights)
+
+# --- TAB 2: JSON ---
+with tab_json:
+    
+    # 1. LOAD DATA SECTION (Collapsible)
+    with st.expander("📂 Load Data Configuration", expanded=True):
+        col_load, col_map = st.columns([1, 2])
         
-        # Jiwer
-        try:
-            jiwer_out = jiwer.process_words(ref, hyp)
-            all_j_wer.append(jiwer_out.wer)
-            all_j_mer.append(jiwer_out.mer)
-        except Exception as e:
-            st.warning(f"Jiwer error on text: '{ref[:30]}...': {str(e)}")
-    
-    # Display results
-    st.subheader("Batch Analysis Results")
-    st.write(f"Processed {len(all_c_wer)} records successfully")
-    
-    # Metrics summary
-    metrics_df = pd.DataFrame({
-        "DictErrors WER": all_c_wer,
-        "DictErrors PER": all_c_per,
-        "DictErrors NER": all_c_ner,
-        "Jiwer WER": all_j_wer,
-        "Jiwer MER": all_j_mer
-    })
-    
-    # Summary statistics
-    st.subheader("Summary Statistics")
-    st.write(metrics_df.describe())
-    
-    # Option to download results
-    csv = metrics_df.to_csv(index=False)
-    st.download_button(
-        label="Download metrics as CSV",
-        data=csv,
-        file_name="alignment_metrics.csv",
-        mime="text/csv"
-    )
+        records = []
+        default_path = os.path.join(os.path.dirname(__file__), 'examples', 'dictation-eval', 'predictions.jsonl')
+        
+        with col_load:
+            upload_opt = st.radio("Source", ["Default Example", "Upload File"], horizontal=True, label_visibility="collapsed")
+            data_content = None
+            
+            if upload_opt == "Upload File":
+                uploaded = st.file_uploader("Upload .jsonl", type=["jsonl", "json"], label_visibility="collapsed")
+                if uploaded: data_content = uploaded.getvalue().decode('utf-8').splitlines()
+            elif os.path.exists(default_path):
+                with open(default_path, 'r', encoding='utf-8') as f:
+                    data_content = f.read().splitlines()
+            
+            if data_content:
+                try:
+                    records = [json.loads(line) for line in data_content if line.strip()]
+                    if not isinstance(records, list): records = [records] 
+                    st.success(f"Loaded {len(records)} records")
+                except Exception as e:
+                    st.error(f"Error parsing JSON: {e}")
 
+        with col_map:
+            if records:
+                keys = list(records[0].keys())
+                # Smart defaults helper
+                def get_idx(options, search):
+                    for s in search:
+                        if s in options: return options.index(s)
+                    return 0
 
+                c1, c2, c3 = st.columns(3)
+                with c1: ref_col = st.selectbox("Reference Field", keys, index=get_idx(keys, ["transcript_cleaned", "text", "reference"]))
+                with c2: hyp_col = st.selectbox("Hypothesis Field", keys, index=get_idx(keys, ["prediction", "hypothesis"]))
+                
+                # Make Source ID Optional
+                source_options = ["(None)"] + keys
+                default_src_idx = 0
+                for s in ["source_dataset", "file_path", "audio_path"]:
+                    if s in keys:
+                        default_src_idx = source_options.index(s)
+                        break
+                
+                with c3: 
+                    src_col_selection = st.selectbox("Source ID Field (Optional)", source_options, index=default_src_idx)
+                    src_col = None if src_col_selection == "(None)" else src_col_selection
+
+    if records:
+        # 2. BATCH ANALYSIS SECTION (Now at the top)
+        st.markdown("### 📊 Dataset Evaluation")
+        
+        with st.expander("Compute Aggregate Statistics (WER/PER/NER)", expanded=False):
+            if st.button("Run Batch Evaluation", type="primary", use_container_width=True):
+                
+                with st.spinner("Processing records..."):
+                    # Create a temporary file to store the JSONL data for the function to read
+                    with tempfile.NamedTemporaryFile(mode='w+', suffix='.jsonl', delete=False, encoding='utf-8') as tmp_in:
+                        # Write current records to temp file
+                        for r in records:
+                            tmp_in.write(json.dumps(r, ensure_ascii=False) + '\n')
+                        tmp_in_path = tmp_in.name
+                    
+                    try:
+                        # --- 1. CALL YOUR EXISTING BACKEND FUNCTION ---
+                        # We pass None as output_file so it returns the list directly 
+                        # without needing another read operation, though we can save if needed.
+                        detailed_results = compute_sample_errors(
+                            input_file=tmp_in_path,
+                            output_file=None, # We get results in return
+                            ref_field=ref_col,
+                            hyp_field=hyp_col,
+                            source_dataset_field=src_col if src_col else "source_dataset", # Handle None
+                            audio_path_field="file_path" # Default or mapping if you have it
+                        )
+                        
+                        # --- 2. AGGREGATION ---
+                        agg_stats = compute_aggregate_metrics(detailed_results)
+                        
+                        # --- 3. DISPLAY TABLE ---
+                        table_rows = []
+                        def get_row_data(name, metrics):
+                            return {
+                                "Dataset": name,
+                                "WER": f"{metrics['word']['error_rate']:.2%}",
+                                "PER": f"{metrics['punctuation']['error_rate']:.2%}",
+                                "NER": f"{metrics['numeral']['error_rate']:.2%}",
+                                "Sandhi Count": metrics['word']['sandhi_splits'] + metrics['word']['sandhi_merges']
+                            }
+                        
+                        table_rows.append(get_row_data("OVERALL", agg_stats["overall"]))
+                        for source, metrics in agg_stats["by_dataset"].items():
+                            # Filter out "Unknown" if we have other valid sources
+                            if source != "Unknown" or len(agg_stats["by_dataset"]) > 1:
+                                table_rows.append(get_row_data(source, metrics))
+                        
+                        st.dataframe(pd.DataFrame(table_rows), hide_index=True, use_container_width=True)
+
+                        # --- 4. DOWNLOADS ---
+                        d_col1, d_col2 = st.columns(2)
+                        
+                        # Detailed JSONL
+                        jsonl_str = "\n".join([json.dumps(r, ensure_ascii=False) for r in detailed_results])
+                        d_col1.download_button("📥 Download Detailed JSONL", jsonl_str, "evaluation_detailed.jsonl", "application/json", use_container_width=True)
+                        
+                        # Summary TXT
+                        summary_txt = f"{'DATASET':<20} | {'WER':<8} | {'PER':<8} | {'NER':<8} | {'SANDHI'}\n" + "-"*65 + "\n"
+                        def format_txt_row(name, m):
+                            s = m['word']['sandhi_splits'] + m['word']['sandhi_merges']
+                            return f"{name:<20} | {m['word']['error_rate']:8.2%} | {m['punctuation']['error_rate']:8.2%} | {m['numeral']['error_rate']:8.2%} | {s:<4}\n"
+                        
+                        summary_txt += format_txt_row("OVERALL", agg_stats["overall"]) + "-"*65 + "\n"
+                        for source, metrics in agg_stats["by_dataset"].items():
+                            summary_txt += format_txt_row(source, metrics)
+
+                        d_col2.download_button("📄 Download Summary TXT", summary_txt, "evaluation_summary.txt", "text/plain", use_container_width=True)
+                        
+                    finally:
+                        # Cleanup temp file
+                        if os.path.exists(tmp_in_path):
+                            os.unlink(tmp_in_path)
+        # 3. INDIVIDUAL RECORD ANALYSIS (Below)
+        st.markdown("### 🔍 Individual Record Analysis")
+        
+        # Create a display list for the selectbox
+        def format_option(i, r):
+            source_tag = f"[{r.get(src_col, 'N/A')}] " if src_col else ""
+            text_preview = r.get(ref_col, '')[:100]
+            return f"{i+1}. {source_tag}{text_preview}..."
+
+        display_options = [format_option(i, r) for i, r in enumerate(records)]
+        
+        sel_idx = st.selectbox("Select a record to visualize:", range(len(records)), format_func=lambda x: display_options[x], label_visibility="collapsed")
+        
+        selected_record = records[sel_idx]
+        selected_ref = selected_record.get(ref_col, "")
+        selected_hyp = selected_record.get(hyp_col, "")
+
+        # 4. RENDER ANALYSIS
+        if selected_ref and selected_hyp:
+            render_analysis(selected_ref, selected_hyp, weights)

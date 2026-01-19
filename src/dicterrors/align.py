@@ -99,16 +99,13 @@ def check_sandhi_match(combined_words, single_text, weights):
     boundary_start = len(s1)
     boundary_end = len(single_text) - len(s4)
     boundary_region = single_text[boundary_start:boundary_end]
-    print("joint boundary:", boundary_region)
     
     # The boundary from the split words is s2+s3 (a+k)
     split_boundary = s2 + s3
-    print("split boundary:", split_boundary)
 
     
     # Calculate Levenshtein distance between the boundary regions
     boundary_dist = levenshtein_distance(split_boundary, boundary_region)
-    print("boundary_dist:", boundary_dist)
     
     # If the boundary distance is within threshold, it's a valid sandhi match
     sandhi_threshold = weights.get('sandhi_threshold')
