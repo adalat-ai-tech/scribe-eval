@@ -100,9 +100,9 @@ def token_error_rates(aligned_ref, aligned_hyp):
                     num_sub += 1
 
     # Calculate error rates
-    wer = (word_sub + word_ins + word_del) / max(1, word_total) if word_total > 0 else 0
-    per = (punct_sub + punct_ins + punct_del) / max(1, punct_total) if punct_total > 0 else 0
-    ner = (num_sub + num_ins + num_del) / max(1, num_total) if num_total > 0 else 0
+    wer = (word_sub + word_ins + word_del) / max(1, word_total) 
+    per = (punct_sub + punct_ins + punct_del) / max(1, punct_total) 
+    ner = (num_sub + num_ins + num_del) / max(1, num_total) 
 
       
     report = {
