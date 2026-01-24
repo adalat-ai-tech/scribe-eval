@@ -1,29 +1,30 @@
-from dicterrors import  compute_sample_errors, compute_aggregate_metrics, print_evaluation_summary
-import json
-from collections import defaultdict
-from tabulate import tabulate
+import os
 import sys
-import argparse
+from dicterrors import (
+    compute_sample_errors, 
+    compute_aggregate_metrics, 
+    print_evaluation_summary
+)
 
-# --- Usage Example ---
-if __name__ == "__main__":
-    # 1. Load your sample results (mocking loading from the function you wrote)
-    results = compute_sample_errors("./dictation-eval/predictions.jsonl", output_file = "./dictation-eval/evaluation-detailed.jsonl", ref_field = "transcript_cleaned", hyp_field = "prediction", source_dataset_field = "source_dataset", audio_path_field = "file_path") 
-    
-    # # Mock data for demonstration
-    # results = [
-    #     {"source_dataset": "None", "detailed_report": {"word": {"substitutions": 1, "insertions": 0, "deletions": 0, "total_reference": 10}, "punctuation": {"substitutions":0, "insertions":0, "deletions":0, "total_reference":2}, "numeral": {"substitutions":0, "insertions":0, "deletions":0, "total_reference":0}}},
-    #     {"source_dataset": "court_A", "detailed_report": {"word": {"substitutions": 2, "insertions": 1, "deletions": 0, "total_reference": 20}, "punctuation": {"substitutions":1, "insertions":0, "deletions":0, "total_reference":5}, "numeral": {"substitutions":0, "insertions":0, "deletions":0, "total_reference":0}}},
-    #     {"source_dataset": "court_B", "detailed_report": {"word": {"substitutions": 0, "insertions": 0, "deletions": 0, "total_reference": 5}, "punctuation": {"substitutions":0, "insertions":0, "deletions":0, "total_reference":1}, "numeral": {"substitutions":0, "insertions":0, "deletions":0, "total_reference":0}}}
-    # ]
+def main():
+    input_file = "./dictation-eval/predictions.jsonl"
+    output_dir = "./dictation-eval"
+    os.makedirs(output_dir, exist_ok=True)
 
-    # 2. Compute Aggregates
-    agg_stats = compute_aggregate_metrics(results)
+    # 1. Run analysis
+    results = compute_sample_errors(input_file)
     
-    # 3. Print
-    with open("./dictation-eval/evaluation-summary.txt", "w") as f:
-        import sys
-        old_stdout = sys.stdout
+    # 2. Aggregate with dataset splits
+    metrics = compute_aggregate_metrics(results)
+    
+    # 3. Output to console
+    print_evaluation_summary(metrics)
+    
+    # 4. Save to file for the paper appendix
+    with open(f"{output_dir}/summary_report.txt", "w", encoding="utf-8") as f:
         sys.stdout = f
-        print_evaluation_summary(agg_stats)
-        sys.stdout = old_stdout
+        print_evaluation_summary(metrics)
+        sys.stdout = sys.__stdout__ # Reset
+
+if __name__ == "__main__":
+    main()

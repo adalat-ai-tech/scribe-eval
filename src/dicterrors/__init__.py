@@ -1,4 +1,33 @@
-from .align import align_arrays, align_text, DEFAULT_WEIGHTS, is_number, is_word, is_punctuation
-from .tokenize import tokenizer
-from .measure import token_error_rates, text_error_rates
-from .measure_batch import compute_sample_errors, compute_aggregate_metrics, print_evaluation_summary
+"""
+DictErrors: A specialized evaluation framework for Indic language ASR 
+with support for legal-domain entity shielding and Sandhi-aware alignment.
+"""
+
+# --- Categories & Tokenization ---
+from .tokenize import (
+    legal_aware_tokenizer,
+    CAT_WORD,
+    CAT_PUNCT,
+    CAT_NUMERAL,
+    CAT_LEGAL
+)
+
+# --- Alignment Logic ---
+from .align import (
+    align_arrays, 
+    DEFAULT_WEIGHTS
+)
+
+# --- Measurement & Error Rates ---
+from .measure import (
+    token_error_rates, 
+    text_error_rates
+)
+
+# --- Batch Processing & Reporting ---
+from .measure_batch import (
+    compute_sample_errors, 
+    compute_aggregate_metrics, 
+    print_evaluation_summary
+)
+
