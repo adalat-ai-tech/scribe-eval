@@ -64,9 +64,9 @@ def inject_custom_css():
         
         .metrics-container { border: 1px solid rgba(128, 128, 128, 0.3); border-radius: 10px; padding: 15px; background-color: rgba(250, 250, 250, 0.8); color: rgba(0, 0, 0, 0.87); }
         .metric-value { font-size: 24px; font-weight: bold; color: #1e88e5; }
-        .metric-legal { color: #1a237e; border-left: 5px solid #1a237e; padding-left: 10px; margin: 10px 0; }
+        .metric-legal { color: #1a237e; margin: 10px 0; }
         .jiwer-metric { color: #9c27b0; }
-        .metric-secondary { font-size: 16px; color: rgba(0, 0, 0, 0.8); }
+        .metric-secondary { font-size: 20px; color: rgba(0, 0, 0, 0.8); }
     </style>
     """, unsafe_allow_html=True)
 
@@ -113,9 +113,10 @@ def render_metrics_comparison(report, jiwer_wer):
         
         st.markdown(f"""
         <div class="metrics-container">
-            <div class="metric-value">WER: {w_rate:.2%}</div>
-            <div class="metric-value metric-legal">LER (Legal): {l_rate:.2%}</div>
-            <div class="metric-secondary">NER: {n_rate:.2%} | PER: {p_rate:.2%}</div>
+            <div class="metric-value">General WER: {w_rate:.2%}</div>
+            <div class="metric-value metric-legal">Legal WER: {l_rate:.2%}</div>
+            <div class="metric-secondary">Numeral WER: {n_rate:.2%}</div>
+            <div class="metric-secondary">Punctuation WER: {p_rate:.2%}</div>
         </div>
         """, unsafe_allow_html=True)
     with mc2:
@@ -152,15 +153,17 @@ inject_custom_css()
 # --- SIDEBAR: WEIGHT TUNING (Restored) ---
 st.sidebar.header("🔧 Penalty Tuning")
 weights = {}
-with st.sidebar.expander("Agglutination & Sandhi", expanded=True):
-    weights['split_merge_penalty'] = st.slider("Split/Merge Penalty", -2.0, 0.0, -0.5, 0.1)
-    weights['sandhi_threshold'] = st.slider("Sandhi Char Tolerance", 0, 5, 2, 1)
 
-with st.sidebar.expander("Category Penalties", expanded=False):
-    weights['gap_penalty'] = st.slider("Gap Penalty", -5.0, 0.0, -1.0, 0.5)
-    weights['mismatch_default'] = st.slider("Sub: Word Base", -5.0, 0.0, -1.0, 0.5)
-    weights['mismatch_cross_punct'] = st.slider("Cross-Category Punct Penalty", -10.0, 0.0, -5.0, 1.0)
-    weights['match_base'] = st.slider("Match Reward", 1.0, 5.0, 3.0, 0.5)
+with st.sidebar.expander("Category Penalties", expanded=True):
+    weights['gap_penalty'] = st.slider("Gap Penalty - General", -5.0, 0.0, DEFAULT_WEIGHTS['gap_penalty'], 0.5)
+    weights['gap_penalty_punct'] = st.slider("Gap Penalty - Punctuation", -5.0, 0.0, DEFAULT_WEIGHTS['gap_penalty_punct'], 0.1)
+    weights['mismatch_default_penalty'] = st.slider("Mismatch Penalty - Default", -5.0, 0.0, DEFAULT_WEIGHTS['mismatch_default_penalty'], 0.5)
+    weights['mismatch_cross_punct_penalty'] = st.slider("Mismatch Penalty - Cross-Category Punct", -10.0, 0.0, DEFAULT_WEIGHTS['mismatch_cross_punct_penalty'], 1.0)
+    weights['match_reward'] = st.slider("Match Reward", 1.0, 5.0, DEFAULT_WEIGHTS['match_reward'], 0.5)
+
+with st.sidebar.expander("Agglutination & Sandhi", expanded=False):
+    weights['split_merge_penalty'] = st.slider("Split/Merge Penalty", -2.0, 0.0, DEFAULT_WEIGHTS['split_merge_penalty'], 0.1)
+    weights['sandhi_char_tolerence'] = st.slider("Sandhi Char Tolerance", 0, 5, DEFAULT_WEIGHTS['sandhi_char_tolerence'], 1)
 
 # --- MAIN INPUT ---
 tab_manual, tab_json = st.tabs(["Manual Inspection", "Batch Dataset Analysis"])

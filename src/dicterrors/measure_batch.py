@@ -2,7 +2,7 @@ from collections import defaultdict
 from .measure import text_error_rates
 import json
 
-def compute_sample_errors(input_file, ref_field="transcript_cleaned", hyp_field="prediction", source_dataset_field="source_dataset"):
+def compute_sample_errors(input_file, ref_field="transcript_cleaned", hyp_field="prediction", source_dataset_field="source_dataset") -> list[dict]:
     results = []
     with open(input_file, "r", encoding="utf-8") as f:
         for line in f:
@@ -16,12 +16,12 @@ def compute_sample_errors(input_file, ref_field="transcript_cleaned", hyp_field=
             results.append(data)
     return results
 
-def _init_stat_dict():
+def _init_stat_dict() -> dict[str, dict[str, int]]:
     # Helper to create the structure for categories
     categories = ["WORD", "PUNCT", "NUMERAL", "LEGAL"]
     return {cat: {"sub": 0, "ins": 0, "del": 0, "total": 0, "sandhi": 0} for cat in categories}
 
-def compute_aggregate_metrics(sample_results):
+def compute_aggregate_metrics(sample_results) -> dict[str, dict[str, dict[str, dict[str, float | int]]]]:
     overall_agg = _init_stat_dict()
     dataset_aggs = defaultdict(_init_stat_dict)
 
@@ -45,14 +45,19 @@ def compute_aggregate_metrics(sample_results):
             dataset_aggs[ds][cat]["sandhi"] += report[cat]["sandhi_hits"]
 
     def calculate_rates(agg):
+        # Calculate combined denominator across ALL categories
+        combined_total = (agg["WORD"]["total"] + agg["LEGAL"]["total"] +
+                          agg["NUMERAL"]["total"] + agg["PUNCT"]["total"])
+
         metrics = {}
         for cat in agg:
             a = agg[cat]
             errs = a["sub"] + a["ins"] + a["del"]
             metrics[cat] = {
-                "error_rate": errs / max(1, a["total"]),
+                "error_rate": errs / max(1, combined_total),  # Combined denominator
                 "sandhi_hits": a["sandhi"],
-                "total": a["total"]
+                "total": a["total"],
+                "combined_total": combined_total  # Store for reference
             }
         return metrics
 
@@ -61,7 +66,7 @@ def compute_aggregate_metrics(sample_results):
         "by_dataset": {ds: calculate_rates(stats) for ds, stats in dataset_aggs.items()}
     }
 
-def print_evaluation_summary(agg_results):
+def print_evaluation_summary(agg_results) -> None:
     def print_row(name, m):
         # We display WER (WORD), LER (LEGAL), NER (NUMERAL), and Total Sandhi
         wer = m['WORD']['error_rate']

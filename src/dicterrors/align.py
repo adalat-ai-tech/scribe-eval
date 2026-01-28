@@ -8,35 +8,42 @@ CAT_LEGAL = "LEGAL"
 
 # --- SCORING CONFIGURATION ---
 DEFAULT_WEIGHTS = {
-    'gap_penalty': -1.0,
-    'match_base': 3.0,
-    'mismatch_default': -1,
-    'mismatch_cross_punct': -2.0, # High penalty for aligning e.g. a Law term with a Punctuation
+    'gap_penalty': -2.5,              # Gap penalty for words, legal terms, numerals
+    'gap_penalty_punct': -1.2,        # Gap penalty for punctuation (lighter penalty)
+    'match_reward': 3.0,
+    'mismatch_default_penalty': -1.5,
+    'mismatch_cross_punct_penalty': -3.0, # High penalty for aligning e.g. a Law term with a Punctuation
     'split_merge_penalty': -0.5,     # Small penalty for Sandhi logic
-    'sandhi_threshold': 2            # Max character diff for Sandhi
+    'sandhi_char_tolerence': 2            # Max character diff for Sandhi
 }
 
-def levenshtein_distance(s1, s2):
+def levenshtein_distance(s1, s2) -> int:
     return levenshtein.distance(s1, s2)
 
-def get_match_score(w1, w2, weights=DEFAULT_WEIGHTS):
+def get_gap_penalty(tag, weights=DEFAULT_WEIGHTS) -> float:
+    """Returns the appropriate gap penalty based on token category."""
+    if tag == CAT_PUNCT:
+        return weights.get('gap_penalty_punct', weights['gap_penalty'])
+    return weights['gap_penalty']
+
+def get_match_score(w1, w2, weights=DEFAULT_WEIGHTS) -> float:
     # Normalized reward: Match base + character similarity
     dist = levenshtein_distance(w1, w2)
     length = max(len(w1), len(w2), 1)
-    return weights['match_base'] + (1.0 - dist/length)
+    return weights['match_reward'] + (1.0 - dist*2/length)
 
-def get_mismatch_penalty(w1, t1, w2, t2, weights=DEFAULT_WEIGHTS):
+def get_mismatch_penalty(w1, t1, w2, t2, weights=DEFAULT_WEIGHTS) -> float:
     # If categories are different, apply a heavy penalty
     if t1 != t2:
         if t1 == CAT_PUNCT or t2 == CAT_PUNCT:
-            return weights['mismatch_cross_punct']
-        return weights['mismatch_cross_punct']
+            return weights['mismatch_cross_punct_penalty']
+        return weights['mismatch_cross_punct_penalty']
     
     # For mismatch between other categories, penalty based on string distance
     dist = levenshtein_distance(w1, w2)
-    return weights['mismatch_default'] - (dist * 0.5)
+    return weights['mismatch_default_penalty'] - (dist * 0.5)
 
-def check_sandhi_match(combined_words, single_text, weights):
+def check_sandhi_match(combined_words, single_text, weights) -> float:
     """Checks if two words (split) equal one word (merge) with Sandhi rules."""
     if len(combined_words) != 2: return -float('inf')
     
@@ -54,13 +61,13 @@ def check_sandhi_match(combined_words, single_text, weights):
     split_boundary = s2 + s3
     
     dist = levenshtein_distance(split_boundary, boundary_region)
-    if dist <= weights.get('sandhi_threshold', 2):
-        score = weights['match_base'] + weights['split_merge_penalty']
+    if dist <= weights.get('sandhi_char_tolerence', 2):
+        score = weights['match_reward'] + weights['split_merge_penalty']
         return score - (dist / len(single_text))
     
     return -float('inf')
 
-def align_arrays(arr1, tags1, arr2, tags2, weights=None):
+def align_arrays(arr1, tags1, arr2, tags2, weights=None) -> tuple[list[tuple[str, str]], list[tuple[str, str]], float]:
     if weights is None: weights = DEFAULT_WEIGHTS
 
     m, n = len(arr1), len(arr2)
@@ -69,9 +76,9 @@ def align_arrays(arr1, tags1, arr2, tags2, weights=None):
 
     # Initialize gaps
     for i in range(1, m + 1):
-        dp[i][0] = dp[i-1][0] + weights['gap_penalty']
+        dp[i][0] = dp[i-1][0] + get_gap_penalty(tags1[i-1], weights)
     for j in range(1, n + 1):
-        dp[0][j] = dp[0][j-1] + weights['gap_penalty']
+        dp[0][j] = dp[0][j-1] + get_gap_penalty(tags2[j-1], weights)
 
     # Fill DP
     for i in range(1, m + 1):
@@ -84,9 +91,9 @@ def align_arrays(arr1, tags1, arr2, tags2, weights=None):
                 score = get_mismatch_penalty(arr1[i-1], tags1[i-1], arr2[j-1], tags2[j-1], weights)
             match_val = dp[i-1][j-1] + score
 
-            # 2. Standard Indel
-            del_val = dp[i-1][j] + weights['gap_penalty']
-            ins_val = dp[i][j-1] + weights['gap_penalty']
+            # 2. Standard Indel (Category-aware gap penalties)
+            del_val = dp[i-1][j] + get_gap_penalty(tags1[i-1], weights)
+            ins_val = dp[i][j-1] + get_gap_penalty(tags2[j-1], weights)
 
             # 3. Sandhi Split/Merge (Only for CAT_WORD)
             split_val = merge_val = -float('inf')
@@ -138,8 +145,8 @@ def align_arrays(arr1, tags1, arr2, tags2, weights=None):
                 aligned_hyp.append((arr2[j-1], tags2[j-1]))
                 i -= 1; j -= 1; continue
 
-        # Trace Gaps
-        if i > 0 and is_close(dp[i-1][j] + weights['gap_penalty']):
+        # Trace Gaps (Category-aware)
+        if i > 0 and is_close(dp[i-1][j] + get_gap_penalty(tags1[i-1], weights)):
             aligned_ref.append((arr1[i-1], tags1[i-1]))
             aligned_hyp.append(("**", "GAP"))
             i -= 1

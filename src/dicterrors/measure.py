@@ -1,7 +1,7 @@
 from .tokenize import legal_aware_tokenizer
 from .align import align_arrays
 
-def token_error_rates(aligned_ref, aligned_hyp):
+def token_error_rates(aligned_ref, aligned_hyp) -> dict[str, dict[str, float | int]]:
     """
     aligned_ref: list of (text, tag)
     aligned_hyp: list of (text, tag)
@@ -45,11 +45,18 @@ def token_error_rates(aligned_ref, aligned_hyp):
             curr["sub"] += 1
 
     # Final calculations for the report
+    # Calculate combined denominator across ALL categories
+    combined_total = (stats["WORD"]["total"] + stats["LEGAL"]["total"] +
+                      stats["NUMERAL"]["total"] + stats["PUNCT"]["total"])
+
     report = {}
     for cat in categories:
         s = stats[cat]
         errors = s["sub"] + s["ins"] + s["del"]
-        rate = errors / max(1, s["total"])
+
+        # Use combined denominator for all categories
+        rate = errors / max(1, combined_total)
+
         report[cat] = {
             "error_rate": rate,
             "substitutions": s["sub"],
@@ -57,12 +64,13 @@ def token_error_rates(aligned_ref, aligned_hyp):
             "deletions": s["del"],
             "correct": s["cor"],
             "total_ref": s["total"],
-            "sandhi_hits": s["sandhi"]
+            "sandhi_hits": s["sandhi"],
+            "combined_total": combined_total  # Store for transparency
         }
-    
+
     return report
 
-def text_error_rates(ref_text, hyp_text):
+def text_error_rates(ref_text, hyp_text) -> dict[str, dict[str, float | int]]:
     t1, g1 = legal_aware_tokenizer(ref_text)
     t2, g2 = legal_aware_tokenizer(hyp_text)
     aligned_ref, aligned_hyp, _ = align_arrays(t1, g1, t2, g2)

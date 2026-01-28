@@ -6,13 +6,13 @@ CAT_PUNCT = "PUNCT"
 CAT_NUMERAL = "NUMERAL"
 CAT_LEGAL = "LEGAL"
 
-def legal_aware_tokenizer(text: str):
+def legal_aware_tokenizer(text: str) -> tuple[list[str], list[str]]:
     if not text:
         return [], []
 
     # 1. Define patterns using non-capturing groups (?:...) 
     # This ensures re.findall returns the whole match as a string, not a tuple.
-    legal_inner = r'u/s|r/w|w\.p\.|o\.s\.|no\.|v\.|vs\.|art\.|sec\.'
+    legal_inner = r'u/s|r/w|w\.p\.|o\.s\.|no\.|v\.|vs\.|art\.|sec\.|PW|CW'
     num_inner = r'\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{1,2}:\d{2}|\d+(?:,\d+)*(?:\.\d+)?'
     
     # We create separate patterns for classification later

@@ -10,11 +10,13 @@ DictErrors is a specialized tool for analyzing and evaluating speech recognition
   - High negative score for substituting punctuations with words or numbers.
   - Character aware substitutions
 - **Specialized Error Rates**:
-  - **Word Error Rate (WER)**: Measures errors in word tokens
-  - **Punctuation Error Rate (PER)**: Specifically analyzes punctuation errors
+  - **Word Error Rate (WER)**: Measures errors in general word tokens
+  - **Legal Error Rate (LER)**: Tracks errors in English legal abbreviations (u/s, r/w, sec., etc.)
   - **Numeral Error Rate (NER)**: Focuses on numerical token errors
+  - **Punctuation Error Rate (PER)**: Specifically analyzes punctuation errors
+- **Normalized Error Reporting**: Uses combined denominator across all categories to provide contextually meaningful error rates that account for class imbalance
 - **Detailed Error Reports**: Generates comprehensive reports with substitutions, insertions, and deletions for each category
-- **Language-Specific Tokenization**: Provides specialized tokenizers for Indic languages
+- **Language-Specific Tokenization**: Handles Indic scripts with English legal entity detection
 
 ## Installation
 
@@ -31,9 +33,28 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv pip install -e .
 ```
 
-## Algorithm Overview
+## Key Concepts
 
-The alignment algorithm uses a modified version of the Needleman-Wunsch algorithm with specialized scoring functions to handle different token types (words, punctuation, and numbers) in Indic languages. The error rates are calculated by comparing the aligned tokens and categorizing them based on token type.
+### Token Categories
+
+Tokens are classified into four categories:
+- **WORD**: General words (both Indic and English)
+- **LEGAL**: English legal abbreviations (u/s, r/w, w.p., o.s., sec., art., v., vs., PW, CW)
+- **NUMERAL**: Numeric tokens including dates, times, and currency (123, 10:30, 22.05.2023)
+- **PUNCT**: Punctuation marks
+
+### Normalized Error Rates
+
+Error rates are calculated using a combined denominator (sum of all token categories) to provide contextually meaningful metrics. This prevents misleading error rates for sparse categories (e.g., a single legal entity error doesn't show as 100% error rate).
+
+**Formula:** Error Rate = (Category Errors) / (Total WORD + LEGAL + NUMERAL + PUNCT tokens)
+
+### Alignment Algorithm
+
+Uses a modified Needleman-Wunsch algorithm with:
+- Token-type-aware scoring (high penalties for cross-category substitutions)
+- Character-aware edit distance for within-category substitutions
+- Support for Sandhi correction tracking (merged/split word handling)
 
 ## Dependencies
 
@@ -125,29 +146,119 @@ uv run error_report.py
 
 ### Batch Evaluation
 
-
 ```bash
 cd examples
 uv run batch_evaluate.py
 ```
 
-The batch_evaluate.py script will generate a report in the `dictation-eval` directory.
+Processes multiple samples from a JSONL file and outputs aggregate metrics:
 
-## Interactive Front-end
+```
+=====================================================================================
+DATASET                   |      WER |      LER |      NER |      PER | SANDHI
+-------------------------------------------------------------------------------------
+OVERALL                   |    4.30% |    0.32% |    1.03% |    2.94% |      7
+-------------------------------------------------------------------------------------
+adalat-ai/Kathbath        |   10.53% |    0.00% |    0.00% |   14.04% |      2
+adalat-ai/ulca-ml         |    3.23% |    0.00% |    0.00% |    6.45% |      3
+master-audio              |    3.72% |    0.50% |    1.36% |    1.98% |      0
+...
+=====================================================================================
+```
+
+## Testing
+
+The project includes comprehensive test suites to verify correctness:
+
+### Basic Functionality Test
+
+```bash
+python test_combined_denominator.py
+```
+
+Verifies that error rates are calculated correctly with known test values. Tests the core calculation logic with a controlled example (100 WORD, 1 LEGAL, 10 NUMERAL, 15 PUNCT tokens).
+
+### Edge Case Tests
+
+```bash
+python test_edge_cases.py
+```
+
+Validates the system handles corner cases correctly:
+- Zero tokens in some categories (e.g., no legal entities in text)
+- Only one category has tokens
+- Empty samples (no tokens at all)
+- Large class imbalance (10,000:1:5:50 ratio)
+- Insertions and deletions
+
+### Batch Aggregation Test
+
+```bash
+python test_batch_aggregation.py
+```
+
+Ensures that metrics aggregate correctly across multiple samples and datasets, verifying both overall and per-dataset statistics use the combined denominator approach.
+
+## Interactive Visualization
 
 ```bash
 streamlit run visualizer.py
 ```
 
-Generates a web interface for interactive alignment visualization and error analysis.
+Launches a web-based interface with two main tabs:
+
+### 1. Manual Inspection Tab
+
+- Enter reference and hypothesis text directly
+- View color-coded token alignment:
+  - ✅ Green: Correct matches
+  - ❌ Red: Errors (substitutions, insertions, deletions)
+  - 🔄 Blue: Sandhi corrections (merged/split words)
+- See category-specific error rates (WER, LER, NER, PER)
+- Compare with baseline jiwer WER
+
+### 2. Batch Dataset Analysis Tab
+
+Upload a JSONL file with multiple samples to get:
+
+**Overall Metrics:**
+- Aggregate error rates across entire dataset
+- Visual comparison with baseline WER
+- Category-specific breakdown with Sandhi hit counts
+
+**Per-Dataset Breakdown:**
+- Table showing WER, LER, NER, PER for each source dataset
+- Sandhi correction statistics
+
+**Individual Record Inspection:**
+- Dropdown to select specific samples
+- Detailed alignment visualization for each record
+- Error analysis at token level
+
+**Features:**
+- Color-coded alignment visualization
+- Token category highlighting (WORD, LEGAL, NUMERAL, PUNCT)
+- Error type indicators (substitution, insertion, deletion)
+- Sandhi correction tracking
 
 
-## TODO
-- Define a generic tokenizer with language specific features
-- Add language code as a parameter to tokenizer
-- Add a token-type tag to each token <word>, <punctuation>, <numeral> <abbreviation> etc
-- Improve the token-type based scoring function
-- Add provision to report CER in case of substitutions (It is already character aware)
+## Current Status
+
+### ✅ Implemented
+- Token categorization (WORD, LEGAL, NUMERAL, PUNCT)
+- English legal abbreviation detection (u/s, r/w, sec., etc.)
+- Normalized error rates with combined denominator
+- Sandhi correction tracking (merged/split words)
+- Interactive visualization with Streamlit
+- Batch evaluation with dataset-level aggregation
+- Comprehensive test suite
+
+### 🚧 TODO
+- Indic language legal entity detection (धारा, आईपीसी, अनुच्छेद, etc.)
+- Generic tokenizer with configurable language-specific features
+- Language code parameter for tokenizer
+- Extended legal entity patterns (case citations, acts, regulations)
+- Character Error Rate (CER) reporting for substitutions
 
 
 ## Acknowledgements
