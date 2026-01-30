@@ -3,7 +3,7 @@ from .measure import text_error_rates
 from .reporting import format_dataset_table
 import json
 
-def compute_sample_errors(input_file, ref_field="transcript_cleaned", hyp_field="prediction", source_dataset_field="source_dataset") -> list[dict]:
+def compute_sample_errors(input_file, output_file=None, ref_field="transcript_cleaned", hyp_field="prediction", source_dataset_field="source_dataset") -> list[dict]:
     results = []
     with open(input_file, "r", encoding="utf-8") as f:
         for line in f:
@@ -11,10 +11,17 @@ def compute_sample_errors(input_file, ref_field="transcript_cleaned", hyp_field=
             # Ensure we have a source_dataset field
             if source_dataset_field not in data:
                 data[source_dataset_field] = "unknown"
-                
+
             report = text_error_rates(data[ref_field], data[hyp_field])
             data["detailed_report"] = report
             results.append(data)
+
+    # Save detailed results if output file is specified
+    if output_file:
+        with open(output_file, "w", encoding="utf-8") as f:
+            for result in results:
+                f.write(json.dumps(result, ensure_ascii=False) + "\n")
+
     return results
 
 def _init_stat_dict() -> dict[str, dict[str, int]]:

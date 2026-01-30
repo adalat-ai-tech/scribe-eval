@@ -12,7 +12,10 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
 
     # 1. Run analysis
-    results = compute_sample_errors(input_file)
+    results = compute_sample_errors(
+        input_file,
+        output_file=f"{output_dir}/evaluation-detailed.jsonl"
+    )
     
     # 2. Aggregate with dataset splits
     metrics = compute_aggregate_metrics(results)
