@@ -7,14 +7,15 @@ import jiwer
 import tempfile
 from pathlib import Path
 from dicterrors import (
-    legal_aware_tokenizer, 
-    align_arrays, 
-    token_error_rates, 
-    compute_aggregate_metrics, 
+    legal_aware_tokenizer,
+    align_arrays,
+    token_error_rates,
+    compute_aggregate_metrics,
     compute_sample_errors,
     DEFAULT_WEIGHTS,
     CAT_WORD, CAT_PUNCT, CAT_NUMERAL, CAT_LEGAL
 )
+from dicterrors.reporting import format_dataset_table
 
 def parse_data(content_list):
     """Handles both JSON (list of dicts) and JSONL (line by line)."""
@@ -247,16 +248,9 @@ with tab_json:
                     
                     # 3. Dataset Breakdown Table
                     st.write("#### Per-Dataset Breakdown")
-                    table_data = []
-                    for ds, m in agg['by_dataset'].items():
-                        table_data.append({
-                            "Dataset": ds, 
-                            "WER": f"{m['WORD']['error_rate']:.2%}", 
-                            "LER": f"{m['LEGAL']['error_rate']:.2%}",
-                            "NER": f"{m['NUMERAL']['error_rate']:.2%}", 
-                            "PER": f"{m['PUNCT']['error_rate']:.2%}", 
-                            "Sandhi": m['WORD']['sandhi_hits']
-                        })
+                    table_data = format_dataset_table(agg)
+                    # Remove OVERALL row for display (already shown above)
+                    table_data = [row for row in table_data if row['Dataset'] != 'OVERALL']
                     st.table(pd.DataFrame(table_data))
                     
                     # Save results to session state for individual inspection

@@ -1,5 +1,6 @@
 from collections import defaultdict
 from .measure import text_error_rates
+from .reporting import format_dataset_table
 import json
 
 def compute_sample_errors(input_file, ref_field="transcript_cleaned", hyp_field="prediction", source_dataset_field="source_dataset") -> list[dict]:
@@ -67,25 +68,16 @@ def compute_aggregate_metrics(sample_results) -> dict[str, dict[str, dict[str, d
     }
 
 def print_evaluation_summary(agg_results) -> None:
-    def print_row(name, m):
-        # We display WER (WORD), LER (LEGAL), NER (NUMERAL), and Total Sandhi
-        wer = m['WORD']['error_rate']
-        ler = m['LEGAL']['error_rate']
-        ner = m['NUMERAL']['error_rate']
-        per = m['PUNCT']['error_rate']
-        sandhi = m['WORD']['sandhi_hits'] # Most sandhi is in word category
-        
-        print(f"{name:<25} | {wer:>8.2%} | {ler:>8.2%} | {ner:>8.2%} | {per:>8.2%} | {sandhi:>6}")
+    table_data = format_dataset_table(agg_results)
 
     print("\n" + "="*85)
     print(f"{'DATASET':<25} | {'WER':>8} | {'LER':>8} | {'NER':>8} | {'PER':>8} | {'SANDHI'}")
     print("-" * 85)
-    
-    # Print Overall
-    print_row("OVERALL", agg_results["overall"])
-    print("-" * 85)
-    
-    # Print individual datasets
-    for ds, metrics in agg_results["by_dataset"].items():
-        print_row(ds, metrics)
+
+    for row in table_data:
+        is_overall = row['Dataset'] == 'OVERALL'
+        print(f"{row['Dataset']:<25} | {row['WER']:>8} | {row['LER']:>8} | {row['NER']:>8} | {row['PER']:>8} | {row['Sandhi']:>6}")
+        if is_overall:
+            print("-" * 85)
+
     print("="*85 + "\n")

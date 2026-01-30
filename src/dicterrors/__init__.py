@@ -26,8 +26,16 @@ from .measure import (
 
 # --- Batch Processing & Reporting ---
 from .measure_batch import (
-    compute_sample_errors, 
-    compute_aggregate_metrics, 
+    compute_sample_errors,
+    compute_aggregate_metrics,
     print_evaluation_summary
+)
+
+# --- Report Formatting ---
+from .reporting import (
+    format_metrics_dict,
+    format_dataset_table,
+    format_error_counts_table,
+    format_alignment_table
 )
 
