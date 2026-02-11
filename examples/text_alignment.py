@@ -33,12 +33,6 @@ def print_alignment(text1, text2, aligned1, aligned2, score):
     text2_tokens = [t[0] for t in aligned2]
 
     print("Text 1:", " | ".join(f"{w:>15}" for w in text1_tokens))
-
-    # Match indicators
-    matches = ["✓" if t1[0] == t2[0] and t1[0] != "**" else "✗" if t1[0] != "**" and t2[0] != "**" else " "
-               for t1, t2 in zip(aligned1, aligned2)]
-    print("Match: ", " | ".join(f"{m:>15}" for m in matches))
-
     print("Text 2:", " | ".join(f"{w:>15}" for w in text2_tokens))
     print("\n")
 

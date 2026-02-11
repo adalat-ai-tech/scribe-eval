@@ -201,54 +201,16 @@ uv run text_alignment.py
 ```
 
 ```bash
-=== MALAYALAM EXAMPLE ===
+No text arguments provided. Using default examples...
+
+=== MALAYALAM EXAMPLE 1 ===
 Original texts:
-Text 1: പണം അക്കൗണ്ടിൽ എത്തിയപ്പോൾ ആദ്യ, ഗഡുവായി 180000 രൂപയായി നൽകിയത്.
-Text 2: പണം അക്കൗണ്ടിൽ എത്തിയപ്പോൾ, ആദ്യ ഘടുവായി 180000 രൂപയാണ് നൽകിയത്:
+Text 1: ആദ്യഗഡുവായി 180000 രൂപയായി നൽകിയത്.
+Text 2: ആദ്യ ഗഡുവായി 180000 രൂപയായി നൽകിയത്:
 
-Alignment (score: 9.0):
-Text 1:        പണം | അക്കൗണ്ടിൽ | എത്തിയപ്പോൾ |         ** |       ആദ്യ |          , |    ഗഡുവായി |     180000 |    രൂപയായി |    നൽകിയത് |          .
-Match:           ✓ |          ✓ |          ✓ |            |          ✓ |            |          ✗ |          ✓ |          ✗ |          ✓ |          ✗
-Text 2:        പണം | അക്കൗണ്ടിൽ | എത്തിയപ്പോൾ |          , |       ആദ്യ |         ** |    ഘടുവായി |     180000 |    രൂപയാണ് |    നൽകിയത് |          :
-
-
-
-=== KANNADA EXAMPLE ===
-Original texts:
-Text 1: 10 ವರ್ಷವಾದ ಮಕ್ಕಳಿಗೆ ಅದರ ಒಂದು ಸ್ವಲ್ಪ ಜ್ಞಾನ ಮನವರಿಕೆ ಒಂದು ಪ್ರಾರಂಭ ಆಗುತ್ತದೆ।
-Text 2: ಹತ್ತು ವರ್ಷವಾದ ಮಕ್ಕಳಿಗೆ ಅದರ ಒಂದು ಸ್ವಲ್ಪ ಜ್ಞಾನ ಮನವರಿಕೆ ಒಂದು ಪ್ರಾರಂಭ ಆಗುತ್ತದೆ.
-
-Alignment (score: 19.5):
-Text 1:         ** |         10 |    ವರ್ಷವಾದ |   ಮಕ್ಕಳಿಗೆ |        ಅದರ |       ಒಂದು |     ಸ್ವಲ್ಪ |      ಜ್ಞಾನ |    ಮನವರಿಕೆ |       ಒಂದು |    ಪ್ರಾರಂಭ |  ಆಗುತ್ತದೆ। |         **
-Match:             |            |          ✓ |          ✓ |          ✓ |          ✓ |          ✓ |          ✓ |          ✓ |          ✓ |          ✓ |          ✗ |           
-Text 2:      ಹತ್ತು |         ** |    ವರ್ಷವಾದ |   ಮಕ್ಕಳಿಗೆ |        ಅದರ |       ಒಂದು |     ಸ್ವಲ್ಪ |      ಜ್ಞಾನ |    ಮನವರಿಕೆ |       ಒಂದು |    ಪ್ರಾರಂಭ |   ಆಗುತ್ತದೆ |          .
-
-
-
-
-
-=== ENGLISH EXAMPLE ===
-Original texts:
-Text 1: The brown quick fox jumps over the lazy dogs.
-Text 2: The bron fox jumps over a lazy, dog
-
-Alignment (score: 1.5):
-Text 1:        The |      brown |      quick |        fox |      jumps |       over |        the |       lazy |         ** |       dogs |          .
-Match:           ✓ |          ✗ |            |          ✓ |          ✓ |          ✓ |          ✗ |          ✓ |            |          ✗ |           
-Text 2:        The |       bron |         ** |        fox |      jumps |       over |          a |       lazy |          , |        dog |         **
-
-
-
-=== ENGLISH EXAMPLE ===
-Original texts:
-Text 1: The quick brown fox jumps over the lazy dog.
-Text 2: The bron fox jumps over a lazy dog
-
-Alignment (score: 7.5):
-Text 1:        The |      quick |      brown |        fox |      jumps |       over |        the |       lazy |        dog |          .
-Match:           ✓ |            |          ✗ |          ✓ |          ✓ |          ✓ |          ✗ |          ✓ |          ✓ |           
-Text 2:        The |         ** |       bron |        fox |      jumps |       over |          a |       lazy |        dog |         **
-
+Alignment (score: 12.5):
+Text 1:     ആദ്യഗഡുവായി |          180000 |         രൂപയായി |         നൽകിയത് |               .
+Text 2: SPLIT:ആദ്യ ഗഡുവായി |          180000 |         രൂപയായി |         നൽകിയത് |               :
 ```
 
 ### Error Analysis
@@ -279,39 +241,6 @@ master-audio              |    3.72% |    0.50% |    1.36% |    1.98% |      0
 ...
 =====================================================================================
 ```
-
-## Testing
-
-The project includes comprehensive test suites to verify correctness:
-
-### Basic Functionality Test
-
-```bash
-python test_combined_denominator.py
-```
-
-Verifies that error rates are calculated correctly with known test values. Tests the core calculation logic with a controlled example (100 WORD, 1 LEGAL, 10 NUMERAL, 15 PUNCT tokens).
-
-### Edge Case Tests
-
-```bash
-python test_edge_cases.py
-```
-
-Validates the system handles corner cases correctly:
-- Zero tokens in some categories (e.g., no legal entities in text)
-- Only one category has tokens
-- Empty samples (no tokens at all)
-- Large class imbalance (10,000:1:5:50 ratio)
-- Insertions and deletions
-
-### Batch Aggregation Test
-
-```bash
-python test_batch_aggregation.py
-```
-
-Ensures that metrics aggregate correctly across multiple samples and datasets, verifying both overall and per-dataset statistics use the combined denominator approach.
 
 ## Interactive Visualization
 
@@ -375,8 +304,6 @@ Upload a JSONL file with multiple samples to get:
 - Extended legal entity patterns (case citations, acts, regulations)
 - Character Error Rate (CER) reporting for substitutions
 - Multi-domain support (track multiple domains simultaneously)
-- Domain pattern suggestions based on corpus analysis
-
 
 ## API Reference
 
