@@ -9,7 +9,7 @@ def compute_sample_errors(input_file, output_file=None, ref_field="transcript_cl
         for line in f:
             data = json.loads(line)
             # Ensure we have a source_dataset field
-            if source_dataset_field not in data:
+            if source_dataset_field not in data or data[source_dataset_field] is None:
                 data[source_dataset_field] = "unknown"
 
             report = text_error_rates(data[ref_field], data[hyp_field])
@@ -63,6 +63,10 @@ def compute_aggregate_metrics(sample_results) -> dict[str, dict[str, dict[str, d
             errs = a["sub"] + a["ins"] + a["del"]
             metrics[cat] = {
                 "error_rate": errs / max(1, combined_total),  # Combined denominator
+                "substitutions": a["sub"],
+                "insertions": a["ins"],
+                "deletions": a["del"],
+                "correct": a["total"] - errs,
                 "sandhi_hits": a["sandhi"],
                 "total": a["total"],
                 "combined_total": combined_total  # Store for reference

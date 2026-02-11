@@ -15,7 +15,12 @@ from dicterrors import (
     DEFAULT_WEIGHTS,
     CAT_WORD, CAT_PUNCT, CAT_NUMERAL, CAT_LEGAL
 )
-from dicterrors.reporting import format_dataset_table
+from dicterrors.reporting import (
+    format_dataset_table,
+    format_error_counts_table,
+    extract_error_rates,
+    format_alignment_dict
+)
 
 def parse_data(content_list):
     """Handles both JSON (list of dicts) and JSONL (line by line)."""
@@ -75,30 +80,37 @@ def inject_custom_css():
 def generate_alignment_html(aligned_ref, aligned_hyp):
     """
     aligned_ref/hyp: List of tuples (text, tag)
+    Uses shared format_alignment_dict() for error detection logic.
     """
+    # Use shared alignment logic
+    alignment_data = format_alignment_dict(aligned_ref, aligned_hyp)
+
+    # Map error types to CSS classes
+    status_map = {
+        'correct': 's-correct',
+        'substitution': 's-sub',
+        'insertion': 's-ins',
+        'deletion': 's-del',
+        'sandhi': 's-merge'
+    }
+
     html = '<div class="scroll-container"><table class="alignment-table"><tr>'
-    for (r_txt, r_tag), (h_txt, h_tag) in zip(aligned_ref, aligned_hyp):
-        
-        status = "s-correct"
-        if "MERGE:" in r_txt or "SPLIT:" in h_txt: status = "s-merge"
-        elif r_txt == "**": status = "s-ins"
-        elif h_txt == "**": status = "s-del"
-        elif r_txt != h_txt: status = "s-sub"
-        
-        # Determine Border Type & Label based on Reference Category
-        disp_tag = r_tag if r_tag != "GAP" else h_tag
-        border_class = f"t-{disp_tag}"
-        
-        disp_r = r_txt.replace("MERGE:", "").replace("SPLIT:", "") if r_txt != "**" else "&nbsp;"
-        disp_h = h_txt.replace("MERGE:", "").replace("SPLIT:", "") if h_txt != "**" else "&nbsp;"
-        
+
+    for item in alignment_data:
+        status = status_map.get(item['error_type'], 's-correct')
+        border_class = f"t-{item['token_type']}"
+
+        # Replace ** with &nbsp; for display
+        disp_r = item['ref_text'] if item['ref_text'] != "**" else "&nbsp;"
+        disp_h = item['hyp_text'] if item['hyp_text'] != "**" else "&nbsp;"
+
         html += f"""
         <td class="token-cell {status} {border_class}">
             <div class="top-text">{disp_r}</div>
             <div class="bot-text">{disp_h}</div>
-            <div class="tag-label">{disp_tag}</div>
+            <div class="tag-label">{item['token_type']}</div>
         </td>"""
-    
+
     html += "</tr></table></div>"
     return html
 
@@ -107,17 +119,15 @@ def render_metrics_comparison(report, jiwer_wer):
     mc1, mc2 = st.columns(2)
     with mc1:
         st.subheader("DictErrors (Domain-Aware)")
-        w_rate = report[CAT_WORD]['error_rate']
-        l_rate = report[CAT_LEGAL]['error_rate']
-        n_rate = report[CAT_NUMERAL]['error_rate']
-        p_rate = report[CAT_PUNCT]['error_rate']
-        
+        # Use shared error rate extraction function
+        rates = extract_error_rates(report)
+
         st.markdown(f"""
         <div class="metrics-container">
-            <div class="metric-value">General WER: {w_rate:.2%}</div>
-            <div class="metric-value metric-legal">Legal WER: {l_rate:.2%}</div>
-            <div class="metric-secondary">Numeral WER: {n_rate:.2%}</div>
-            <div class="metric-secondary">Punctuation WER: {p_rate:.2%}</div>
+            <div class="metric-value">General WER: {rates['wer']:.2%}</div>
+            <div class="metric-value metric-legal">Legal WER: {rates['ler']:.2%}</div>
+            <div class="metric-secondary">Numeral WER: {rates['ner']:.2%}</div>
+            <div class="metric-secondary">Punctuation WER: {rates['per']:.2%}</div>
         </div>
         """, unsafe_allow_html=True)
     with mc2:
@@ -166,6 +176,20 @@ with st.sidebar.expander("Agglutination & Sandhi", expanded=False):
     weights['split_merge_penalty'] = st.slider("Split/Merge Penalty", -2.0, 0.0, DEFAULT_WEIGHTS['split_merge_penalty'], 0.1)
     weights['sandhi_char_tolerence'] = st.slider("Sandhi Char Tolerance", 0, 5, DEFAULT_WEIGHTS['sandhi_char_tolerence'], 1)
 
+# Session state management
+st.sidebar.divider()
+st.sidebar.header("🗑️ Session Management")
+if st.sidebar.button("Clear Session Data"):
+    if 'detailed_results' in st.session_state:
+        del st.session_state['detailed_results']
+    if 'global_jiwer' in st.session_state:
+        del st.session_state['global_jiwer']
+    if 'ref_col' in st.session_state:
+        del st.session_state['ref_col']
+    if 'hyp_col' in st.session_state:
+        del st.session_state['hyp_col']
+    st.rerun()
+
 # --- MAIN INPUT ---
 tab_manual, tab_json = st.tabs(["Manual Inspection", "Batch Dataset Analysis"])
 
@@ -208,15 +232,23 @@ with tab_json:
             records = parse_data(data_content)
             if records:
                 st.success(f"Successfully loaded {len(records)} records")
-                
-                keys = list(records[0].keys())
-                # Auto-select fields if they exist
-                def_ref = keys.index("transcript_cleaned") if "transcript_cleaned" in keys else 0
-                def_hyp = keys.index("prediction") if "prediction" in keys else 0
-                
-                ref_col = st.selectbox("Reference Field", keys, index=def_ref)
-                hyp_col = st.selectbox("Hypothesis Field", keys, index=def_hyp)
-                src_col = st.selectbox("Dataset Split Field", ["(None)"] + keys)
+
+                # Field validation with error handling
+                try:
+                    keys = list(records[0].keys())
+                    # Auto-select fields if they exist
+                    def_ref = keys.index("transcript_cleaned") if "transcript_cleaned" in keys else 0
+                    def_hyp = keys.index("prediction") if "prediction" in keys else 0
+                except (KeyError, IndexError) as e:
+                    st.error(f"Error accessing record fields: {e}")
+                    keys = []
+                    def_ref = 0
+                    def_hyp = 0
+
+                if keys:
+                    ref_col = st.selectbox("Reference Field", keys, index=def_ref)
+                    hyp_col = st.selectbox("Hypothesis Field", keys, index=def_hyp)
+                    src_col = st.selectbox("Dataset Split Field", ["(None)"] + keys)
 
     with col_batch:
         if records:
@@ -252,10 +284,18 @@ with tab_json:
                     # Remove OVERALL row for display (already shown above)
                     table_data = [row for row in table_data if row['Dataset'] != 'OVERALL']
                     st.table(pd.DataFrame(table_data))
-                    
-                    # Save results to session state for individual inspection
-                    st.session_state['detailed_results'] = res_detailed
+
+                    # 4. Detailed Error Counts Display (NEW)
+                    with st.expander("📊 Detailed Error Counts"):
+                        error_counts = format_error_counts_table(agg['overall'])
+                        st.dataframe(pd.DataFrame(error_counts), width='stretch')
+
+                    # Save results to session state (limit to 100 most recent)
+                    MAX_STORED_RESULTS = 100
+                    st.session_state['detailed_results'] = res_detailed[-MAX_STORED_RESULTS:]
                     st.session_state['global_jiwer'] = jiwer_wer
+                    st.session_state['ref_col'] = ref_col
+                    st.session_state['hyp_col'] = hyp_col
                 finally:
                     if os.path.exists(tmp_path): os.unlink(tmp_path)
 
@@ -263,7 +303,12 @@ with tab_json:
         st.divider()
         st.markdown("### 🔍 Individual Record Inspection")
         res_list = st.session_state['detailed_results']
-        idx = st.selectbox("Select record", range(len(res_list)), format_func=lambda i: f"Record {i+1}: {res_list[i][ref_col][:60]}...")
-        
+        # Retrieve field names from session state
+        saved_ref_col = st.session_state.get('ref_col', 'reference')
+        saved_hyp_col = st.session_state.get('hyp_col', 'hypothesis')
+
+        idx = st.selectbox("Select record", range(len(res_list)),
+                           format_func=lambda i: f"Record {i+1}: {res_list[i][saved_ref_col][:60]}...")
+
         sel = res_list[idx]
-        render_analysis(sel[ref_col], sel[hyp_col], weights)
+        render_analysis(sel[saved_ref_col], sel[saved_hyp_col], weights)

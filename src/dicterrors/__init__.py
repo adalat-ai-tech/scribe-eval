@@ -36,6 +36,9 @@ from .reporting import (
     format_metrics_dict,
     format_dataset_table,
     format_error_counts_table,
-    format_alignment_table
+    format_alignment_table,
+    extract_error_rates,
+    write_summary_to_file,
+    format_alignment_dict
 )
 
