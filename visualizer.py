@@ -7,13 +7,14 @@ import jiwer
 import tempfile
 from pathlib import Path
 from dicterrors import (
-    legal_aware_tokenizer,
+    domain_aware_tokenizer,
     align_arrays,
     token_error_rates,
     compute_aggregate_metrics,
     compute_sample_errors,
     DEFAULT_WEIGHTS,
-    CAT_WORD, CAT_PUNCT, CAT_NUMERAL, CAT_LEGAL
+    CAT_WORD, CAT_PUNCT, CAT_NUMERAL,
+    LEGAL_DOMAIN
 )
 from dicterrors.reporting import (
     format_dataset_table,
@@ -115,17 +116,20 @@ def generate_alignment_html(aligned_ref, aligned_hyp):
     return html
 
 # --- HELPER: METRIC CARD RENDERER ---
-def render_metrics_comparison(report, jiwer_wer):
+def render_metrics_comparison(report, jiwer_wer, domain_config):
     mc1, mc2 = st.columns(2)
     with mc1:
         st.subheader("DictErrors (Domain-Aware)")
         # Use shared error rate extraction function
-        rates = extract_error_rates(report)
+        rates = extract_error_rates(report, domain_config)
+
+        # Get domain label dynamically
+        domain_label_lower = domain_config.label.lower() if domain_config else "der"
 
         st.markdown(f"""
         <div class="metrics-container">
             <div class="metric-value">General WER: {rates['wer']:.2%}</div>
-            <div class="metric-value metric-legal">Legal WER: {rates['ler']:.2%}</div>
+            <div class="metric-value metric-legal">{domain_config.name.title()} WER: {rates[domain_label_lower]:.2%}</div>
             <div class="metric-secondary">Numeral WER: {rates['ner']:.2%}</div>
             <div class="metric-secondary">Punctuation WER: {rates['per']:.2%}</div>
         </div>
@@ -141,11 +145,14 @@ def render_metrics_comparison(report, jiwer_wer):
 
 # --- HELPER: RENDER ANALYSIS ---
 def render_analysis(ref_text, hyp_text, weights):
+    # Use legal domain configuration
+    domain_config = LEGAL_DOMAIN
+
     # 1. DictErrors Calculation
-    t1, g1 = legal_aware_tokenizer(ref_text)
-    t2, g2 = legal_aware_tokenizer(hyp_text)
+    t1, g1 = domain_aware_tokenizer(ref_text, domain_config)
+    t2, g2 = domain_aware_tokenizer(hyp_text, domain_config)
     a_ref, a_hyp, _ = align_arrays(t1, g1, t2, g2, weights=weights)
-    report = token_error_rates(a_ref, a_hyp)
+    report = token_error_rates(a_ref, a_hyp, domain_config)
 
     # 2. Jiwer Calculation
     j_wer = jiwer.wer(ref_text, hyp_text)
@@ -153,7 +160,7 @@ def render_analysis(ref_text, hyp_text, weights):
     # 3. Render
     st.subheader("Alignment Visualization")
     st.markdown(generate_alignment_html(a_ref, a_hyp), unsafe_allow_html=True)
-    render_metrics_comparison(report, j_wer)
+    render_metrics_comparison(report, j_wer, domain_config)
 
 
 # --- UI CONFIG ---
@@ -260,34 +267,37 @@ with tab_json:
                     tmp_path = tmp.name
                 
                 try:
+                    # Use legal domain configuration
+                    domain_config = LEGAL_DOMAIN
+
                     # 1. DictErrors Calculation
-                    res_detailed = compute_sample_errors(tmp_path, ref_field=ref_col, hyp_field=hyp_col)
-                    
+                    res_detailed = compute_sample_errors(tmp_path, ref_field=ref_col, hyp_field=hyp_col, domain_config=domain_config)
+
                     # Ensure source_dataset is attached for aggregation
                     for i, r in enumerate(res_detailed):
                         r["source_dataset"] = records[i].get(src_col, "unknown") if src_col != "(None)" else "overall"
-                    
-                    agg = compute_aggregate_metrics(res_detailed)
-                    
+
+                    agg = compute_aggregate_metrics(res_detailed, domain_config=domain_config)
+
                     # 2. Jiwer Global Comparison
                     all_refs = [r.get(ref_col, "") for r in records]
                     all_hyps = [r.get(hyp_col, "") for r in records]
                     jiwer_wer = jiwer.wer(all_refs, all_hyps)
-                    
+
                     st.write("#### Overall Metrics")
                     # Using the consolidated 'error_rate' key
-                    render_metrics_comparison(agg['overall'], jiwer_wer)
-                    
+                    render_metrics_comparison(agg['overall'], jiwer_wer, domain_config)
+
                     # 3. Dataset Breakdown Table
                     st.write("#### Per-Dataset Breakdown")
-                    table_data = format_dataset_table(agg)
+                    table_data = format_dataset_table(agg, domain_config)
                     # Remove OVERALL row for display (already shown above)
                     table_data = [row for row in table_data if row['Dataset'] != 'OVERALL']
                     st.table(pd.DataFrame(table_data))
 
                     # 4. Detailed Error Counts Display (NEW)
                     with st.expander("📊 Detailed Error Counts"):
-                        error_counts = format_error_counts_table(agg['overall'])
+                        error_counts = format_error_counts_table(agg['overall'], domain_config)
                         st.dataframe(pd.DataFrame(error_counts), width='stretch')
 
                     # Save results to session state (limit to 100 most recent)

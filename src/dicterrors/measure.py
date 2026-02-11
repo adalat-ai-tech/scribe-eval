@@ -1,13 +1,23 @@
-from .tokenize import legal_aware_tokenizer
+from typing import Optional
+from .tokenize import domain_aware_tokenizer
 from .align import align_arrays
-from .constants import CATEGORIES, init_stat_dict, calculate_combined_total
+from .constants import get_categories, init_stat_dict, calculate_combined_total
+from .domain_config import DomainConfig
 
-def token_error_rates(aligned_ref, aligned_hyp) -> dict[str, dict[str, float | int]]:
+def token_error_rates(aligned_ref, aligned_hyp, domain_config: Optional[DomainConfig] = None) -> dict[str, dict[str, float | int]]:
     """
-    aligned_ref: list of (text, tag)
-    aligned_hyp: list of (text, tag)
+    Calculate error rates from aligned tokens.
+
+    Args:
+        aligned_ref: list of (text, tag) tuples
+        aligned_hyp: list of (text, tag) tuples
+        domain_config: Domain configuration (None for no domain)
+
+    Returns:
+        Dictionary with error rates for each category
     """
-    stats = init_stat_dict()
+    categories = get_categories(domain_config)
+    stats = init_stat_dict(categories)
 
     for (r_text, r_tag), (h_text, h_tag) in zip(aligned_ref, aligned_hyp):
         
@@ -49,7 +59,7 @@ def token_error_rates(aligned_ref, aligned_hyp) -> dict[str, dict[str, float | i
     combined_total = calculate_combined_total(stats)
 
     report = {}
-    for cat in CATEGORIES:
+    for cat in categories:
         s = stats[cat]
         errors = s["substitutions"] + s["insertions"] + s["deletions"]
 
@@ -69,8 +79,19 @@ def token_error_rates(aligned_ref, aligned_hyp) -> dict[str, dict[str, float | i
 
     return report
 
-def text_error_rates(ref_text, hyp_text) -> dict[str, dict[str, float | int]]:
-    t1, g1 = legal_aware_tokenizer(ref_text)
-    t2, g2 = legal_aware_tokenizer(hyp_text)
+def text_error_rates(ref_text, hyp_text, domain_config: Optional[DomainConfig] = None) -> dict[str, dict[str, float | int]]:
+    """
+    Calculate error rates from raw text.
+
+    Args:
+        ref_text: Reference text
+        hyp_text: Hypothesis text
+        domain_config: Domain configuration (None for no domain)
+
+    Returns:
+        Dictionary with error rates for each category
+    """
+    t1, g1 = domain_aware_tokenizer(ref_text, domain_config)
+    t2, g2 = domain_aware_tokenizer(hyp_text, domain_config)
     aligned_ref, aligned_hyp, _ = align_arrays(t1, g1, t2, g2)
-    return token_error_rates(aligned_ref, aligned_hyp)
+    return token_error_rates(aligned_ref, aligned_hyp, domain_config)

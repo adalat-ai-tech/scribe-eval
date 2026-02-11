@@ -14,7 +14,8 @@ from dicterrors import (
     compute_sample_errors,
     compute_aggregate_metrics,
     print_evaluation_summary,
-    write_summary_to_file
+    write_summary_to_file,
+    LEGAL_DOMAIN
 )
 
 
@@ -107,22 +108,23 @@ Examples:
             output_file=str(detailed_output),
             ref_field=args.ref_field,
             hyp_field=args.hyp_field,
-            source_dataset_field=args.dataset_field
+            source_dataset_field=args.dataset_field,
+            domain_config=LEGAL_DOMAIN
         )
 
         # 5. Aggregate metrics with dataset splits
         print("Computing aggregate metrics...")
-        metrics = compute_aggregate_metrics(results)
+        metrics = compute_aggregate_metrics(results, domain_config=LEGAL_DOMAIN)
 
         # 6. Output to console
         print("\n" + "=" * 85)
         print("EVALUATION SUMMARY")
         print("=" * 85)
-        print_evaluation_summary(metrics)
+        print_evaluation_summary(metrics, domain_config=LEGAL_DOMAIN)
 
         # 7. Save summary to file (replaces unsafe stdout redirection)
         print(f"\nSaving summary to: {summary_output}")
-        write_summary_to_file(metrics, str(summary_output))
+        write_summary_to_file(metrics, str(summary_output), domain_config=LEGAL_DOMAIN)
 
         print(f"Detailed results saved to: {detailed_output}")
         print("\nEvaluation complete!")

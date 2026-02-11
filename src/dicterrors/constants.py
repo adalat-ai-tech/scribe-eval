@@ -5,14 +5,37 @@ This module serves as the single source of truth for all package-wide constants
 including token categories, formatting parameters, and utility functions.
 """
 
-# Token category constants
+# Base token category constants (always present)
 CAT_WORD = "WORD"
 CAT_PUNCT = "PUNCT"
 CAT_NUMERAL = "NUMERAL"
-CAT_LEGAL = "LEGAL"
 
-# Category list (maintain order: WORD, PUNCT, NUMERAL, LEGAL)
-CATEGORIES = [CAT_WORD, CAT_PUNCT, CAT_NUMERAL, CAT_LEGAL]
+# Base categories - domain categories are added dynamically
+CATEGORIES = [CAT_WORD, CAT_PUNCT, CAT_NUMERAL]
+
+
+def get_categories(domain_config=None):
+    """
+    Get category list including domain category if configured.
+
+    Args:
+        domain_config: DomainConfig instance or None
+
+    Returns:
+        List of category names
+
+    Examples:
+        >>> from domain_config import MEDICAL_DOMAIN
+        >>> cats = get_categories(MEDICAL_DOMAIN)
+        >>> # ['WORD', 'PUNCT', 'NUMERAL', 'MEDICAL']
+
+        >>> cats = get_categories(None)
+        >>> # ['WORD', 'PUNCT', 'NUMERAL']
+    """
+    if domain_config is None:
+        return CATEGORIES.copy()
+    return CATEGORIES + [domain_config.category]
+
 
 # Table formatting constants
 TABLE_WIDTH = 85
@@ -40,17 +63,20 @@ def calculate_combined_total(stats_dict: dict) -> int:
         >>> calculate_combined_total(stats)
         105
     """
-    return sum(stats_dict[cat]["total"] for cat in CATEGORIES)
+    return sum(stats_dict[cat]["total"] for cat in stats_dict)
 
 
-def init_stat_dict() -> dict:
+def init_stat_dict(categories=None) -> dict:
     """
-    Initialize empty statistics dictionary for all categories.
+    Initialize empty statistics dictionary for categories.
 
     Uses consistent full field names throughout:
     - substitutions, insertions, deletions (not sub, ins, del)
     - correct (not cor)
     - sandhi_hits (not sandhi)
+
+    Args:
+        categories: List of category names (defaults to CATEGORIES)
 
     Returns:
         Dict mapping category names to stat dicts with zeroed counts
@@ -59,7 +85,15 @@ def init_stat_dict() -> dict:
         >>> stats = init_stat_dict()
         >>> stats["WORD"]
         {'substitutions': 0, 'insertions': 0, 'deletions': 0, 'correct': 0, 'total': 0, 'sandhi_hits': 0}
+
+        >>> from domain_config import MEDICAL_DOMAIN
+        >>> stats = init_stat_dict(get_categories(MEDICAL_DOMAIN))
+        >>> "MEDICAL" in stats
+        True
     """
+    if categories is None:
+        categories = CATEGORIES
+
     return {
         cat: {
             "substitutions": 0,
@@ -69,26 +103,33 @@ def init_stat_dict() -> dict:
             "total": 0,
             "sandhi_hits": 0
         }
-        for cat in CATEGORIES
+        for cat in categories
     }
 
 
-def format_table_header() -> str:
+def format_table_header(domain_label="DER") -> str:
     """
     Generate formatted table header for evaluation results.
+
+    Args:
+        domain_label: Label for domain error rate (default: "DER")
 
     Returns:
         Multi-line string with header row and separator line
 
     Example:
-        >>> print(format_table_header())
+        >>> print(format_table_header("LER"))
         DATASET                   |      WER |      LER |      NER |      PER | SANDHI
+        -------------------------------------------------------------------------------------
+
+        >>> print(format_table_header("MER"))
+        DATASET                   |      WER |      MER |      NER |      PER | SANDHI
         -------------------------------------------------------------------------------------
     """
     dw = COLUMN_WIDTHS['dataset']
     mw = COLUMN_WIDTHS['metric']
     sw = COLUMN_WIDTHS['sandhi']
 
-    header = f"{'DATASET':<{dw}} | {'WER':>{mw}} | {'LER':>{mw}} | {'NER':>{mw}} | {'PER':>{mw}} | {'SANDHI':>{sw}}"
+    header = f"{'DATASET':<{dw}} | {'WER':>{mw}} | {domain_label:>{mw}} | {'NER':>{mw}} | {'PER':>{mw}} | {'SANDHI':>{sw}}"
     separator = "-" * TABLE_WIDTH
     return f"{header}\n{separator}"

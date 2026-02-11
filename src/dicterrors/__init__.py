@@ -1,6 +1,6 @@
 """
-DictErrors: A specialized evaluation framework for Indic language ASR 
-with support for legal-domain entity shielding and Sandhi-aware alignment.
+DictErrors: A specialized evaluation framework for Indic language ASR
+with support for domain-aware entity shielding and Sandhi-aware alignment.
 """
 
 # --- Categories & Constants ---
@@ -8,13 +8,20 @@ from .constants import (
     CAT_WORD,
     CAT_PUNCT,
     CAT_NUMERAL,
-    CAT_LEGAL,
-    CATEGORIES
+    CATEGORIES,
+    get_categories
+)
+
+# --- Domain Configuration ---
+from .domain_config import (
+    DomainConfig,
+    LEGAL_DOMAIN,
+    MEDICAL_DOMAIN
 )
 
 # --- Tokenization ---
 from .tokenize import (
-    legal_aware_tokenizer
+    domain_aware_tokenizer
 )
 
 # --- Alignment Logic ---

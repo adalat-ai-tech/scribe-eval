@@ -1,5 +1,5 @@
 import Levenshtein as levenshtein
-from .constants import CAT_WORD, CAT_PUNCT, CAT_NUMERAL, CAT_LEGAL
+from .constants import CAT_WORD, CAT_PUNCT, CAT_NUMERAL
 
 # --- SCORING CONFIGURATION ---
 DEFAULT_WEIGHTS = {

@@ -4,59 +4,68 @@ Report formatting and presentation utilities.
 This module provides shared functions for formatting error metrics
 and alignment results for both CLI and web UI presentations.
 """
-from typing import Dict, List, Tuple
-from .constants import CAT_WORD, CAT_LEGAL, CAT_NUMERAL, CAT_PUNCT, CATEGORIES, format_table_header, TABLE_WIDTH
+from typing import Dict, List, Tuple, Optional
+from .constants import CAT_WORD, CAT_NUMERAL, CAT_PUNCT, get_categories, format_table_header, TABLE_WIDTH
+from .domain_config import DomainConfig
 
 
-def format_metrics_dict(metrics: Dict) -> Dict[str, str]:
+def format_metrics_dict(metrics: Dict, domain_config: Optional[DomainConfig] = None) -> Dict[str, str]:
     """
-    Extract WER/LER/NER/PER/Sandhi from aggregate metrics.
+    Extract WER/DER/NER/PER from aggregate metrics.
 
     Args:
         metrics: Dictionary containing error metrics for each category
+        domain_config: Domain configuration (None to skip domain metrics)
 
     Returns:
         Dictionary with formatted metric strings ready for table display
     """
-    return {
+    result = {
         "WER": f"{metrics[CAT_WORD]['error_rate']:.2%}",
-        "LER": f"{metrics[CAT_LEGAL]['error_rate']:.2%}",
         "NER": f"{metrics[CAT_NUMERAL]['error_rate']:.2%}",
         "PER": f"{metrics[CAT_PUNCT]['error_rate']:.2%}",
-        "Sandhi": metrics[CAT_WORD]['sandhi_hits'],
-        "Total": metrics[CAT_WORD].get('combined_total', 0)
     }
 
+    if domain_config:
+        result[domain_config.label] = f"{metrics[domain_config.category]['error_rate']:.2%}"
+        result["Sandhi"] = metrics[CAT_WORD]['sandhi_hits']
+        result["Total"] = metrics[CAT_WORD].get('combined_total', 0)
 
-def extract_error_rates(report: Dict) -> Dict:
+    return result
+
+
+def extract_error_rates(report: Dict, domain_config: Optional[DomainConfig] = None) -> Dict:
     """
-    Extract WER/LER/NER/PER/Sandhi from report for display.
-
-    Returns raw numeric values (not formatted strings) for use in UI components.
+    Extract error rates from report for display.
 
     Args:
         report: Dictionary containing error metrics for each category
+        domain_config: Domain configuration (None to skip domain metrics)
 
     Returns:
-        Dictionary with raw numeric error rates and sandhi hits
+        Dictionary with raw numeric error rates
     """
-    return {
+    result = {
         'wer': report[CAT_WORD]['error_rate'],
-        'ler': report[CAT_LEGAL]['error_rate'],
         'ner': report[CAT_NUMERAL]['error_rate'],
         'per': report[CAT_PUNCT]['error_rate'],
         'sandhi': report[CAT_WORD]['sandhi_hits']
     }
 
+    if domain_config:
+        # Use lowercase label for consistency
+        result[domain_config.label.lower()] = report[domain_config.category]['error_rate']
 
-def format_dataset_table(agg_results: Dict) -> List[Dict]:
+    return result
+
+
+def format_dataset_table(agg_results: Dict, domain_config: Optional[DomainConfig] = None) -> List[Dict]:
     """
     Format aggregate results as list of dicts for table display.
 
-    Used by both CLI (print_evaluation_summary) and UI (visualizer).
-
     Args:
         agg_results: Dictionary with 'overall' and 'by_dataset' keys
+        domain_config: Domain configuration for metric formatting
 
     Returns:
         List of dictionaries, each containing Dataset name and error metrics
@@ -64,31 +73,36 @@ def format_dataset_table(agg_results: Dict) -> List[Dict]:
     table_data = []
 
     # Overall row
-    overall = format_metrics_dict(agg_results['overall'])
+    overall = format_metrics_dict(agg_results['overall'], domain_config)
     overall['Dataset'] = 'OVERALL'
     table_data.append(overall)
 
     # Per-dataset rows
     for ds, metrics in agg_results['by_dataset'].items():
-        row = format_metrics_dict(metrics)
+        row = format_metrics_dict(metrics, domain_config)
         row['Dataset'] = ds
         table_data.append(row)
 
     return table_data
 
 
-def format_error_counts_table(report: Dict) -> List[Dict]:
+def format_error_counts_table(report: Dict, domain_config: Optional[DomainConfig] = None) -> List[Dict]:
     """
     Format error counts by category for detailed inspection.
 
     Args:
         report: Token error rates report from token_error_rates()
+        domain_config: Domain configuration (None to use base categories)
 
     Returns:
         List of dictionaries with Category, Type, and Count
     """
+    categories = get_categories(domain_config)
+
     counts = []
-    for cat in CATEGORIES:
+    for cat in categories:
+        if cat not in report:
+            continue
         counts.extend([
             {"Category": cat, "Type": "Substitutions", "Count": report[cat]["substitutions"]},
             {"Category": cat, "Type": "Insertions", "Count": report[cat]["insertions"]},
@@ -98,20 +112,22 @@ def format_error_counts_table(report: Dict) -> List[Dict]:
     return counts
 
 
-def write_summary_to_file(agg_results: Dict, output_path: str) -> None:
+def write_summary_to_file(agg_results: Dict, output_path: str, domain_config: Optional[DomainConfig] = None) -> None:
     """
     Write evaluation summary to file safely.
 
     Args:
         agg_results: Dictionary with 'overall' and 'by_dataset' keys
         output_path: Path to output file
+        domain_config: Domain configuration for label formatting
     """
     with open(output_path, 'w', encoding='utf-8') as f:
-        table_data = format_dataset_table(agg_results)
+        table_data = format_dataset_table(agg_results, domain_config)
 
         # Write formatted table with proper headers
+        domain_label = domain_config.label if domain_config else "DER"
         f.write("\n" + "=" * TABLE_WIDTH + "\n")
-        f.write(format_table_header() + "\n")
+        f.write(format_table_header(domain_label) + "\n")
 
         for row in table_data:
             is_overall = row['Dataset'] == 'OVERALL'
@@ -119,10 +135,11 @@ def write_summary_to_file(agg_results: Dict, output_path: str) -> None:
                 # Add separator line before OVERALL row if it's not first
                 f.write("-" * TABLE_WIDTH + "\n")
 
+            # Dynamic column access
             f.write(
                 f"{row['Dataset']:<25} | "
                 f"{row['WER']:>8} | "
-                f"{row['LER']:>8} | "
+                f"{row[domain_label]:>8} | "
                 f"{row['NER']:>8} | "
                 f"{row['PER']:>8} | "
                 f"{row['Sandhi']:>6}\n"

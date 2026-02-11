@@ -1,10 +1,26 @@
 from collections import defaultdict
+from typing import Optional
 from .measure import text_error_rates
 from .reporting import format_dataset_table
-from .constants import CATEGORIES, init_stat_dict, calculate_combined_total, format_table_header, TABLE_WIDTH
+from .constants import get_categories, init_stat_dict, calculate_combined_total, format_table_header, TABLE_WIDTH
+from .domain_config import DomainConfig
 import json
 
-def compute_sample_errors(input_file, output_file=None, ref_field="transcript_cleaned", hyp_field="prediction", source_dataset_field="source_dataset") -> list[dict]:
+def compute_sample_errors(input_file, output_file=None, ref_field="transcript_cleaned", hyp_field="prediction", source_dataset_field="source_dataset", domain_config: Optional[DomainConfig] = None) -> list[dict]:
+    """
+    Compute error metrics for all samples in a JSONL file.
+
+    Args:
+        input_file: Path to JSONL file
+        output_file: Optional path to save detailed results
+        ref_field: Field name for reference text
+        hyp_field: Field name for hypothesis text
+        source_dataset_field: Field name for dataset identifier
+        domain_config: Domain configuration (None for no domain)
+
+    Returns:
+        List of result dictionaries with detailed reports
+    """
     results = []
     with open(input_file, "r", encoding="utf-8") as f:
         for line in f:
@@ -13,7 +29,8 @@ def compute_sample_errors(input_file, output_file=None, ref_field="transcript_cl
             if source_dataset_field not in data or data[source_dataset_field] is None:
                 data[source_dataset_field] = "unknown"
 
-            report = text_error_rates(data[ref_field], data[hyp_field])
+            # Pass domain_config to text_error_rates
+            report = text_error_rates(data[ref_field], data[hyp_field], domain_config)
             data["detailed_report"] = report
             results.append(data)
 
@@ -25,15 +42,29 @@ def compute_sample_errors(input_file, output_file=None, ref_field="transcript_cl
 
     return results
 
-def compute_aggregate_metrics(sample_results) -> dict[str, dict[str, dict[str, dict[str, float | int]]]]:
-    overall_agg = init_stat_dict()
-    dataset_aggs = defaultdict(init_stat_dict)
+def compute_aggregate_metrics(sample_results, domain_config: Optional[DomainConfig] = None) -> dict[str, dict[str, dict[str, dict[str, float | int]]]]:
+    """
+    Aggregate metrics across all samples.
+
+    Args:
+        sample_results: List of result dictionaries from compute_sample_errors
+        domain_config: Domain configuration (None for no domain)
+
+    Returns:
+        Dictionary with 'overall' and 'by_dataset' aggregated metrics
+    """
+    categories = get_categories(domain_config)
+    overall_agg = init_stat_dict(categories)
+    dataset_aggs = defaultdict(lambda: init_stat_dict(categories))
 
     for res in sample_results:
         ds = res.get("source_dataset", "unknown")
         report = res["detailed_report"]
 
-        for cat in CATEGORIES:
+        for cat in categories:
+            if cat not in report:
+                continue
+
             # Update overall
             overall_agg[cat]["substitutions"] += report[cat]["substitutions"]
             overall_agg[cat]["insertions"] += report[cat]["insertions"]
@@ -73,15 +104,23 @@ def compute_aggregate_metrics(sample_results) -> dict[str, dict[str, dict[str, d
         "by_dataset": {ds: calculate_rates(stats) for ds, stats in dataset_aggs.items()}
     }
 
-def print_evaluation_summary(agg_results) -> None:
-    table_data = format_dataset_table(agg_results)
+def print_evaluation_summary(agg_results, domain_config: Optional[DomainConfig] = None) -> None:
+    """
+    Print evaluation summary table.
 
+    Args:
+        agg_results: Aggregated results from compute_aggregate_metrics
+        domain_config: Domain configuration for label formatting
+    """
+    table_data = format_dataset_table(agg_results, domain_config)
+
+    domain_label = domain_config.label if domain_config else "DER"
     print("\n" + "=" * TABLE_WIDTH)
-    print(format_table_header())
+    print(format_table_header(domain_label))
 
     for row in table_data:
         is_overall = row['Dataset'] == 'OVERALL'
-        print(f"{row['Dataset']:<25} | {row['WER']:>8} | {row['LER']:>8} | {row['NER']:>8} | {row['PER']:>8} | {row['Sandhi']:>6}")
+        print(f"{row['Dataset']:<25} | {row['WER']:>8} | {row[domain_label]:>8} | {row['NER']:>8} | {row['PER']:>8} | {row['Sandhi']:>6}")
         if is_overall:
             print("-" * TABLE_WIDTH)
 

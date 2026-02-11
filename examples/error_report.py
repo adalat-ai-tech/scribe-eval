@@ -17,10 +17,11 @@ If no arguments are provided, the script uses default example texts.
 import sys
 from tabulate import tabulate
 from dicterrors import (
-    legal_aware_tokenizer,
+    domain_aware_tokenizer,
     align_arrays,
     token_error_rates,
-    CAT_WORD, CAT_PUNCT, CAT_NUMERAL, CAT_LEGAL
+    CAT_WORD, CAT_PUNCT, CAT_NUMERAL,
+    LEGAL_DOMAIN
 )
 from dicterrors.reporting import (
     format_metrics_dict,
@@ -32,6 +33,9 @@ from dicterrors.reporting import (
 def generate_error_report(text1, text2):
     """Generate a detailed error report for two texts."""
 
+    # Use legal domain configuration
+    domain_config = LEGAL_DOMAIN
+
     # Header
     print("=" * 50)
     print("TEXT COMPARISON REPORT")
@@ -40,18 +44,18 @@ def generate_error_report(text1, text2):
     print(f"Hypothesis text: {text2}")
 
     # Step 1: Tokenize
-    t1, g1 = legal_aware_tokenizer(text1)
-    t2, g2 = legal_aware_tokenizer(text2)
+    t1, g1 = domain_aware_tokenizer(text1, domain_config)
+    t2, g2 = domain_aware_tokenizer(text2, domain_config)
 
     # Step 2: Align
     aligned_ref, aligned_hyp, align_score = align_arrays(t1, g1, t2, g2)
 
     # Step 3: Calculate error rates
-    report = token_error_rates(aligned_ref, aligned_hyp)
+    report = token_error_rates(aligned_ref, aligned_hyp, domain_config)
 
     # Step 4: Format using shared functions
-    metrics = format_metrics_dict(report)
-    error_counts = format_error_counts_table(report)
+    metrics = format_metrics_dict(report, domain_config)
+    error_counts = format_error_counts_table(report, domain_config)
     alignment_vis = format_alignment_table(aligned_ref, aligned_hyp)
 
     # Display metrics table
@@ -60,11 +64,11 @@ def generate_error_report(text1, text2):
     print("=" * 50)
     metrics_table = [
         ["Word Error Rate (WER)", metrics["WER"]],
-        ["Legal Error Rate (LER)", metrics["LER"]],
+        [f"{domain_config.name.title()} Error Rate ({domain_config.label})", metrics[domain_config.label]],
         ["Numeral Error Rate (NER)", metrics["NER"]],
         ["Punctuation Error Rate (PER)", metrics["PER"]],
         ["Word Correct", report[CAT_WORD]['correct']],
-        ["Legal Correct", report[CAT_LEGAL]['correct']],
+        [f"{domain_config.name.title()} Correct", report[domain_config.category]['correct']],
         ["Numeral Correct", report[CAT_NUMERAL]['correct']],
         ["Punctuation Correct", report[CAT_PUNCT]['correct']],
         ["Combined Total Tokens", report[CAT_WORD]['combined_total']],
@@ -90,7 +94,7 @@ def generate_error_report(text1, text2):
     print("=" * 50)
     print(f"Alignment Score: {align_score}")
     print(f"Overall WER: {metrics['WER']}")
-    print(f"Overall LER: {metrics['LER']}")
+    print(f"Overall {domain_config.label}: {metrics[domain_config.label]}")
     print(f"Overall NER: {metrics['NER']}")
     print(f"Overall PER: {metrics['PER']}")
     print(f"Sandhi corrections: {metrics['Sandhi']}")
