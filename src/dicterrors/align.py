@@ -1,10 +1,5 @@
 import Levenshtein as levenshtein
-
-# --- CATEGORIES ---
-CAT_WORD = "WORD"
-CAT_PUNCT = "PUNCT"
-CAT_NUMERAL = "NUMERAL"
-CAT_LEGAL = "LEGAL"
+from .constants import CAT_WORD, CAT_PUNCT, CAT_NUMERAL, CAT_LEGAL
 
 # --- SCORING CONFIGURATION ---
 DEFAULT_WEIGHTS = {

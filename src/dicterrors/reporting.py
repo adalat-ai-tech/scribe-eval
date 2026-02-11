@@ -5,7 +5,7 @@ This module provides shared functions for formatting error metrics
 and alignment results for both CLI and web UI presentations.
 """
 from typing import Dict, List, Tuple
-from .tokenize import CAT_WORD, CAT_LEGAL, CAT_NUMERAL, CAT_PUNCT
+from .constants import CAT_WORD, CAT_LEGAL, CAT_NUMERAL, CAT_PUNCT, CATEGORIES, format_table_header, TABLE_WIDTH
 
 
 def format_metrics_dict(metrics: Dict) -> Dict[str, str]:
@@ -88,7 +88,7 @@ def format_error_counts_table(report: Dict) -> List[Dict]:
         List of dictionaries with Category, Type, and Count
     """
     counts = []
-    for cat in [CAT_WORD, CAT_LEGAL, CAT_NUMERAL, CAT_PUNCT]:
+    for cat in CATEGORIES:
         counts.extend([
             {"Category": cat, "Type": "Substitutions", "Count": report[cat]["substitutions"]},
             {"Category": cat, "Type": "Insertions", "Count": report[cat]["insertions"]},
@@ -110,15 +110,14 @@ def write_summary_to_file(agg_results: Dict, output_path: str) -> None:
         table_data = format_dataset_table(agg_results)
 
         # Write formatted table with proper headers
-        f.write("\n" + "=" * 85 + "\n")
-        f.write(f"{'DATASET':<25} | {'WER':>8} | {'LER':>8} | {'NER':>8} | {'PER':>8} | {'SANDHI':>6}\n")
-        f.write("-" * 85 + "\n")
+        f.write("\n" + "=" * TABLE_WIDTH + "\n")
+        f.write(format_table_header() + "\n")
 
         for row in table_data:
             is_overall = row['Dataset'] == 'OVERALL'
             if is_overall and table_data.index(row) > 0:
                 # Add separator line before OVERALL row if it's not first
-                f.write("-" * 85 + "\n")
+                f.write("-" * TABLE_WIDTH + "\n")
 
             f.write(
                 f"{row['Dataset']:<25} | "
@@ -129,7 +128,7 @@ def write_summary_to_file(agg_results: Dict, output_path: str) -> None:
                 f"{row['Sandhi']:>6}\n"
             )
 
-        f.write("=" * 85 + "\n")
+        f.write("=" * TABLE_WIDTH + "\n")
 
 
 def format_alignment_dict(aligned_ref: List[Tuple], aligned_hyp: List[Tuple]) -> List[Dict]:

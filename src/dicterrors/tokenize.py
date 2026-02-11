@@ -1,10 +1,5 @@
 import re
-
-# Categories
-CAT_WORD = "WORD"
-CAT_PUNCT = "PUNCT"
-CAT_NUMERAL = "NUMERAL"
-CAT_LEGAL = "LEGAL"
+from .constants import CAT_WORD, CAT_PUNCT, CAT_NUMERAL, CAT_LEGAL
 
 def legal_aware_tokenizer(text: str) -> tuple[list[str], list[str]]:
     if not text:

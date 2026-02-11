@@ -1,13 +1,13 @@
 from .tokenize import legal_aware_tokenizer
 from .align import align_arrays
+from .constants import CATEGORIES, init_stat_dict, calculate_combined_total
 
 def token_error_rates(aligned_ref, aligned_hyp) -> dict[str, dict[str, float | int]]:
     """
     aligned_ref: list of (text, tag)
     aligned_hyp: list of (text, tag)
     """
-    categories = ["WORD", "PUNCT", "NUMERAL", "LEGAL"]
-    stats = {cat: {"sub": 0, "ins": 0, "del": 0, "cor": 0, "total": 0, "sandhi": 0} for cat in categories}
+    stats = init_stat_dict()
 
     for (r_text, r_tag), (h_text, h_tag) in zip(aligned_ref, aligned_hyp):
         
@@ -15,7 +15,7 @@ def token_error_rates(aligned_ref, aligned_hyp) -> dict[str, dict[str, float | i
         if r_text == "**":
             # We categorize the insertion error based on what the ASR hallucinated
             if h_tag in stats:
-                stats[h_tag]["ins"] += 1
+                stats[h_tag]["insertions"] += 1
             continue
 
         # All other cases (Match, Sub, Del) are categorized by the REFERENCE tag
@@ -25,46 +25,45 @@ def token_error_rates(aligned_ref, aligned_hyp) -> dict[str, dict[str, float | i
         # 2. Handle Sandhi (Corrected Matches)
         if "MERGE:" in r_text:
             curr["total"] += 2  # A merge represents 2 original words
-            curr["cor"] += 2
-            curr["sandhi"] += 1
+            curr["correct"] += 2
+            curr["sandhi_hits"] += 1
             continue
-        
+
         if "SPLIT:" in h_text:
             curr["total"] += 1
-            curr["cor"] += 1
-            curr["sandhi"] += 1
+            curr["correct"] += 1
+            curr["sandhi_hits"] += 1
             continue
 
         # 3. Standard Logic
         curr["total"] += 1
         if h_text == "**":
-            curr["del"] += 1
+            curr["deletions"] += 1
         elif r_text == h_text:
-            curr["cor"] += 1
+            curr["correct"] += 1
         else:
-            curr["sub"] += 1
+            curr["substitutions"] += 1
 
     # Final calculations for the report
     # Calculate combined denominator across ALL categories
-    combined_total = (stats["WORD"]["total"] + stats["LEGAL"]["total"] +
-                      stats["NUMERAL"]["total"] + stats["PUNCT"]["total"])
+    combined_total = calculate_combined_total(stats)
 
     report = {}
-    for cat in categories:
+    for cat in CATEGORIES:
         s = stats[cat]
-        errors = s["sub"] + s["ins"] + s["del"]
+        errors = s["substitutions"] + s["insertions"] + s["deletions"]
 
         # Use combined denominator for all categories
         rate = errors / max(1, combined_total)
 
         report[cat] = {
             "error_rate": rate,
-            "substitutions": s["sub"],
-            "insertions": s["ins"],
-            "deletions": s["del"],
-            "correct": s["cor"],
+            "substitutions": s["substitutions"],
+            "insertions": s["insertions"],
+            "deletions": s["deletions"],
+            "correct": s["correct"],
             "total_ref": s["total"],
-            "sandhi_hits": s["sandhi"],
+            "sandhi_hits": s["sandhi_hits"],
             "combined_total": combined_total  # Store for transparency
         }
 

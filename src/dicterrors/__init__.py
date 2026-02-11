@@ -3,13 +3,18 @@ DictErrors: A specialized evaluation framework for Indic language ASR
 with support for legal-domain entity shielding and Sandhi-aware alignment.
 """
 
-# --- Categories & Tokenization ---
-from .tokenize import (
-    legal_aware_tokenizer,
+# --- Categories & Constants ---
+from .constants import (
     CAT_WORD,
     CAT_PUNCT,
     CAT_NUMERAL,
-    CAT_LEGAL
+    CAT_LEGAL,
+    CATEGORIES
+)
+
+# --- Tokenization ---
+from .tokenize import (
+    legal_aware_tokenizer
 )
 
 # --- Alignment Logic ---
