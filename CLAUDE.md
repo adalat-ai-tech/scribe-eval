@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-DictErrors is a specialized ASR (Automatic Speech Recognition) error analysis tool focused on Indic languages (Malayalam, Kannada) with legal domain specialization. It provides fine-grained error metrics by categorizing tokens into WORD, LEGAL (English legal abbreviations), NUMERAL, and PUNCT categories.
+DictErrors is a specialized ASR (Automatic Speech Recognition) error analysis tool for Indic languages (Malayalam, Kannada) with domain-aware tokenization. It provides fine-grained error metrics by categorizing tokens into base categories (WORD, NUMERAL, PUNCT) plus optional domain-specific categories (LEGAL, MEDICAL, or custom domains). Domain-critical terminology is protected from incorrect splitting and tracked separately for error analysis.
 
 ## Commands
 
@@ -21,7 +21,7 @@ uv pip install -e .
 ```bash
 cd examples/
 
-# Text alignment visualization with match indicators
+# Text alignment visualization
 uv run text_alignment.py
 
 # Single-sample error report generation
@@ -64,24 +64,24 @@ streamlit run visualizer.py
 ```
 
 The visualizer provides:
-- Manual inspection tab for single-sample analysis
-- Batch dataset analysis with per-dataset breakdown
-- **Detailed Error Counts** expandable section showing substitutions, insertions, deletions, and correct counts by category
-- **Individual Record Inspection** section for analyzing specific records from batch results
-- Session state management (limits to 100 most recent results)
-  - Stores detailed results, global jiwer score, and field names (ref_col, hyp_col)
-  - Field names persist across Streamlit re-runs to prevent NameError when file uploader is clicked
-- Clear Session Data button for manual cleanup (removes all session state including field names)
+- **Manual Inspection Tab**: Single-sample text alignment and error analysis
+- **Batch Dataset Analysis**: Upload JSONL files for aggregate metrics across datasets
+- **Detailed Error Counts**: Expandable section showing substitutions, insertions, deletions by category
+- **Individual Record Inspection**: Drill down into specific samples from batch results
+- **Session State**: Maintains last 100 batch results with field name persistence
 
 ## Architecture
 
 ### Core Pipeline Flow
 
-1. **Tokenization** (`src/dicterrors/tokenize.py`)
-   - Extracts and categorizes tokens into 4 categories: WORD, LEGAL, NUMERAL, PUNCT
-   - Legal entity detection: u/s, r/w, sec., art., v., vs., PW, CW, etc.
+1. **Tokenization** (`src/dicterrors/tokenize.py`, `src/dicterrors/domain_config.py`)
+   - `domain_aware_tokenizer(text, domain_config=None)`: Main tokenization function
+   - Base categories: WORD, NUMERAL, PUNCT (always present)
+   - Optional domain categories via `DomainConfig` class
+   - Pre-defined domains: `LEGAL_DOMAIN` (u/s, r/w, sec., art., v., vs., PW, CW), `MEDICAL_DOMAIN` (mg, ml, cc, mcg)
+   - Custom domains: list-based patterns or regex patterns
+   - Domain entities are protected from punctuation splitting and tracked separately
    - Numeral patterns: dates (DD-MM-YYYY), times (HH:MM), currency with commas
-   - Punctuation separation while preserving legal entities
 
 2. **Alignment** (`src/dicterrors/align.py`)
    - Modified Needleman-Wunsch algorithm with token-type-aware scoring
@@ -91,17 +91,19 @@ The visualizer provides:
    - Configurable weights via DEFAULT_WEIGHTS dict
 
 3. **Measurement** (`src/dicterrors/measure.py`)
-   - `token_error_rates()`: Computes category-specific error rates from aligned tokens
-   - `text_error_rates()`: End-to-end pipeline from raw text to error metrics
+   - `token_error_rates(aligned_ref, aligned_hyp, domain_config=None)`: Computes category-specific error rates from aligned tokens
+   - `text_error_rates(ref_text, hyp_text, domain_config=None)`: End-to-end pipeline from raw text to error metrics
    - **Normalized error rates**: Uses combined denominator (sum of all category totals) across all categories to prevent misleading sparse-category metrics
+   - **Domain-aware metrics**: WER (Word Error Rate), NER (Numeral Error Rate), PER (Punctuation Error Rate), plus domain-specific rates (e.g., LER for legal, MER for medical)
    - Tracks substitutions, insertions, deletions, and Sandhi corrections per category
 
 4. **Batch Processing** (`src/dicterrors/measure_batch.py`)
-   - `compute_sample_errors()`: Process JSONL files with multiple samples
+   - `compute_sample_errors(input_file, output_file=None, domain_config=None, ...)`: Process JSONL files with multiple samples
+   - Optional `domain_config` parameter enables domain-specific error tracking
    - Optional `output_file` parameter saves detailed per-sample error reports as JSONL
-   - Each detailed report includes category-wise breakdown (WORD/LEGAL/NUMERAL/PUNCT) with error rates, substitutions, insertions, deletions, correct counts, and Sandhi hits
-   - `compute_aggregate_metrics()`: Dataset-level and overall aggregation
-   - `print_evaluation_summary()`: Formatted output table with WER/LER/NER/PER
+   - Each detailed report includes category-wise breakdown (base + domain categories) with error rates, substitutions, insertions, deletions, correct counts, and Sandhi hits
+   - `compute_aggregate_metrics(sample_results, domain_config=None)`: Dataset-level and overall aggregation
+   - `print_evaluation_summary()`: Formatted output table with WER/NER/PER plus domain-specific rates (e.g., LER, MER)
 
 5. **Reporting** (`src/dicterrors/reporting.py`)
    - Shared formatting functions used across CLI and web UI
@@ -119,7 +121,7 @@ The visualizer provides:
 
 **Sandhi Awareness**: The alignment algorithm detects when Indic words are incorrectly merged or split by ASR systems. These are tracked separately as they represent different error types than pure substitutions.
 
-**Legal Entity Shielding**: Legal abbreviations are extracted before general tokenization to prevent them from being split incorrectly (e.g., "u/s" stays as one token, not "u", "/", "s").
+**Domain Entity Shielding**: Domain-critical terminology (legal, medical, custom) is extracted before general tokenization to prevent incorrect splitting (e.g., "u/s" stays as one token, not "u", "/", "s"). Configurable via `DomainConfig` class with list or regex patterns.
 
 **Category-Specific Gap Penalties**: Punctuation errors receive lighter penalties than word/legal/numeral errors in the alignment scoring, reflecting their lower semantic importance.
 
@@ -131,11 +133,13 @@ The visualizer provides:
 
 - `src/dicterrors/`: Core library modules
   - `__init__.py`: Public API exports
-  - `tokenize.py`: Token extraction and categorization
+  - `domain_config.py`: DomainConfig class and pre-defined domains (LEGAL_DOMAIN, MEDICAL_DOMAIN)
+  - `tokenize.py`: Domain-aware token extraction and categorization
   - `align.py`: Alignment algorithm and scoring
   - `measure.py`: Single-sample error rate calculation
   - `measure_batch.py`: Multi-sample aggregation
   - `reporting.py`: Shared formatting functions for CLI and web UI
+  - `constants.py`: Category constants and helper functions
 - `examples/`: Sample scripts and evaluation datasets
   - `text_alignment.py`: Visual alignment demonstration
   - `error_report.py`: Single-sample error report generation
@@ -146,10 +150,30 @@ The visualizer provides:
 
 ## Token Categories
 
+**Base Categories (always present):**
 - **WORD**: General words (Indic and English text)
-- **LEGAL**: English legal abbreviations (u/s, r/w, w.p., o.s., sec., art., v., vs., PW, CW)
 - **NUMERAL**: Numbers, dates (22.05.2023), times (10:30), currency (10,500)
 - **PUNCT**: Punctuation marks
+
+**Domain Categories (configurable via DomainConfig):**
+- **LEGAL**: English legal abbreviations (u/s, r/w, w.p., o.s., sec., art., v., vs., PW, CW, Ext.)
+- **MEDICAL**: Medical measurements and units (mg, ml, cc, mcg, 500mg, 10ml)
+- **Custom**: Define your own domain with list or regex patterns
+
+**Usage:**
+```python
+from dicterrors import domain_aware_tokenizer, LEGAL_DOMAIN, MEDICAL_DOMAIN, DomainConfig
+
+# Use pre-defined domain
+tokens, tags = domain_aware_tokenizer("charged u/s 302 IPC", LEGAL_DOMAIN)
+
+# No domain (base categories only)
+tokens, tags = domain_aware_tokenizer("regular text", None)
+
+# Custom domain
+financial = DomainConfig("financial", ["$", "€", "₹"], category="CURRENCY", label="CER")
+tokens, tags = domain_aware_tokenizer("Pay $100", financial)
+```
 
 ## JSONL Input Format
 
