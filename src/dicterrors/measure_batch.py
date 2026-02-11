@@ -6,7 +6,7 @@ from .constants import get_categories, init_stat_dict, calculate_combined_total,
 from .domain_config import DomainConfig
 import json
 
-def compute_sample_errors(input_file, output_file=None, ref_field="transcript_cleaned", hyp_field="prediction", source_dataset_field="source_dataset", domain_config: Optional[DomainConfig] = None) -> list[dict]:
+def compute_sample_errors(input_file, output_file=None, ref_field="transcript_cleaned", hyp_field="prediction", source_dataset_field="source_dataset", domain_config: Optional[DomainConfig] = None, normalize: bool = True) -> list[dict]:
     """
     Compute error metrics for all samples in a JSONL file.
 
@@ -17,6 +17,7 @@ def compute_sample_errors(input_file, output_file=None, ref_field="transcript_cl
         hyp_field: Field name for hypothesis text
         source_dataset_field: Field name for dataset identifier
         domain_config: Domain configuration (None for no domain)
+        normalize: If True, apply normalization for matching (default: True)
 
     Returns:
         List of result dictionaries with detailed reports
@@ -29,8 +30,8 @@ def compute_sample_errors(input_file, output_file=None, ref_field="transcript_cl
             if source_dataset_field not in data or data[source_dataset_field] is None:
                 data[source_dataset_field] = "unknown"
 
-            # Pass domain_config to text_error_rates
-            report = text_error_rates(data[ref_field], data[hyp_field], domain_config)
+            # Pass domain_config and normalize to text_error_rates
+            report = text_error_rates(data[ref_field], data[hyp_field], domain_config, normalize)
             data["detailed_report"] = report
             results.append(data)
 

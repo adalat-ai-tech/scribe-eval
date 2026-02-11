@@ -24,6 +24,14 @@ from .tokenize import (
     domain_aware_tokenizer
 )
 
+# --- Normalization ---
+from .normalize import (
+    normalize_token,
+    normalize_date,
+    normalize_currency,
+    normalize_numeral
+)
+
 # --- Alignment Logic ---
 from .align import (
     align_arrays, 

@@ -33,7 +33,7 @@ def get_mismatch_penalty(w1, t1, w2, t2, weights=DEFAULT_WEIGHTS) -> float:
         if t1 == CAT_PUNCT or t2 == CAT_PUNCT:
             return weights['mismatch_cross_punct_penalty']
         return weights['mismatch_cross_punct_penalty']
-    
+
     # For mismatch between other categories, penalty based on string distance
     dist = levenshtein_distance(w1, w2)
     return weights['mismatch_default_penalty'] - (dist * 0.5)
@@ -41,25 +41,25 @@ def get_mismatch_penalty(w1, t1, w2, t2, weights=DEFAULT_WEIGHTS) -> float:
 def check_sandhi_match(combined_words, single_text, weights) -> float:
     """Checks if two words (split) equal one word (merge) with Sandhi rules."""
     if len(combined_words) != 2: return -float('inf')
-    
+
     w1, w2 = combined_words[0], combined_words[1]
     if len(w1) < 2 or len(w2) < 2: return -float('inf')
 
     # Boundary analysis
     s1, s2 = w1[:-1], w1[-1:]
     s3, s4 = w2[:1], w2[1:]
-    
+
     if not single_text.startswith(s1) or not single_text.endswith(s4):
         return -float('inf')
-    
+
     boundary_region = single_text[len(s1) : len(single_text)-len(s4)]
     split_boundary = s2 + s3
-    
+
     dist = levenshtein_distance(split_boundary, boundary_region)
     if dist <= weights.get('sandhi_char_tolerence', 2):
         score = weights['match_reward'] + weights['split_merge_penalty']
         return score - (dist / len(single_text))
-    
+
     return -float('inf')
 
 def align_arrays(arr1, tags1, arr2, tags2, weights=None) -> tuple[list[tuple[str, str]], list[tuple[str, str]], float]:
@@ -92,7 +92,7 @@ def align_arrays(arr1, tags1, arr2, tags2, weights=None) -> tuple[list[tuple[str
 
             # 3. Sandhi Split/Merge (Only for CAT_WORD)
             split_val = merge_val = -float('inf')
-            
+
             # Split: 1 Ref matches 2 Hyp
             if j >= 2 and tags1[i-1] == CAT_WORD and tags2[j-2] == CAT_WORD and tags2[j-1] == CAT_WORD:
                 score_split = check_sandhi_match([arr2[j-2], arr2[j-1]], arr1[i-1], weights)
@@ -134,7 +134,7 @@ def align_arrays(arr1, tags1, arr2, tags2, weights=None) -> tuple[list[tuple[str
         if i > 0 and j > 0:
             if arr1[i-1] == arr2[j-1]: score = get_match_score(arr1[i-1], arr2[j-1], weights)
             else: score = get_mismatch_penalty(arr1[i-1], tags1[i-1], arr2[j-1], tags2[j-1], weights)
-            
+
             if is_close(dp[i-1][j-1] + score):
                 aligned_ref.append((arr1[i-1], tags1[i-1]))
                 aligned_hyp.append((arr2[j-1], tags2[j-1]))

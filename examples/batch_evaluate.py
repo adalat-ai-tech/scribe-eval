@@ -84,6 +84,11 @@ Examples:
         default="source_dataset",
         help="Field name for dataset identifier (default: source_dataset)"
     )
+    parser.add_argument(
+        "--no-normalize",
+        action="store_true",
+        help="Disable token normalization (strict matching)"
+    )
 
     args = parser.parse_args()
 
@@ -103,13 +108,15 @@ Examples:
 
         # 4. Run analysis with optional field names
         print(f"\nProcessing {input_path.name}...")
+        print(f"Token normalization: {'disabled' if args.no_normalize else 'enabled'}")
         results = compute_sample_errors(
             str(input_path),
             output_file=str(detailed_output),
             ref_field=args.ref_field,
             hyp_field=args.hyp_field,
             source_dataset_field=args.dataset_field,
-            domain_config=LEGAL_DOMAIN
+            domain_config=LEGAL_DOMAIN,
+            normalize=not args.no_normalize
         )
 
         # 5. Aggregate metrics with dataset splits

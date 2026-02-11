@@ -78,13 +78,18 @@ def inject_custom_css():
     """, unsafe_allow_html=True)
 
 # --- HELPER: HTML GENERATOR (Tagged Version) ---
-def generate_alignment_html(aligned_ref, aligned_hyp):
+def generate_alignment_html(aligned_ref, aligned_hyp, normalize=True):
     """
     aligned_ref/hyp: List of tuples (text, tag)
     Uses shared format_alignment_dict() for error detection logic.
+
+    Args:
+        aligned_ref: List of (text, tag) tuples for reference
+        aligned_hyp: List of (text, tag) tuples for hypothesis
+        normalize: If True, apply normalization when determining colors
     """
-    # Use shared alignment logic
-    alignment_data = format_alignment_dict(aligned_ref, aligned_hyp)
+    # Use shared alignment logic with normalization parameter
+    alignment_data = format_alignment_dict(aligned_ref, aligned_hyp, normalize)
 
     # Map error types to CSS classes
     status_map = {
@@ -144,7 +149,7 @@ def render_metrics_comparison(report, jiwer_wer, domain_config):
         """, unsafe_allow_html=True)
 
 # --- HELPER: RENDER ANALYSIS ---
-def render_analysis(ref_text, hyp_text, weights):
+def render_analysis(ref_text, hyp_text, weights, normalize=True):
     # Use legal domain configuration
     domain_config = LEGAL_DOMAIN
 
@@ -152,14 +157,14 @@ def render_analysis(ref_text, hyp_text, weights):
     t1, g1 = domain_aware_tokenizer(ref_text, domain_config)
     t2, g2 = domain_aware_tokenizer(hyp_text, domain_config)
     a_ref, a_hyp, _ = align_arrays(t1, g1, t2, g2, weights=weights)
-    report = token_error_rates(a_ref, a_hyp, domain_config)
+    report = token_error_rates(a_ref, a_hyp, domain_config, normalize)
 
     # 2. Jiwer Calculation
     j_wer = jiwer.wer(ref_text, hyp_text)
 
     # 3. Render
     st.subheader("Alignment Visualization")
-    st.markdown(generate_alignment_html(a_ref, a_hyp), unsafe_allow_html=True)
+    st.markdown(generate_alignment_html(a_ref, a_hyp, normalize), unsafe_allow_html=True)
     render_metrics_comparison(report, j_wer, domain_config)
 
 
@@ -183,6 +188,15 @@ with st.sidebar.expander("Agglutination & Sandhi", expanded=False):
     weights['split_merge_penalty'] = st.slider("Split/Merge Penalty", -2.0, 0.0, DEFAULT_WEIGHTS['split_merge_penalty'], 0.1)
     weights['sandhi_char_tolerence'] = st.slider("Sandhi Char Tolerance", 0, 5, DEFAULT_WEIGHTS['sandhi_char_tolerence'], 1)
 
+# Normalization toggle
+st.sidebar.divider()
+st.sidebar.header("🔄 Token Normalization")
+normalize_enabled = st.sidebar.checkbox(
+    "Enable Normalization",
+    value=True,
+    help="When enabled, treats date/currency format variations as matches (22.05.2023 = 22/05/2023, 10,500 = 10500)"
+)
+
 # Session state management
 st.sidebar.divider()
 st.sidebar.header("🗑️ Session Management")
@@ -205,7 +219,7 @@ with tab_manual:
     with mc1: m_ref = st.text_area("Reference", height=100, value="U/S 302 പ്രകാരം മഴക്കാലത്ത് ശിക്ഷിക്കപ്പെടും")
     with mc2: m_hyp = st.text_area("Hypothesis", height=100, value="US 302 പ്രകാരം മഴ കാലത്ത് ശിക്ഷിക്കപ്പെടും")
     if st.button("Analyze Manual Input", type="primary"):
-        render_analysis(m_ref, m_hyp, weights)
+        render_analysis(m_ref, m_hyp, weights, normalize_enabled)
 
  #--- UPDATED TAB 2: JSON/JSONL ---
 with tab_json:
@@ -271,7 +285,7 @@ with tab_json:
                     domain_config = LEGAL_DOMAIN
 
                     # 1. DictErrors Calculation
-                    res_detailed = compute_sample_errors(tmp_path, ref_field=ref_col, hyp_field=hyp_col, domain_config=domain_config)
+                    res_detailed = compute_sample_errors(tmp_path, ref_field=ref_col, hyp_field=hyp_col, domain_config=domain_config, normalize=normalize_enabled)
 
                     # Ensure source_dataset is attached for aggregation
                     for i, r in enumerate(res_detailed):
@@ -321,4 +335,4 @@ with tab_json:
                            format_func=lambda i: f"Record {i+1}: {res_list[i][saved_ref_col][:60]}...")
 
         sel = res_list[idx]
-        render_analysis(sel[saved_ref_col], sel[saved_hyp_col], weights)
+        render_analysis(sel[saved_ref_col], sel[saved_hyp_col], weights, normalize_enabled)

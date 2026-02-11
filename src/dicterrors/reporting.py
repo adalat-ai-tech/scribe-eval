@@ -148,7 +148,7 @@ def write_summary_to_file(agg_results: Dict, output_path: str, domain_config: Op
         f.write("=" * TABLE_WIDTH + "\n")
 
 
-def format_alignment_dict(aligned_ref: List[Tuple], aligned_hyp: List[Tuple]) -> List[Dict]:
+def format_alignment_dict(aligned_ref: List[Tuple], aligned_hyp: List[Tuple], normalize: bool = True) -> List[Dict]:
     """
     Extract alignment data as structured dict for rendering.
 
@@ -157,6 +157,7 @@ def format_alignment_dict(aligned_ref: List[Tuple], aligned_hyp: List[Tuple]) ->
     Args:
         aligned_ref: List of (text, tag) tuples for reference
         aligned_hyp: List of (text, tag) tuples for hypothesis
+        normalize: If True, apply normalization when checking equality (default: True)
 
     Returns:
         List of dicts with ref_text, hyp_text, error_type, token_type
@@ -173,7 +174,17 @@ def format_alignment_dict(aligned_ref: List[Tuple], aligned_hyp: List[Tuple]) ->
         elif ref_txt == hyp_txt:
             error_type = "correct"
         else:
-            error_type = "substitution"
+            # Check if tokens match after normalization
+            if normalize:
+                from .normalize import normalize_token
+                ref_normalized = normalize_token(ref_txt, ref_tag)
+                hyp_normalized = normalize_token(hyp_txt, hyp_tag)
+                if ref_normalized == hyp_normalized:
+                    error_type = "correct"
+                else:
+                    error_type = "substitution"
+            else:
+                error_type = "substitution"
 
         # Clean display text - remove markers
         display_ref = ref_txt.replace("MERGE:", "").replace("SPLIT:", "") if ref_txt != "**" else "**"
@@ -190,7 +201,7 @@ def format_alignment_dict(aligned_ref: List[Tuple], aligned_hyp: List[Tuple]) ->
     return results
 
 
-def format_alignment_table(aligned_ref: List[Tuple], aligned_hyp: List[Tuple]) -> List[Dict]:
+def format_alignment_table(aligned_ref: List[Tuple], aligned_hyp: List[Tuple], normalize: bool = True) -> List[Dict]:
     """
     Format aligned tokens for visualization table.
 
@@ -199,12 +210,13 @@ def format_alignment_table(aligned_ref: List[Tuple], aligned_hyp: List[Tuple]) -
     Args:
         aligned_ref: List of (text, tag) tuples for reference
         aligned_hyp: List of (text, tag) tuples for hypothesis
+        normalize: If True, apply normalization when checking equality (default: True)
 
     Returns:
         List of dictionaries with Position, Reference, Hypothesis, Error Type, Token Type
     """
     # Use shared error detection logic
-    alignment_data = format_alignment_dict(aligned_ref, aligned_hyp)
+    alignment_data = format_alignment_dict(aligned_ref, aligned_hyp, normalize)
 
     # Add position and capitalize error types for table display
     rows = []

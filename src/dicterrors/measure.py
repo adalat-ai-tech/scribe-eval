@@ -4,7 +4,7 @@ from .align import align_arrays
 from .constants import get_categories, init_stat_dict, calculate_combined_total
 from .domain_config import DomainConfig
 
-def token_error_rates(aligned_ref, aligned_hyp, domain_config: Optional[DomainConfig] = None) -> dict[str, dict[str, float | int]]:
+def token_error_rates(aligned_ref, aligned_hyp, domain_config: Optional[DomainConfig] = None, normalize: bool = True) -> dict[str, dict[str, float | int]]:
     """
     Calculate error rates from aligned tokens.
 
@@ -12,6 +12,7 @@ def token_error_rates(aligned_ref, aligned_hyp, domain_config: Optional[DomainCo
         aligned_ref: list of (text, tag) tuples
         aligned_hyp: list of (text, tag) tuples
         domain_config: Domain configuration (None for no domain)
+        normalize: If True, check normalized equality for matches (default: True)
 
     Returns:
         Dictionary with error rates for each category
@@ -52,7 +53,17 @@ def token_error_rates(aligned_ref, aligned_hyp, domain_config: Optional[DomainCo
         elif r_text == h_text:
             curr["correct"] += 1
         else:
-            curr["substitutions"] += 1
+            # Check if tokens match after normalization (if enabled)
+            if normalize:
+                from .normalize import normalize_token
+                r_normalized = normalize_token(r_text, r_tag)
+                h_normalized = normalize_token(h_text, h_tag)
+                if r_normalized == h_normalized:
+                    curr["correct"] += 1
+                else:
+                    curr["substitutions"] += 1
+            else:
+                curr["substitutions"] += 1
 
     # Final calculations for the report
     # Calculate combined denominator across ALL categories
@@ -79,7 +90,7 @@ def token_error_rates(aligned_ref, aligned_hyp, domain_config: Optional[DomainCo
 
     return report
 
-def text_error_rates(ref_text, hyp_text, domain_config: Optional[DomainConfig] = None) -> dict[str, dict[str, float | int]]:
+def text_error_rates(ref_text, hyp_text, domain_config: Optional[DomainConfig] = None, normalize: bool = True) -> dict[str, dict[str, float | int]]:
     """
     Calculate error rates from raw text.
 
@@ -87,6 +98,7 @@ def text_error_rates(ref_text, hyp_text, domain_config: Optional[DomainConfig] =
         ref_text: Reference text
         hyp_text: Hypothesis text
         domain_config: Domain configuration (None for no domain)
+        normalize: If True, apply normalization for matching (default: True)
 
     Returns:
         Dictionary with error rates for each category
@@ -94,4 +106,4 @@ def text_error_rates(ref_text, hyp_text, domain_config: Optional[DomainConfig] =
     t1, g1 = domain_aware_tokenizer(ref_text, domain_config)
     t2, g2 = domain_aware_tokenizer(hyp_text, domain_config)
     aligned_ref, aligned_hyp, _ = align_arrays(t1, g1, t2, g2)
-    return token_error_rates(aligned_ref, aligned_hyp, domain_config)
+    return token_error_rates(aligned_ref, aligned_hyp, domain_config, normalize)
