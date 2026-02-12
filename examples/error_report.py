@@ -4,110 +4,103 @@ Example script demonstrating detailed error reporting using dicterrors package.
 
 This example shows how to:
 1. Import the necessary functions from the dicterrors package
-2. Align two input texts
+2. Tokenize and align two input texts
 3. Generate a comprehensive error report with various error metrics
 4. Visualize the alignment with error details
 
 Usage:
     python error_report.py "First text to compare" "Second text to compare"
-    
+
 If no arguments are provided, the script uses default example texts.
 """
 
 import sys
 from tabulate import tabulate
-from dicterrors import align_text, text_error_rates
-from dicterrors.align import words_match, is_punctuation, is_number, is_word
+from dicterrors import (
+    domain_aware_tokenizer,
+    align_arrays,
+    token_error_rates,
+    CAT_WORD, CAT_PUNCT, CAT_NUMERAL,
+    LEGAL_DOMAIN
+)
+from dicterrors.reporting import (
+    format_metrics_dict,
+    format_error_counts_table,
+    format_alignment_table
+)
+
 
 def generate_error_report(text1, text2):
     """Generate a detailed error report for two texts."""
-    # Step 1: Align the texts
-    aligned_ref, aligned_hyp, align_score = align_text(text1, text2)
-    
-    # Step 2: Calculate error rates
-    wer, per, ner, error_report = text_error_rates(text1, text2)
-    
-    # Step 3: Generate a detailed report
+
+    # Use legal domain configuration
+    domain_config = LEGAL_DOMAIN
+
+    # Header
     print("=" * 50)
-    print(f"TEXT COMPARISON REPORT")
+    print("TEXT COMPARISON REPORT")
     print("=" * 50)
     print(f"Reference text: {text1}")
     print(f"Hypothesis text: {text2}")
+
+    # Step 1: Tokenize
+    t1, g1 = domain_aware_tokenizer(text1, domain_config)
+    t2, g2 = domain_aware_tokenizer(text2, domain_config)
+
+    # Step 2: Align
+    aligned_ref, aligned_hyp, align_score = align_arrays(t1, g1, t2, g2)
+
+    # Step 3: Calculate error rates
+    report = token_error_rates(aligned_ref, aligned_hyp, domain_config)
+
+    # Step 4: Format using shared functions
+    metrics = format_metrics_dict(report, domain_config)
+    error_counts = format_error_counts_table(report, domain_config)
+    alignment_vis = format_alignment_table(aligned_ref, aligned_hyp)
+
+    # Display metrics table
     print("\n" + "=" * 50)
     print("ERROR METRICS:")
     print("=" * 50)
-    
-    # Create a table of error metrics
     metrics_table = [
-        ["Word Error Rate (WER)", f"{wer*100:.2f}%"],
-        ["Punctuation Error Rate (PER)", f"{per*100:.2f}%"],
-        ["Number Error Rate (NER)", f"{ner*100:.2f}%"],
-        ["Word Correct Rate", f"{error_report['word']['correct']/max(1, error_report['word']['total_reference'])*100:.2f}%"],
-        ["Punctuation Correct Rate", f"{error_report['punctuation']['correct']/max(1, error_report['punctuation']['total_reference'])*100:.2f}%"],
-        ["Number Correct Rate", f"{error_report['numeral']['correct']/max(1, error_report['numeral']['total_reference'])*100:.2f}%"]
+        ["Word Error Rate (WER)", metrics["WER"]],
+        [f"{domain_config.name.title()} Error Rate ({domain_config.label})", metrics[domain_config.label]],
+        ["Numeral Error Rate (NER)", metrics["NER"]],
+        ["Punctuation Error Rate (PER)", metrics["PER"]],
+        ["Word Correct", report[CAT_WORD]['correct']],
+        [f"{domain_config.name.title()} Correct", report[domain_config.category]['correct']],
+        ["Numeral Correct", report[CAT_NUMERAL]['correct']],
+        ["Punctuation Correct", report[CAT_PUNCT]['correct']],
+        ["Combined Total Tokens", report[CAT_WORD]['combined_total']],
+        ["Sandhi Corrections", metrics["Sandhi"]]
     ]
-    
     print(tabulate(metrics_table, headers=["Metric", "Value"], tablefmt="grid"))
-    
-    # Error counts
+
+    # Display error counts
     print("\n" + "=" * 50)
-    print("ERROR COUNTS:")
+    print("ERROR COUNTS BY CATEGORY:")
     print("=" * 50)
-    
-    counts_table = [
-        ["Word Substitutions", error_report["word"]["substitutions"]],
-        ["Word Insertions", error_report["word"]["insertions"]],
-        ["Word Deletions", error_report["word"]["deletions"]],
-        ["Word Correct", error_report["word"]["correct"]],
-        ["Punctuation Substitutions", error_report["punctuation"]["substitutions"]],
-        ["Punctuation Insertions", error_report["punctuation"]["insertions"]],
-        ["Punctuation Deletions", error_report["punctuation"]["deletions"]],
-        ["Punctuation Correct", error_report["punctuation"]["correct"]],
-        ["Number Substitutions", error_report["numeral"]["substitutions"]],
-        ["Number Insertions", error_report["numeral"]["insertions"]],
-        ["Number Deletions", error_report["numeral"]["deletions"]],
-        ["Number Correct", error_report["numeral"]["correct"]]
-    ]
-    
-    print(tabulate(counts_table, headers=["Error Type", "Count"], tablefmt="grid"))
-    
-    # Alignment visualization
+    print(tabulate(error_counts, headers="keys", tablefmt="grid"))
+
+    # Display alignment visualization
     print("\n" + "=" * 50)
     print("ALIGNMENT VISUALIZATION:")
     print("=" * 50)
-    
-    # Create a list to store alignment details
-    alignment_rows = []
-    
-    for i, (ref, hyp) in enumerate(zip(aligned_ref, aligned_hyp)):
-        # Determine token type
-        if ref == "**":
-            error_type = "Insertion"
-            token_type = "Word" if is_word(hyp) else "Number" if is_number(hyp) else "Punctuation"
-        elif hyp == "**":
-            error_type = "Deletion"
-            token_type = "Word" if is_word(ref) else "Number" if is_number(ref) else "Punctuation"
-        elif words_match(ref, hyp):
-            error_type = "Correct"
-            token_type = "Word" if is_word(ref) else "Number" if is_number(ref) else "Punctuation"
-        else:
-            error_type = "Substitution"
-            token_type = "Word" if (is_word(ref) and is_word(hyp)) else "Number" if (is_number(ref) and is_number(hyp)) else "Mixed"
-        
-        alignment_rows.append([i+1, ref, hyp, error_type, token_type])
-    
-    print(tabulate(alignment_rows, headers=["Position", "Reference", "Hypothesis", "Error Type", "Token Type"], tablefmt="grid"))
-    
+    print(tabulate(alignment_vis, headers="keys", tablefmt="grid"))
+
     # Summary
     print("\n" + "=" * 50)
     print("SUMMARY:")
     print("=" * 50)
     print(f"Alignment Score: {align_score}")
-    print(f"Overall WER: {wer*100:.2f}%")
-    print(f"Overall PER: {per*100:.2f}%")
-    print(f"Overall NER: {ner*100:.2f}%")
-    
-    return wer, per, ner, error_report
+    print(f"Overall WER: {metrics['WER']}")
+    print(f"Overall {domain_config.label}: {metrics[domain_config.label]}")
+    print(f"Overall NER: {metrics['NER']}")
+    print(f"Overall PER: {metrics['PER']}")
+    print(f"Sandhi corrections: {metrics['Sandhi']}")
+
+    return report
+
 
 def main():
     # Use command line arguments if provided, otherwise use default examples
@@ -117,13 +110,14 @@ def main():
     else:
         # Default examples in multiple languages
         print("No text arguments provided. Using default example...")
-        
+
         # Malayalam example
         text1 = "പണം അക്കൗണ്ടിൽ എത്തിയപ്പോൾ ആദ്യ, ഗഡുവായി 180000 രൂപയായി നൽകിയത്."
         text2 = "പണം അക്കൗണ്ടിൽ എത്തിയപ്പോൾ, ആദ്യ ഘടുവായി 180000 രൂപയാണ് നൽകിയത്:"
-    
+
     # Generate the error report
     generate_error_report(text1, text2)
+
 
 if __name__ == "__main__":
     main()

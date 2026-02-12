@@ -1,196 +1,128 @@
-from .measure import text_error_rates
-import json
-from typing import List, Dict, Any
 from collections import defaultdict
+from typing import Optional
+from .measure import text_error_rates
+from .reporting import format_dataset_table
+from .constants import get_categories, init_stat_dict, calculate_combined_total, format_table_header, TABLE_WIDTH
+from .domain_config import DomainConfig
+import json
 
-
-def compute_sample_errors(
-    input_file: str, 
-    output_file: str = None, 
-    ref_field: str = "transcript_cleaned", 
-    hyp_field: str = "prediction", 
-    source_dataset_field: str = "source_dataset", 
-    audio_path_field: str = "file_path"
-) -> List[Dict[str, Any]]:
+def compute_sample_errors(input_file, output_file=None, ref_field="transcript_cleaned", hyp_field="prediction", source_dataset_field="source_dataset", domain_config: Optional[DomainConfig] = None, normalize: bool = True) -> list[dict]:
     """
-    Evaluate predictions and save results to a JSON file.
-    
+    Compute error metrics for all samples in a JSONL file.
+
     Args:
-        input_file: Path to input JSONL file with predictions
-        output_file: Path to output JSON file for evaluation results
-        ref_field: Field name for reference text in input file. default: transcript_cleaned
-        hyp_field: Field name for hypothesis/prediction text in input file. default: prediction
-        source_dataset_field: Field name for source dataset in input file. default: source_dataset
-        audio_path_field: Field name for audio file path in input file. default: file_path
-    
+        input_file: Path to JSONL file
+        output_file: Optional path to save detailed results
+        ref_field: Field name for reference text
+        hyp_field: Field name for hypothesis text
+        source_dataset_field: Field name for dataset identifier
+        domain_config: Domain configuration (None for no domain)
+        normalize: If True, apply normalization for matching (default: True)
+
     Returns:
-        List of evaluation results as a list of dictionaries
+        List of result dictionaries with detailed reports
     """
     results = []
-
-    print(f"Loading data from {input_file}")
-
-    with open(input_file, "r") as f:
-        lines = f.readlines()
-
-        for line in lines:
+    with open(input_file, "r", encoding="utf-8") as f:
+        for line in f:
             data = json.loads(line)
-            file_path = data[audio_path_field]
-            ref_text = data[ref_field]
-            if source_dataset_field in data:
-                source_dataset = data[source_dataset_field]
-            else:
-                source_dataset = None
-            hyp_text = data[hyp_field]
-            
-            # Calculate error rates
-            wer, per, ner, report = text_error_rates(ref_text, hyp_text)
-            
-            # Store results
-            result = {
-                "file_path": file_path,
-                "ref_text": ref_text,
-                "hyp_text": hyp_text,
-                "source_dataset": source_dataset,
-                "WER": wer,
-                "PER": per,
-                "NER": ner,
-                "detailed_report": report
-            }
-            
-            results.append(result)
-    
-    # Write results to JSON file
+            # Ensure we have a source_dataset field
+            if source_dataset_field not in data or data[source_dataset_field] is None:
+                data[source_dataset_field] = "unknown"
+
+            # Pass domain_config and normalize to text_error_rates
+            report = text_error_rates(data[ref_field], data[hyp_field], domain_config, normalize)
+            data["detailed_report"] = report
+            results.append(data)
+
+    # Save detailed results if output file is specified
     if output_file:
-        with open(output_file, "w") as f:
-            json.dump(results, f, indent=2, ensure_ascii=False)
-            print(f"Results saved to {output_file}")
-    
-    print("Evaluation complete.")
+        with open(output_file, "w", encoding="utf-8") as f:
+            for result in results:
+                f.write(json.dumps(result, ensure_ascii=False) + "\n")
+
     return results
 
-
-
-def _init_stats():
-    """Helper to initialize zeroed stats for a category."""
-    return {
-        "substitutions": 0, "insertions": 0, "deletions": 0, 
-        "correct": 0, "total_reference": 0,
-        "sandhi_splits": 0, "sandhi_merges": 0
-    }
-
-def _init_accumulator():
-    """Helper to initialize accumulators for all token types."""
-    return {
-        "word": _init_stats(),
-        "punctuation": _init_stats(),
-        "numeral": _init_stats()
-    }
-
-def _update_stats(accumulator: Dict, sample_report: Dict):
+def compute_aggregate_metrics(sample_results, domain_config: Optional[DomainConfig] = None) -> dict[str, dict[str, dict[str, dict[str, float | int]]]]:
     """
-    In-place update of the accumulator with values from a single sample report.
-    """
-    for category in ["word", "punctuation", "numeral"]:
-        acc_cat = accumulator[category]
-        src_cat = sample_report[category]
-        
-        acc_cat["substitutions"] += src_cat.get("substitutions", 0)
-        acc_cat["insertions"]    += src_cat.get("insertions", 0)
-        acc_cat["deletions"]     += src_cat.get("deletions", 0)
-        acc_cat["correct"]       += src_cat.get("correct", 0)
-        acc_cat["total_reference"] += src_cat.get("total_reference", 0)
-        
-        # Add Sandhi stats if they exist
-        acc_cat["sandhi_splits"] += src_cat.get("sandhi_splits", 0)
-        acc_cat["sandhi_merges"] += src_cat.get("sandhi_merges", 0)
+    Aggregate metrics across all samples.
 
-def _calculate_final_metrics(accumulator: Dict) -> Dict:
-    """
-    Converts raw counts in an accumulator to WER/PER/NER percentages.
-    """
-    final_metrics = {}
-    
-    # Map internal category names to output metric names
-    metric_map = {"word": "WER", "punctuation": "PER", "numeral": "NER"}
-    
-    for category, metric_name in metric_map.items():
-        stats = accumulator[category]
-        
-        # Calculate Error Rate: (S + I + D) / max(1, N)
-        errors = stats["substitutions"] + stats["insertions"] + stats["deletions"]
-        total = stats["total_reference"]
-        
-        rate = errors / max(1, total)
-        
-        # Copy counts and add the calculated rate
-        final_metrics[category] = stats.copy()
-        final_metrics[category]["error_rate"] = rate
-        final_metrics[category]["metric_name"] = metric_name # e.g. WER
-        
-    return final_metrics
-
-def compute_aggregate_metrics(sample_results: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """
-    Aggregates error rates over the entire dataset and per-source-dataset.
-    
     Args:
-        sample_results: List of dicts returned by compute_sample_errors
-        
+        sample_results: List of result dictionaries from compute_sample_errors
+        domain_config: Domain configuration (None for no domain)
+
     Returns:
-        Dict containing 'overall' and 'by_dataset' metrics.
+        Dictionary with 'overall' and 'by_dataset' aggregated metrics
     """
-    
-    # 1. Initialize Accumulators
-    overall_acc = _init_accumulator()
-    dataset_accs = defaultdict(_init_accumulator)
-    
-    # 2. Iterate and Accumulate (The "Micro-Average" Logic)
-    for result in sample_results:
-        report = result["detailed_report"]
-        source = result.get("source_dataset", "unknown")
-        
-        # Update Global
-        _update_stats(overall_acc, report)
-        
-        # Update Specific Dataset
-        _update_stats(dataset_accs[source], report)
-        
-    # 3. Calculate Final Rates
-    output = {
-        "overall": _calculate_final_metrics(overall_acc),
-        "by_dataset": {}
+    categories = get_categories(domain_config)
+    overall_agg = init_stat_dict(categories)
+    dataset_aggs = defaultdict(lambda: init_stat_dict(categories))
+
+    for res in sample_results:
+        ds = res.get("source_dataset", "unknown")
+        report = res["detailed_report"]
+
+        for cat in categories:
+            if cat not in report:
+                continue
+
+            # Update overall
+            overall_agg[cat]["substitutions"] += report[cat]["substitutions"]
+            overall_agg[cat]["insertions"] += report[cat]["insertions"]
+            overall_agg[cat]["deletions"] += report[cat]["deletions"]
+            overall_agg[cat]["total"] += report[cat]["total_ref"]
+            overall_agg[cat]["sandhi_hits"] += report[cat]["sandhi_hits"]
+
+            # Update per-dataset
+            dataset_aggs[ds][cat]["substitutions"] += report[cat]["substitutions"]
+            dataset_aggs[ds][cat]["insertions"] += report[cat]["insertions"]
+            dataset_aggs[ds][cat]["deletions"] += report[cat]["deletions"]
+            dataset_aggs[ds][cat]["total"] += report[cat]["total_ref"]
+            dataset_aggs[ds][cat]["sandhi_hits"] += report[cat]["sandhi_hits"]
+
+    def calculate_rates(agg):
+        # Calculate combined denominator across ALL categories
+        combined_total = calculate_combined_total(agg)
+
+        metrics = {}
+        for cat in agg:
+            a = agg[cat]
+            errs = a["substitutions"] + a["insertions"] + a["deletions"]
+            metrics[cat] = {
+                "error_rate": errs / max(1, combined_total),  # Combined denominator
+                "substitutions": a["substitutions"],
+                "insertions": a["insertions"],
+                "deletions": a["deletions"],
+                "correct": a["total"] - errs,
+                "sandhi_hits": a["sandhi_hits"],
+                "total": a["total"],
+                "combined_total": combined_total  # Store for reference
+            }
+        return metrics
+
+    return {
+        "overall": calculate_rates(overall_agg),
+        "by_dataset": {ds: calculate_rates(stats) for ds, stats in dataset_aggs.items()}
     }
-    
-    for source, acc in dataset_accs.items():
-        output["by_dataset"][source] = _calculate_final_metrics(acc)
-        
-    return output
 
-def print_evaluation_summary(aggregated_results: Dict[str, Any]):
+def print_evaluation_summary(agg_results, domain_config: Optional[DomainConfig] = None) -> None:
     """
-    Pretty prints the aggregated results for console viewing.
+    Print evaluation summary table.
+
+    Args:
+        agg_results: Aggregated results from compute_aggregate_metrics
+        domain_config: Domain configuration for label formatting
     """
-    def _print_row(name, metrics):
-        wer = metrics['word']['error_rate']
-        per = metrics['punctuation']['error_rate']
-        ner = metrics['numeral']['error_rate']
-        splits = metrics['word']['sandhi_splits']
-        merges = metrics['word']['sandhi_merges']
+    table_data = format_dataset_table(agg_results, domain_config)
 
-        if name:
-            print(f"{name:<20} | {wer:8.2%} | {per:8.2%} | {ner:8.2%} | {splits+merges:<4}")
+    domain_label = domain_config.label if domain_config else "DER"
+    print("\n" + "=" * TABLE_WIDTH)
+    print(format_table_header(domain_label))
 
-    print("\n" + "="*65)
-    print(f"{'DATASET':<20} | {'WER':<8} | {'PER':<8} | {'NER':<8} | {'SANDHI'}")
-    print("-" * 65)
-    
-    # Print Overall
-    _print_row("OVERALL", aggregated_results["overall"])
-    print("-" * 65)
-    
-    # Print per dataset
-    for source, metrics in aggregated_results["by_dataset"].items():
-        _print_row(source, metrics)
-    print("="*65 + "\n")
+    for row in table_data:
+        is_overall = row['Dataset'] == 'OVERALL'
+        print(f"{row['Dataset']:<25} | {row['WER']:>8} | {row[domain_label]:>8} | {row['NER']:>8} | {row['PER']:>8} | {row['Sandhi']:>6}")
+        if is_overall:
+            print("-" * TABLE_WIDTH)
 
+    print("=" * TABLE_WIDTH + "\n")

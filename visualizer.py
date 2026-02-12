@@ -4,309 +4,335 @@ import os
 import json
 import pandas as pd
 import jiwer
-from collections import defaultdict
-from dicterrors import tokenizer, token_error_rates, align_arrays, DEFAULT_WEIGHTS, is_number, is_punctuation, compute_aggregate_metrics, compute_sample_errors
-import tempfile 
+import tempfile
+from pathlib import Path
+from dicterrors import (
+    domain_aware_tokenizer,
+    align_arrays,
+    token_error_rates,
+    compute_aggregate_metrics,
+    compute_sample_errors,
+    DEFAULT_WEIGHTS,
+    CAT_WORD, CAT_PUNCT, CAT_NUMERAL,
+    LEGAL_DOMAIN
+)
+from dicterrors.reporting import (
+    format_dataset_table,
+    format_error_counts_table,
+    extract_error_rates,
+    format_alignment_dict
+)
 
-# --- HELPER: CSS INJECTION ---
+def parse_data(content_list):
+    """Handles both JSON (list of dicts) and JSONL (line by line)."""
+    # Join the lines to check the overall structure
+    full_content = "\n".join(content_list).strip()
+    
+    # Try parsing as a standard JSON list first
+    if full_content.startswith("["):
+        try:
+            return json.loads(full_content)
+        except:
+            pass
+            
+    # Fallback to JSONL (line by line)
+    records = []
+    for line in content_list:
+        if line.strip():
+            try:
+                records.append(json.loads(line))
+            except Exception as e:
+                st.error(f"Failed to parse line: {line[:50]}... Error: {e}")
+    return records
+
+
+# --- HELPER: CSS INJECTION (Restored & Enhanced) ---
 def inject_custom_css():
     st.markdown("""
     <style>
         .scroll-container { overflow-x: auto; white-space: nowrap; padding-bottom: 15px; width: 100%; border: 1px solid #eee; border-radius: 8px; background: #fafafa; }
         table.alignment-table { border-collapse: separate; border-spacing: 8px; margin: 10px; }
-        td.token-cell { border-radius: 6px; padding: 8px 12px; text-align: center; min-width: 60px; font-family: sans-serif; vertical-align: middle; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        td.token-cell { border-radius: 6px; padding: 8px 12px; text-align: center; min-width: 80px; font-family: sans-serif; vertical-align: middle; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .top-text { font-size: 1em; font-weight: bold; color: #666; border-bottom: 1px solid rgba(0,0,0,0.1);}
-        .bot-text { font-size: 1em; margin-bottom: 4px; padding-bottom: 2px; }
+        .bot-text { font-size: 1em; margin-bottom: 4px; padding-bottom: 2px; color: #000; }
+        .tag-label { font-size: 0.65em; font-weight: bold; text-transform: uppercase; opacity: 0.5; margin-top: 4px; display: block;}
+        
+        /* Status Colors */
         .s-correct { background-color: #d1e7dd; color: #0f5132; }
         .s-sub     { background-color: #f8d7da; color: #842029; }
         .s-ins, .s-del { background-color: #ffe0b2; color: #7d4e00; }
-        .s-merge { background-color: #e0e7ff; color: #3730a3; border: 1px solid #6366f1 !important; }
-        .t-word   { border: 4px solid #a3cfbb; } 
-        .t-number { border: 2px double #d32f2f; }
-        .t-punct  { border: 4px dashed #9c27b0; }
+        .s-merge   { background-color: #e0e7ff; color: #3730a3; border: 2px solid #6366f1 !important; }
+        
+        /* Category Border Styles */
+        .t-WORD    { border: 3px solid #a3cfbb; } 
+        .t-NUMERAL { border: 3px solid #d32f2f; }
+        .t-PUNCT   { border: 3px dashed #9c27b0; }
+        .t-LEGAL   { border: 4px solid #1a237e; box-shadow: 0 0 8px rgba(26, 35, 126, 0.4); }
+        
         .metrics-container { border: 1px solid rgba(128, 128, 128, 0.3); border-radius: 10px; padding: 15px; background-color: rgba(250, 250, 250, 0.8); color: rgba(0, 0, 0, 0.87); }
         .metric-value { font-size: 24px; font-weight: bold; color: #1e88e5; }
+        .metric-legal { color: #1a237e; margin: 10px 0; }
         .jiwer-metric { color: #9c27b0; }
-        .metric-secondary { font-size: 16px; color: rgba(0, 0, 0, 0.8); }
+        .metric-secondary { font-size: 20px; color: rgba(0, 0, 0, 0.8); }
     </style>
     """, unsafe_allow_html=True)
 
-# --- HELPER: HTML GENERATOR ---
-def generate_alignment_html(ref_tokens, hyp_tokens):
-    """Generates the HTML table for alignment visualization."""
+# --- HELPER: HTML GENERATOR (Tagged Version) ---
+def generate_alignment_html(aligned_ref, aligned_hyp, normalize=True):
+    """
+    aligned_ref/hyp: List of tuples (text, tag)
+    Uses shared format_alignment_dict() for error detection logic.
+
+    Args:
+        aligned_ref: List of (text, tag) tuples for reference
+        aligned_hyp: List of (text, tag) tuples for hypothesis
+        normalize: If True, apply normalization when determining colors
+    """
+    # Use shared alignment logic with normalization parameter
+    alignment_data = format_alignment_dict(aligned_ref, aligned_hyp, normalize)
+
+    # Map error types to CSS classes
+    status_map = {
+        'correct': 's-correct',
+        'substitution': 's-sub',
+        'insertion': 's-ins',
+        'deletion': 's-del',
+        'sandhi': 's-merge'
+    }
+
     html = '<div class="scroll-container"><table class="alignment-table"><tr>'
-    for r, h in zip(ref_tokens, hyp_tokens):
-        
-        # --- 1. Detect Status & Clean Text ---
-        status = "s-correct"
-        token_type = "t-word"
-        
-        if r.startswith("MERGE:"):
-            status = "s-merge"
-            r = r.replace("MERGE:", "")
-        elif h.startswith("SPLIT:"):
-            status = "s-merge"
-            h = h.replace("SPLIT:", "")
-        elif r == "**" or r == "<eps>": 
-            status = "s-ins"
-        elif h == "**" or h == "<eps>":
-            status = "s-del"
-        elif r != h:
-            status = "s-sub"
-        
-        # --- 2. Determine Border Type ---
-        check_content = r if r not in ["**", "<eps>"] else h
-        if " " in check_content: token_type = "t-word"
-        elif is_number(check_content): token_type = "t-number"
-        elif is_punctuation(check_content): token_type = "t-punct"
-        else: token_type = "t-word"
-        
-        disp_r = r if (r != "**" and r != "<eps>") else "&nbsp;"
-        disp_h = h if (h != "**" and h != "<eps>") else "&nbsp;"
-        
-        html += f"<td class=\"token-cell {status} {token_type}\"><div class=\"top-text\">{disp_r}</div><div class=\"bot-text\">{disp_h}</div></td>"
-    
+
+    for item in alignment_data:
+        status = status_map.get(item['error_type'], 's-correct')
+        border_class = f"t-{item['token_type']}"
+
+        # Replace ** with &nbsp; for display
+        disp_r = item['ref_text'] if item['ref_text'] != "**" else "&nbsp;"
+        disp_h = item['hyp_text'] if item['hyp_text'] != "**" else "&nbsp;"
+
+        html += f"""
+        <td class="token-cell {status} {border_class}">
+            <div class="top-text">{disp_r}</div>
+            <div class="bot-text">{disp_h}</div>
+            <div class="tag-label">{item['token_type']}</div>
+        </td>"""
+
     html += "</tr></table></div>"
     return html
 
-# --- HELPER: METRIC CARD RENDERER (SHARED) ---
-def render_metrics_comparison(d_wer, d_per, d_ner, j_wer, j_mer):
-    """Renders the comparison cards for DictErrors vs Jiwer."""
+# --- HELPER: METRIC CARD RENDERER ---
+def render_metrics_comparison(report, jiwer_wer, domain_config):
     mc1, mc2 = st.columns(2)
     with mc1:
-        st.subheader("DictErrors")
-        st.markdown(f"""<div class="metrics-container"><div class="metric-value">WER: {d_wer:.2%}</div><div class="metric-secondary">PER: {d_per:.2%} | NER: {d_ner:.2%}</div></div>""", unsafe_allow_html=True)
+        st.subheader("DictErrors (Domain-Aware)")
+        # Use shared error rate extraction function
+        rates = extract_error_rates(report, domain_config)
+
+        # Get domain label dynamically
+        domain_label_lower = domain_config.label.lower() if domain_config else "der"
+
+        st.markdown(f"""
+        <div class="metrics-container">
+            <div class="metric-value">General WER: {rates['wer']:.2%}</div>
+            <div class="metric-value metric-legal">{domain_config.name.title()} WER: {rates[domain_label_lower]:.2%}</div>
+            <div class="metric-secondary">Numeral WER: {rates['ner']:.2%}</div>
+            <div class="metric-secondary">Punctuation WER: {rates['per']:.2%}</div>
+        </div>
+        """, unsafe_allow_html=True)
     with mc2:
-        st.subheader("Jiwer")
-        st.markdown(f"""<div class="metrics-container"><div class="metric-value jiwer-metric">WER: {j_wer:.2%}</div><div class="metric-secondary">MER: {j_mer:.2%}</div></div>""", unsafe_allow_html=True)
+        st.subheader("Jiwer Baseline")
+        st.markdown(f"""
+        <div class="metrics-container">
+            <div class="metric-value jiwer-metric">Global WER: {jiwer_wer:.2%}</div>
+            <div class="metric-secondary">Standard word-level calculation without category shielding or Sandhi awareness.</div>
+        </div>
+        """, unsafe_allow_html=True)
 
 # --- HELPER: RENDER ANALYSIS ---
-def render_analysis(ref_text, hyp_text, weights):
-    """Reusable function to render the metrics and visualization."""
-    inject_custom_css()
-    
+def render_analysis(ref_text, hyp_text, weights, normalize=True):
+    # Use legal domain configuration
+    domain_config = LEGAL_DOMAIN
+
     # 1. DictErrors Calculation
-    custom_ref_tok = tokenizer(ref_text)
-    custom_hyp_tok = tokenizer(hyp_text)
-    c_ref, c_hyp, c_score = align_arrays(custom_ref_tok, custom_hyp_tok, weights=weights)
-    c_wer, c_per, c_ner, c_report = token_error_rates(c_ref, c_hyp)
+    t1, g1 = domain_aware_tokenizer(ref_text, domain_config)
+    t2, g2 = domain_aware_tokenizer(hyp_text, domain_config)
+    a_ref, a_hyp, _ = align_arrays(t1, g1, t2, g2, weights=weights)
+    report = token_error_rates(a_ref, a_hyp, domain_config, normalize)
 
     # 2. Jiwer Calculation
-    jiwer_out = jiwer.process_words(ref_text, hyp_text)
-    
-    # Extract Jiwer Alignment
-    j_ref_viz, j_hyp_viz = [], []
-    for chunk in jiwer_out.alignments[0]:
-        if chunk.type in ['equal', 'substitute']:
-            j_ref_viz.extend([ref_text.split()[i] for i in range(chunk.ref_start_idx, chunk.ref_end_idx)])
-            j_hyp_viz.extend([hyp_text.split()[i] for i in range(chunk.hyp_start_idx, chunk.hyp_end_idx)])
-        elif chunk.type == 'delete':
-            for i in range(chunk.ref_start_idx, chunk.ref_end_idx):
-                j_ref_viz.append(ref_text.split()[i]); j_hyp_viz.append("**")
-        elif chunk.type == 'insert':
-            for i in range(chunk.hyp_start_idx, chunk.hyp_end_idx):
-                j_ref_viz.append("**"); j_hyp_viz.append(hyp_text.split()[i])
+    j_wer = jiwer.wer(ref_text, hyp_text)
 
-    # 3. Render UI
-    st.subheader("1. Alignment Visualization")
-    t1, t2 = st.tabs(["✨ DictErrors Alignment", "Jiwer Alignment"])
-    
-    with t1:
-        st.write("Green indicates correct tokens, Red indicates substitutions, Yellow indicates insertions/deletions, Purple indicates Split/Merge of Words (Sandhi).")
-        st.markdown(generate_alignment_html(c_ref, c_hyp), unsafe_allow_html=True)
-        with st.expander("Detailed Report"): st.json(c_report)
-    with t2:
-           st.write("Green indicates correct tokens, Red indicates substitutions, Yellow indicates insertions/deletions.")
-           st.markdown(generate_alignment_html(j_ref_viz, j_hyp_viz), unsafe_allow_html=True)
-
-    st.subheader("2. Metric Comparison")
-    render_metrics_comparison(c_wer, c_per, c_ner, jiwer_out.wer, jiwer_out.mer)
+    # 3. Render
+    st.subheader("Alignment Visualization")
+    st.markdown(generate_alignment_html(a_ref, a_hyp, normalize), unsafe_allow_html=True)
+    render_metrics_comparison(report, j_wer, domain_config)
 
 
 # --- UI CONFIG ---
-st.set_page_config(layout="wide", page_title="DictErrors vs Jiwer")
-st.title("⚖️ Error Analysis: DictErrors vs Jiwer")
-inject_custom_css() # Ensure CSS is loaded globally
+st.set_page_config(layout="wide", page_title="DictErrors Legal Visualizer")
+st.title("⚖️ DictErrors vs Jiwer: Legal & Indic Evaluation")
+inject_custom_css()
 
-# --- SIDEBAR ---
-st.sidebar.header("🔧 Custom Penalty Tuning")
+# --- SIDEBAR: WEIGHT TUNING (Restored) ---
+st.sidebar.header("🔧 Penalty Tuning")
 weights = {}
-with st.sidebar.expander("Agglutination (Sandhi)", expanded=True):
-    weights['split_merge_penalty'] = st.slider("Split/Merge Penalty", -2.0, 0.0, float(DEFAULT_WEIGHTS.get('split_merge_penalty', -0.5)), 0.1)
-    weights['sandhi_threshold'] = st.slider("Sandhi Char Tolerance", 0, 5, int(DEFAULT_WEIGHTS.get('sandhi_threshold', 2)), 1)
-with st.sidebar.expander("Gap & Mismatch", expanded=False):
-    weights['gap_punct_num'] = st.slider("Gap: Punct/Num", -5.0, 0.0, float(DEFAULT_WEIGHTS['gap_punct_num']), 0.5)
-    weights['gap_word_base'] = st.slider("Gap: Word Base", -5.0, 0.0, float(DEFAULT_WEIGHTS['gap_word_base']), 0.5)
-    weights['gap_word_factor'] = st.slider("Gap: Word Length Factor", 0.0, 2.0, float(DEFAULT_WEIGHTS['gap_word_factor']), 0.1)
-    weights['mismatch_word_base'] = st.slider("Sub: Word Base", -5.0, 0.0, float(DEFAULT_WEIGHTS['mismatch_word_base']), 0.5)
-    weights['match_base'] = st.slider("Match Reward", 1.0, 5.0, float(DEFAULT_WEIGHTS['match_base']), 0.5)
-    weights['mismatch_punct_cross'] = float(DEFAULT_WEIGHTS['mismatch_punct_cross'])
-    weights['mismatch_word_num'] = float(DEFAULT_WEIGHTS['mismatch_word_num'])
-    weights['mismatch_num_num'] = float(DEFAULT_WEIGHTS['mismatch_num_num'])
-    weights['mismatch_punct_punct'] = float(DEFAULT_WEIGHTS['mismatch_punct_punct'])
+
+with st.sidebar.expander("Category Penalties", expanded=True):
+    weights['gap_penalty'] = st.slider("Gap Penalty - General", -5.0, 0.0, DEFAULT_WEIGHTS['gap_penalty'], 0.5)
+    weights['gap_penalty_punct'] = st.slider("Gap Penalty - Punctuation", -5.0, 0.0, DEFAULT_WEIGHTS['gap_penalty_punct'], 0.1)
+    weights['mismatch_default_penalty'] = st.slider("Mismatch Penalty - Default", -5.0, 0.0, DEFAULT_WEIGHTS['mismatch_default_penalty'], 0.5)
+    weights['mismatch_cross_punct_penalty'] = st.slider("Mismatch Penalty - Cross-Category Punct", -10.0, 0.0, DEFAULT_WEIGHTS['mismatch_cross_punct_penalty'], 1.0)
+    weights['match_reward'] = st.slider("Match Reward", 1.0, 5.0, DEFAULT_WEIGHTS['match_reward'], 0.5)
+
+with st.sidebar.expander("Agglutination & Sandhi", expanded=False):
+    weights['split_merge_penalty'] = st.slider("Split/Merge Penalty", -2.0, 0.0, DEFAULT_WEIGHTS['split_merge_penalty'], 0.1)
+    weights['sandhi_char_tolerence'] = st.slider("Sandhi Char Tolerance", 0, 5, DEFAULT_WEIGHTS['sandhi_char_tolerence'], 1)
+
+# Normalization toggle
+st.sidebar.divider()
+st.sidebar.header("🔄 Token Normalization")
+normalize_enabled = st.sidebar.checkbox(
+    "Enable Normalization",
+    value=True,
+    help="When enabled, treats date/currency format variations as matches (22.05.2023 = 22/05/2023, 10,500 = 10500)"
+)
+
+# Session state management
+st.sidebar.divider()
+st.sidebar.header("🗑️ Session Management")
+if st.sidebar.button("Clear Session Data"):
+    if 'detailed_results' in st.session_state:
+        del st.session_state['detailed_results']
+    if 'global_jiwer' in st.session_state:
+        del st.session_state['global_jiwer']
+    if 'ref_col' in st.session_state:
+        del st.session_state['ref_col']
+    if 'hyp_col' in st.session_state:
+        del st.session_state['hyp_col']
+    st.rerun()
 
 # --- MAIN INPUT ---
-tab_manual, tab_json = st.tabs(["Text Input", "JSON File"])
+tab_manual, tab_json = st.tabs(["Manual Inspection", "Batch Dataset Analysis"])
 
-# --- TAB 1: MANUAL ---
 with tab_manual:
     mc1, mc2 = st.columns(2)
-    with mc1:
-        m_ref = st.text_area("Reference", height=100, value="തദ്ദേശ സ്വയംഭരണ സ്ഥാപനങ്ങൾ")
-    with mc2:
-        m_hyp = st.text_area("Hypothesis", height=100, value="തദ്ദേശ സ്വയംഭരണസ്ഥാപനങ്ങൾ")
-    
-    if st.button("Analyze Alignment", type="primary"):
-        render_analysis(m_ref, m_hyp, weights)
+    with mc1: m_ref = st.text_area("Reference", height=100, value="U/S 302 പ്രകാരം മഴക്കാലത്ത് ശിക്ഷിക്കപ്പെടും")
+    with mc2: m_hyp = st.text_area("Hypothesis", height=100, value="US 302 പ്രകാരം മഴ കാലത്ത് ശിക്ഷിക്കപ്പെടും")
+    if st.button("Analyze Manual Input", type="primary"):
+        render_analysis(m_ref, m_hyp, weights, normalize_enabled)
 
-# --- TAB 2: JSON ---
+ #--- UPDATED TAB 2: JSON/JSONL ---
 with tab_json:
-    
-    # Create two main columns for the top section
     col_config, col_batch = st.columns([1, 1], gap="large")
-    
     records = []
-    default_path = os.path.join(os.path.dirname(__file__), 'examples', 'dictation-eval', 'predictions.jsonl')
     
-    # --- LEFT COLUMN: LOAD DATA ---
+    # Robust Default Path: Looking in the current dir /dictation-eval/
+    # Adjust this if your folder structure is different!
+    base_dir = Path(__file__).parent
+    default_path = base_dir / "examples" / "dictation-eval" / "predictions.jsonl"
+    
     with col_config:
         st.markdown("### 📂 Load Data")
-        
-        # 1. Source Selection
-        upload_opt = st.radio("Source", ["Default Example", "Upload File"], horizontal=True, label_visibility="collapsed")
+        upload_opt = st.radio("Source", ["Default Path", "Upload File"], horizontal=True)
         data_content = None
         
         if upload_opt == "Upload File":
-            uploaded = st.file_uploader("Upload .jsonl", type=["jsonl", "json"], label_visibility="collapsed")
-            if uploaded: data_content = uploaded.getvalue().decode('utf-8').splitlines()
-        elif os.path.exists(default_path):
-            with open(default_path, 'r', encoding='utf-8') as f:
-                data_content = f.read().splitlines()
+            # ACCEPT BOTH JSON AND JSONL
+            uploaded = st.file_uploader("Upload File", type=["json", "jsonl"])
+            if uploaded:
+                data_content = uploaded.getvalue().decode('utf-8').splitlines()
+        else:
+            # CHECK DEFAULT PATH
+            if default_path.exists():
+                with open(default_path, 'r', encoding='utf-8') as f:
+                    data_content = f.readlines()
+            else:
+                st.warning(f"Default file not found at: `{default_path.relative_to(base_dir)}`")
         
         if data_content:
-            try:
-                records = [json.loads(line) for line in data_content if line.strip()]
-                if not isinstance(records, list): records = [records] 
-                st.success(f"Loaded {len(records)} records")
-            except Exception as e:
-                st.error(f"Error parsing JSON: {e}")
+            records = parse_data(data_content)
+            if records:
+                st.success(f"Successfully loaded {len(records)} records")
 
-        # 2. Field Mapping
-        if records:
-            keys = list(records[0].keys())
-            def get_idx(options, search):
-                for s in search:
-                    if s in options: return options.index(s)
-                return 0
+                # Field validation with error handling
+                try:
+                    keys = list(records[0].keys())
+                    # Auto-select fields if they exist
+                    def_ref = keys.index("transcript_cleaned") if "transcript_cleaned" in keys else 0
+                    def_hyp = keys.index("prediction") if "prediction" in keys else 0
+                except (KeyError, IndexError) as e:
+                    st.error(f"Error accessing record fields: {e}")
+                    keys = []
+                    def_ref = 0
+                    def_hyp = 0
 
-            c1, c2 = st.columns(2)
-            with c1: ref_col = st.selectbox("Reference Field", keys, index=get_idx(keys, ["transcript_cleaned", "text", "reference"]))
-            with c2: hyp_col = st.selectbox("Hypothesis Field", keys, index=get_idx(keys, ["prediction", "hypothesis"]))
-            
-            # Source ID
-            source_options = ["(None)"] + keys
-            default_src_idx = 0
-            for s in ["source_dataset", "file_path", "audio_path"]:
-                if s in keys:
-                    default_src_idx = source_options.index(s)
-                    break
-            
-            src_col_selection = st.selectbox("Source ID Field (Optional)", source_options, index=default_src_idx)
-            src_col = None if src_col_selection == "(None)" else src_col_selection
+                if keys:
+                    ref_col = st.selectbox("Reference Field", keys, index=def_ref)
+                    hyp_col = st.selectbox("Hypothesis Field", keys, index=def_hyp)
+                    src_col = st.selectbox("Dataset Split Field", ["(None)"] + keys)
 
-    # --- RIGHT COLUMN: BATCH ANALYSIS ---
     with col_batch:
         if records:
             st.markdown("### 📊 Dataset Evaluation")
-            
-            # Using a container to visually group the batch actions
-            with st.container(border=True):
-                if st.button("Run Batch Evaluation", type="primary", width='stretch'):
-                    
-                    with st.spinner("Processing records..."):
-                        # Temp file dance for DictErrors
-                        with tempfile.NamedTemporaryFile(mode='w+', suffix='.jsonl', delete=False, encoding='utf-8') as tmp_in:
-                            for r in records:
-                                tmp_in.write(json.dumps(r, ensure_ascii=False) + '\n')
-                            tmp_in_path = tmp_in.name
-                        
-                        try:
-                            # 1. Compute DictErrors
-                            detailed_results = compute_sample_errors(
-                                input_file=tmp_in_path,
-                                output_file=None,
-                                ref_field=ref_col,
-                                hyp_field=hyp_col,
-                                source_dataset_field=src_col if src_col else None,
-                                audio_path_field="file_path"
-                            )
-                            agg_stats = compute_aggregate_metrics(detailed_results)
-                            
-                            # 2. Compute Jiwer Aggregate
-                            all_refs = [r.get(ref_col, "") for r in records]
-                            all_hyps = [r.get(hyp_col, "") for r in records]
-                            jiwer_agg = jiwer.process_words(all_refs, all_hyps)
-
-                            # 3. Display Comparison (DictErrors vs Jiwer)
-                            st.write("#### Overall Batch Metrics")
-                            overall_dict = agg_stats["overall"]
-                            
-                            render_metrics_comparison(
-                                d_wer=overall_dict['word']['error_rate'],
-                                d_per=overall_dict['punctuation']['error_rate'],
-                                d_ner=overall_dict['numeral']['error_rate'],
-                                j_wer=jiwer_agg.wer,
-                                j_mer=jiwer_agg.mer
-                            )
-
-                            # 4. Downloads
-                            st.markdown("---")
-                            d_col1, d_col2 = st.columns(2)
-                            
-                            jsonl_str = "\n".join([json.dumps(r, ensure_ascii=False) for r in detailed_results])
-                            d_col1.download_button("📥 Detailed Evaluation", jsonl_str, "eval_detailed.jsonl", "application/json", width='stretch')
-                            
-                            d_col1, d_col2 = st.columns(2)
-                            
-                           
-                            summary_txt = f"{'DATASET':<20} | {'WER':<8} | {'PER':<8} | {'NER':<8} | {'SANDHI'}\n" + "-"*65 + "\n"
-                            def format_txt_row(name, m):
-                                s = m['word']['sandhi_splits'] + m['word']['sandhi_merges']
-                                return f"{name:<20} | {m['word']['error_rate']:8.2%} | {m['punctuation']['error_rate']:8.2%} | {m['numeral']['error_rate']:8.2%} | {s:<4}\n"
-                            
-                            summary_txt += format_txt_row("OVERALL", agg_stats["overall"]) + "-"*65 + "\n"
-                            if src_col:
-                                for source, metrics in agg_stats["by_dataset"].items():
-                                    summary_txt += format_txt_row(source, metrics)
-
-                            d_col1.download_button("📄 Summary", summary_txt, "eval_summary.txt", "text/plain", width='stretch')
-                            
-                        finally:
-                            if os.path.exists(tmp_in_path): os.unlink(tmp_in_path)
+            if st.button("Run Batch Evaluation", type="primary"):
+                with tempfile.NamedTemporaryFile(mode='w+', suffix='.jsonl', delete=False, encoding='utf-8') as tmp:
+                    for r in records:
+                        tmp.write(json.dumps(r, ensure_ascii=False) + '\n')
+                    tmp_path = tmp.name
                 
-                else:
-                    st.info("Click to compute aggregate statistics (WER/PER/NER) for the loaded dataset.")
+                try:
+                    # Use legal domain configuration
+                    domain_config = LEGAL_DOMAIN
 
-    st.divider()
+                    # 1. DictErrors Calculation
+                    res_detailed = compute_sample_errors(tmp_path, ref_field=ref_col, hyp_field=hyp_col, domain_config=domain_config, normalize=normalize_enabled)
 
-    # --- BOTTOM SECTION: INDIVIDUAL ANALYSIS ---
-    if records:
+                    # Ensure source_dataset is attached for aggregation
+                    for i, r in enumerate(res_detailed):
+                        r["source_dataset"] = records[i].get(src_col, "unknown") if src_col != "(None)" else "overall"
+
+                    agg = compute_aggregate_metrics(res_detailed, domain_config=domain_config)
+
+                    # 2. Jiwer Global Comparison
+                    all_refs = [r.get(ref_col, "") for r in records]
+                    all_hyps = [r.get(hyp_col, "") for r in records]
+                    jiwer_wer = jiwer.wer(all_refs, all_hyps)
+
+                    st.write("#### Overall Metrics")
+                    # Using the consolidated 'error_rate' key
+                    render_metrics_comparison(agg['overall'], jiwer_wer, domain_config)
+
+                    # 3. Dataset Breakdown Table
+                    st.write("#### Per-Dataset Breakdown")
+                    table_data = format_dataset_table(agg, domain_config)
+                    # Remove OVERALL row for display (already shown above)
+                    table_data = [row for row in table_data if row['Dataset'] != 'OVERALL']
+                    st.table(pd.DataFrame(table_data))
+
+                    # 4. Detailed Error Counts Display (NEW)
+                    with st.expander("📊 Detailed Error Counts"):
+                        error_counts = format_error_counts_table(agg['overall'], domain_config)
+                        st.dataframe(pd.DataFrame(error_counts), width='stretch')
+
+                    # Save results to session state (limit to 100 most recent)
+                    MAX_STORED_RESULTS = 100
+                    st.session_state['detailed_results'] = res_detailed[-MAX_STORED_RESULTS:]
+                    st.session_state['global_jiwer'] = jiwer_wer
+                    st.session_state['ref_col'] = ref_col
+                    st.session_state['hyp_col'] = hyp_col
+                finally:
+                    if os.path.exists(tmp_path): os.unlink(tmp_path)
+
+    if 'detailed_results' in st.session_state:
+        st.divider()
         st.markdown("### 🔍 Individual Record Inspection")
-        
-        # Create a display list for the selectbox
-        def format_option(i, r):
-            source_tag = f"[{r.get(src_col, 'N/A')}] " if src_col else ""
-            text_preview = r.get(ref_col, '')[:100]
-            return f"{i+1}. {source_tag}{text_preview}..."
+        res_list = st.session_state['detailed_results']
+        # Retrieve field names from session state
+        saved_ref_col = st.session_state.get('ref_col', 'reference')
+        saved_hyp_col = st.session_state.get('hyp_col', 'hypothesis')
 
-        display_options = [format_option(i, r) for i, r in enumerate(records)]
-        
-        sel_idx = st.selectbox("Select a record to visualize:", range(len(records)), format_func=lambda x: display_options[x], label_visibility="collapsed")
-        
-        selected_record = records[sel_idx]
-        selected_ref = selected_record.get(ref_col, "")
-        selected_hyp = selected_record.get(hyp_col, "")
+        idx = st.selectbox("Select record", range(len(res_list)),
+                           format_func=lambda i: f"Record {i+1}: {res_list[i][saved_ref_col][:60]}...")
 
-        # Render Analysis
-        if selected_ref and selected_hyp:
-            render_analysis(selected_ref, selected_hyp, weights)
+        sel = res_list[idx]
+        render_analysis(sel[saved_ref_col], sel[saved_hyp_col], weights, normalize_enabled)

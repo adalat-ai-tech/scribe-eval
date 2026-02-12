@@ -31,3 +31,6 @@ htmlcov/
 *.log
 *.swp
 .DS_Store
+
+# Root-level test files (kept locally for development)
+/test*.py
