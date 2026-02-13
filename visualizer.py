@@ -27,14 +27,14 @@ def parse_data(content_list):
     """Handles both JSON (list of dicts) and JSONL (line by line)."""
     # Join the lines to check the overall structure
     full_content = "\n".join(content_list).strip()
-    
+
     # Try parsing as a standard JSON list first
     if full_content.startswith("["):
         try:
             return json.loads(full_content)
         except:
             pass
-            
+
     # Fallback to JSONL (line by line)
     records = []
     for line in content_list:
@@ -44,6 +44,55 @@ def parse_data(content_list):
             except Exception as e:
                 st.error(f"Failed to parse line: {line[:50]}... Error: {e}")
     return records
+
+
+def extract_jiwer_aligned_pairs(ref_text, hyp_text):
+    """
+    Extract aligned token pairs from jiwer alignment.
+
+    Args:
+        ref_text: Reference text string
+        hyp_text: Hypothesis text string
+
+    Returns:
+        Tuple of (aligned_ref_tokens, aligned_hyp_tokens) with "**" for gaps
+    """
+    # Get jiwer alignment output
+    word_output = jiwer.process_words(ref_text, hyp_text)
+
+    # Handle single sentence case (index 0)
+    # Note: Multi-sentence support could be added by iterating over all alignments
+    if not word_output.alignments or not word_output.alignments[0]:
+        return ([], [])
+
+    ref_words = word_output.references[0]
+    hyp_words = word_output.hypotheses[0]
+    alignment_chunks = word_output.alignments[0]
+
+    aligned_ref = []
+    aligned_hyp = []
+
+    for chunk in alignment_chunks:
+        if chunk.type == 'equal' or chunk.type == 'substitute':
+            # Both sides have tokens
+            ref_tokens = ref_words[chunk.ref_start_idx:chunk.ref_end_idx]
+            hyp_tokens = hyp_words[chunk.hyp_start_idx:chunk.hyp_end_idx]
+            aligned_ref.extend(ref_tokens)
+            aligned_hyp.extend(hyp_tokens)
+        elif chunk.type == 'insert':
+            # Only hypothesis has tokens (insertion)
+            hyp_tokens = hyp_words[chunk.hyp_start_idx:chunk.hyp_end_idx]
+            for _ in hyp_tokens:
+                aligned_ref.append("**")
+            aligned_hyp.extend(hyp_tokens)
+        elif chunk.type == 'delete':
+            # Only reference has tokens (deletion)
+            ref_tokens = ref_words[chunk.ref_start_idx:chunk.ref_end_idx]
+            aligned_ref.extend(ref_tokens)
+            for _ in ref_tokens:
+                aligned_hyp.append("**")
+
+    return (aligned_ref, aligned_hyp)
 
 
 # --- HELPER: CSS INJECTION (Restored & Enhanced) ---
@@ -64,11 +113,16 @@ def inject_custom_css():
         .s-merge   { background-color: #e0e7ff; color: #3730a3; border: 2px solid #6366f1 !important; }
         
         /* Category Border Styles */
-        .t-WORD    { border: 3px solid #a3cfbb; } 
+        .t-WORD    { border: 3px solid #a3cfbb; }
         .t-NUMERAL { border: 3px solid #d32f2f; }
         .t-PUNCT   { border: 3px dashed #9c27b0; }
         .t-LEGAL   { border: 4px solid #1a237e; box-shadow: 0 0 8px rgba(26, 35, 126, 0.4); }
-        
+
+        /* Jiwer-specific styling */
+        .jiwer-table td.token-cell {
+            border: 2px solid #bbb;
+        }
+
         .metrics-container { border: 1px solid rgba(128, 128, 128, 0.3); border-radius: 10px; padding: 15px; background-color: rgba(250, 250, 250, 0.8); color: rgba(0, 0, 0, 0.87); }
         .metric-value { font-size: 24px; font-weight: bold; color: #1e88e5; }
         .metric-legal { color: #1a237e; margin: 10px 0; }
@@ -120,6 +174,50 @@ def generate_alignment_html(aligned_ref, aligned_hyp, normalize=True):
     html += "</tr></table></div>"
     return html
 
+def generate_jiwer_alignment_html(ref_text, hyp_text):
+    """
+    Generate HTML visualization for jiwer alignment.
+
+    Args:
+        ref_text: Reference text string
+        hyp_text: Hypothesis text string
+
+    Returns:
+        HTML string with alignment table
+    """
+    aligned_ref, aligned_hyp = extract_jiwer_aligned_pairs(ref_text, hyp_text)
+
+    if not aligned_ref:
+        return "<p>No alignment data available.</p>"
+
+    # Determine error types
+    html = '<div class="scroll-container"><table class="alignment-table jiwer-table"><tr>'
+
+    for ref_tok, hyp_tok in zip(aligned_ref, aligned_hyp):
+        # Determine status class
+        if ref_tok == "**":
+            status = "s-ins"
+        elif hyp_tok == "**":
+            status = "s-del"
+        elif ref_tok == hyp_tok:
+            status = "s-correct"
+        else:
+            status = "s-sub"
+
+        # Replace ** with &nbsp; for display
+        disp_r = ref_tok if ref_tok != "**" else "&nbsp;"
+        disp_h = hyp_tok if hyp_tok != "**" else "&nbsp;"
+
+        # No category border class for jiwer (simpler visualization)
+        html += f"""
+        <td class="token-cell {status}">
+            <div class="top-text">{disp_r}</div>
+            <div class="bot-text">{disp_h}</div>
+        </td>"""
+
+    html += "</tr></table></div>"
+    return html
+
 # --- HELPER: METRIC CARD RENDERER ---
 def render_metrics_comparison(report, jiwer_wer, domain_config):
     mc1, mc2 = st.columns(2)
@@ -135,8 +233,8 @@ def render_metrics_comparison(report, jiwer_wer, domain_config):
         <div class="metrics-container">
             <div class="metric-value">General WER: {rates['wer']:.2%}</div>
             <div class="metric-value metric-legal">{domain_config.name.title()} WER: {rates[domain_label_lower]:.2%}</div>
-            <div class="metric-secondary">Numeral WER: {rates['ner']:.2%}</div>
-            <div class="metric-secondary">Punctuation WER: {rates['per']:.2%}</div>
+            <div class="metric-value">Numeral WER: {rates['ner']:.2%}</div>
+            <div class="metric-value">Punctuation WER: {rates['per']:.2%}</div>
         </div>
         """, unsafe_allow_html=True)
     with mc2:
@@ -161,10 +259,37 @@ def render_analysis(ref_text, hyp_text, weights, normalize=True):
 
     # 2. Jiwer Calculation
     j_wer = jiwer.wer(ref_text, hyp_text)
+    j_output = jiwer.process_words(ref_text, hyp_text)
 
-    # 3. Render
-    st.subheader("Alignment Visualization")
+    # Extract error counts from jiwer output
+    j_subs = j_output.substitutions
+    j_ins = j_output.insertions
+    j_dels = j_output.deletions
+
+    # 3. Render Alignments
+    st.subheader("Alignment Visualizations")
+
+    # DictErrors alignment
+    rates = extract_error_rates(report, domain_config)
+    domain_label_lower = domain_config.label.lower() if domain_config else "der"
+    st.markdown(f"""
+**DictErrors Alignment** (Domain-Aware)
+*Sandhis identified: {rates['sandhi']}*
+""")
     st.markdown(generate_alignment_html(a_ref, a_hyp, normalize), unsafe_allow_html=True)
+
+    st.markdown("---")  # Divider
+
+    # Jiwer alignment
+    st.markdown(f"""
+**Jiwer Alignment** (Standard Word-Level)
+*WER: {j_wer:.2%} | {j_subs} subs, {j_ins} ins, {j_dels} del*
+""")
+    st.markdown(generate_jiwer_alignment_html(ref_text, hyp_text), unsafe_allow_html=True)
+
+    # 4. Metrics comparison section
+    st.markdown("---")
+    st.subheader("Detailed Metrics Comparison")
     render_metrics_comparison(report, j_wer, domain_config)
 
 
@@ -216,8 +341,8 @@ tab_manual, tab_json = st.tabs(["Manual Inspection", "Batch Dataset Analysis"])
 
 with tab_manual:
     mc1, mc2 = st.columns(2)
-    with mc1: m_ref = st.text_area("Reference", height=100, value="U/S 302 പ്രകാരം മഴക്കാലത്ത് ശിക്ഷിക്കപ്പെടും")
-    with mc2: m_hyp = st.text_area("Hypothesis", height=100, value="US 302 പ്രകാരം മഴ കാലത്ത് ശിക്ഷിക്കപ്പെടും")
+    with mc1: m_ref = st.text_area("Reference", height=100, value="U/S 302 പ്രകാരം ഇന്ന് അല്ലെങ്കിൽ നാളെ ശിക്ഷിക്കപ്പെടും")
+    with mc2: m_hyp = st.text_area("Hypothesis", height=100, value="US 302 പ്രകാരം ഇന്നല്ലെങ്കിൽ നാളെ ശിക്ഷിക്കപ്പെടും")
     if st.button("Analyze Manual Input", type="primary"):
         render_analysis(m_ref, m_hyp, weights, normalize_enabled)
 
