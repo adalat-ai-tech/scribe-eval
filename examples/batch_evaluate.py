@@ -15,7 +15,7 @@ from dicterrors import (
     compute_aggregate_metrics,
     print_evaluation_summary,
     write_summary_to_file,
-    LEGAL_DOMAIN
+    DomainConfig
 )
 
 
@@ -89,6 +89,11 @@ Examples:
         action="store_true",
         help="Disable token normalization (strict matching)"
     )
+    parser.add_argument(
+        "--domain-config",
+        default=None,
+        help="Path to domain config file (e.g., config/legal_terms.txt). If not provided, uses DomainConfig.legal()."
+    )
 
     args = parser.parse_args()
 
@@ -97,16 +102,35 @@ Examples:
         print(f"Validating input file: {args.input}")
         input_path = validate_input_file(args.input)
 
-        # 2. Create output directory
+        # 2. Load domain configuration
+        domain_config = DomainConfig.legal()  # Default
+        if args.domain_config:
+            try:
+                print(f"Loading domain config from: {args.domain_config}")
+                domain_config = DomainConfig.from_file(args.domain_config)
+                print(f"✓ Loaded domain config: {domain_config.name} (category: {domain_config.category}, label: {domain_config.label})")
+            except FileNotFoundError as e:
+                print(f"❌ Error: Domain config file not found: {args.domain_config}", file=sys.stderr)
+                sys.exit(1)
+            except ValueError as e:
+                print(f"❌ Error loading domain config: {e}", file=sys.stderr)
+                sys.exit(1)
+            except Exception as e:
+                print(f"❌ Error loading domain config: {e}", file=sys.stderr)
+                sys.exit(1)
+        else:
+            print(f"Using default domain config: {domain_config.name} (category: {domain_config.category})")
+
+        # 3. Create output directory
         output_dir = Path(args.output_dir)
         os.makedirs(output_dir, exist_ok=True)
         print(f"Output directory: {output_dir}")
 
-        # 3. Define output paths
+        # 4. Define output paths
         detailed_output = output_dir / "evaluation-detailed.jsonl"
         summary_output = output_dir / "summary_report.txt"
 
-        # 4. Run analysis with optional field names
+        # 5. Run analysis with optional field names
         print(f"\nProcessing {input_path.name}...")
         print(f"Token normalization: {'disabled' if args.no_normalize else 'enabled'}")
         results = compute_sample_errors(
@@ -115,23 +139,23 @@ Examples:
             ref_field=args.ref_field,
             hyp_field=args.hyp_field,
             source_dataset_field=args.dataset_field,
-            domain_config=LEGAL_DOMAIN,
+            domain_config=domain_config,
             normalize=not args.no_normalize
         )
 
-        # 5. Aggregate metrics with dataset splits
+        # 6. Aggregate metrics with dataset splits
         print("Computing aggregate metrics...")
-        metrics = compute_aggregate_metrics(results, domain_config=LEGAL_DOMAIN)
+        metrics = compute_aggregate_metrics(results, domain_config=domain_config)
 
-        # 6. Output to console
+        # 7. Output to console
         print("\n" + "=" * 85)
         print("EVALUATION SUMMARY")
         print("=" * 85)
-        print_evaluation_summary(metrics, domain_config=LEGAL_DOMAIN)
+        print_evaluation_summary(metrics, domain_config=domain_config)
 
-        # 7. Save summary to file (replaces unsafe stdout redirection)
+        # 8. Save summary to file (replaces unsafe stdout redirection)
         print(f"\nSaving summary to: {summary_output}")
-        write_summary_to_file(metrics, str(summary_output), domain_config=LEGAL_DOMAIN)
+        write_summary_to_file(metrics, str(summary_output), domain_config=domain_config)
 
         print(f"Detailed results saved to: {detailed_output}")
         print("\nEvaluation complete!")

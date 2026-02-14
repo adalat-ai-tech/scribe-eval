@@ -14,7 +14,7 @@ from dicterrors import (
     compute_sample_errors,
     DEFAULT_WEIGHTS,
     CAT_WORD, CAT_PUNCT, CAT_NUMERAL,
-    LEGAL_DOMAIN
+    DomainConfig
 )
 from dicterrors.reporting import (
     format_dataset_table,
@@ -249,7 +249,7 @@ def render_metrics_comparison(report, jiwer_wer, domain_config):
 # --- HELPER: RENDER ANALYSIS ---
 def render_analysis(ref_text, hyp_text, weights, normalize=True):
     # Use legal domain configuration
-    domain_config = LEGAL_DOMAIN
+    domain_config = DomainConfig.legal()
 
     # 1. DictErrors Calculation
     t1, g1 = domain_aware_tokenizer(ref_text, domain_config)
@@ -341,8 +341,8 @@ tab_manual, tab_json = st.tabs(["Manual Inspection", "Batch Dataset Analysis"])
 
 with tab_manual:
     mc1, mc2 = st.columns(2)
-    with mc1: m_ref = st.text_area("Reference", height=100, value="U/S 302 പ്രകാരം ഇന്ന് അല്ലെങ്കിൽ നാളെ ശിക്ഷിക്കപ്പെടും")
-    with mc2: m_hyp = st.text_area("Hypothesis", height=100, value="US 302 പ്രകാരം ഇന്നല്ലെങ്കിൽ നാളെ ശിക്ഷിക്കപ്പെടും")
+    with mc1: m_ref = st.text_area("Reference", height=100, value="IPC 302 പ്രകാരം ഇന്ന് അല്ലെങ്കിൽ നാളെ ശിക്ഷിക്കപ്പെടും")
+    with mc2: m_hyp = st.text_area("Hypothesis", height=100, value="IPS 302 പ്രകാരം ഇന്നല്ലെങ്കിൽ നാളെ ശിക്ഷിക്കപ്പെടും")
     if st.button("Analyze Manual Input", type="primary"):
         render_analysis(m_ref, m_hyp, weights, normalize_enabled)
 
@@ -407,7 +407,7 @@ with tab_json:
                 
                 try:
                     # Use legal domain configuration
-                    domain_config = LEGAL_DOMAIN
+                    domain_config = DomainConfig.legal()
 
                     # 1. DictErrors Calculation
                     res_detailed = compute_sample_errors(tmp_path, ref_field=ref_col, hyp_field=hyp_col, domain_config=domain_config, normalize=normalize_enabled)

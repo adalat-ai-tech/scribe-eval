@@ -17,7 +17,7 @@ import sys
 from dicterrors import (
     domain_aware_tokenizer,
     align_arrays,
-    LEGAL_DOMAIN
+    DomainConfig
 )
 
 
@@ -46,13 +46,16 @@ def main():
         # Default examples in multiple languages
         print("No text arguments provided. Using default examples...")
 
+        # Using bundled legal domain. For custom domains, see custom_domain_file.py
+        domain = DomainConfig.legal()
+
         # Malayalam example
         text1 = "ആദ്യഗഡുവായി 180000 രൂപയായി നൽകിയത്."
         text2 = "ആദ്യ ഗഡുവായി 180000 രൂപയായി നൽകിയത്:"
 
         print("\n=== MALAYALAM EXAMPLE 1 ===")
-        t1, g1 = domain_aware_tokenizer(text1, LEGAL_DOMAIN)
-        t2, g2 = domain_aware_tokenizer(text2, LEGAL_DOMAIN)
+        t1, g1 = domain_aware_tokenizer(text1, domain)
+        t2, g2 = domain_aware_tokenizer(text2, domain)
         aligned1, aligned2, score = align_arrays(t1, g1, t2, g2)
         print_alignment(text1, text2, aligned1, aligned2, score)
 
@@ -99,8 +102,9 @@ def main():
         return
 
     # Align the texts
-    t1, g1 = domain_aware_tokenizer(text1, LEGAL_DOMAIN)
-    t2, g2 = domain_aware_tokenizer(text2, LEGAL_DOMAIN)
+    domain = DomainConfig.legal()
+    t1, g1 = domain_aware_tokenizer(text1, domain)
+    t2, g2 = domain_aware_tokenizer(text2, domain)
     aligned1, aligned2, score = align_arrays(t1, g1, t2, g2)
 
     # Print the alignment

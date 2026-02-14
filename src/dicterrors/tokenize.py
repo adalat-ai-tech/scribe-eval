@@ -24,14 +24,15 @@ def domain_aware_tokenizer(
 
     Examples:
         >>> # Legal domain
-        >>> from .domain_config import LEGAL_DOMAIN
-        >>> tokens, tags = domain_aware_tokenizer("charged u/s 302 IPC", LEGAL_DOMAIN)
+        >>> from .domain_config import DomainConfig
+        >>> legal = DomainConfig.legal()
+        >>> tokens, tags = domain_aware_tokenizer("charged u/s 302 IPC", legal)
         >>> # tokens: ["charged", "u/s", "302", "IPC"]
         >>> # tags: ["WORD", "LEGAL", "NUMERAL", "WORD"]
 
         >>> # Medical domain
-        >>> from .domain_config import MEDICAL_DOMAIN
-        >>> tokens, tags = domain_aware_tokenizer("Take 500mg daily", MEDICAL_DOMAIN)
+        >>> medical = DomainConfig.medical()
+        >>> tokens, tags = domain_aware_tokenizer("Take 500mg daily", medical)
 
         >>> # No domain handling
         >>> tokens, tags = domain_aware_tokenizer("Just regular text", None)
@@ -44,8 +45,12 @@ def domain_aware_tokenizer(
 
     # Build protected pattern with named groups
     if domain_config:
-        # Combine domain and numeral patterns
-        protected_pattern = f'(?P<domain>{domain_config.pattern_regex})|(?P<numeral>{num_inner})'
+        # Wrap domain pattern with word boundaries using negative lookahead/lookbehind
+        # This prevents matching domain terms as substrings (e.g., "ia" inside "indian")
+        # (?<![a-zA-Z0-9]) = not preceded by alphanumeric
+        # (?![a-zA-Z0-9]) = not followed by alphanumeric
+        domain_with_boundaries = f'(?<![a-zA-Z0-9])(?:{domain_config.pattern_regex})(?![a-zA-Z0-9])'
+        protected_pattern = f'(?P<domain>{domain_with_boundaries})|(?P<numeral>{num_inner})'
     else:
         # Only numeral patterns
         protected_pattern = f'(?P<numeral>{num_inner})'
@@ -100,13 +105,14 @@ def domain_aware_tokenizer(
 
 # TEST CASE
 if __name__ == "__main__":
-    from .domain_config import LEGAL_DOMAIN
+    from .domain_config import DomainConfig
 
+    legal = DomainConfig.legal()
     sample = "U/S 302 of IPC on 22.05.2023 at 10:30, for Rs. 10,500. ഈ 3-ഓ 4-ഓ വയസ്സുള്ള കുട്ടിക്ക് 9 ാം തീയതി , 9:30-ന് ഫോൺ കിട്ടിയോ? 1,500 rupees abc123def. 19-രംദു & 19-രംദു"
 
     # Test with legal domain
     print("=== Legal Domain ===")
-    tokens, tags = domain_aware_tokenizer(sample, LEGAL_DOMAIN)
+    tokens, tags = domain_aware_tokenizer(sample, legal)
     for tok, tag in zip(tokens, tags):
         print(f"{tok:<15} | {tag}")
 

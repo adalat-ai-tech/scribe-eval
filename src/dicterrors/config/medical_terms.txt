@@ -1,0 +1,30 @@
+# Medical Domain Configuration
+# Medical units and dosages for healthcare ASR
+
+# Metadata
+@name: medical
+@category: MEDICAL
+@label: MER
+@case_sensitive: false
+
+# Literal terms - common medical units
+mg
+ml
+cc
+mcg
+IU
+kg
+gm
+
+# Regex patterns - dosage with optional spacing
+REGEX: \d+\s*mg
+REGEX: \d+\s*ml
+REGEX: \d+\s*cc
+REGEX: \d+\s*mcg
+REGEX: \d+\s*mg/ml
+REGEX: \d+\s*IU
+
+# Pattern explanations:
+# \d+\s*mg matches: 500mg, 500 mg (milligrams)
+# \d+\s*ml matches: 10ml, 10 ml (milliliters)
+# \d+\s*mg/ml matches: 50mg/ml, 50 mg/ml (concentration)
