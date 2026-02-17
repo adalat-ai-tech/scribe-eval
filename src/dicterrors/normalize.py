@@ -4,7 +4,7 @@ This module provides normalization functions to convert tokens to canonical form
 for comparison purposes while preserving original formatting for display.
 """
 import re
-from .constants import CAT_NUMERAL
+from .constants import CAT_NUMERAL, CAT_PUNCT
 
 
 def normalize_date(text: str) -> str:
@@ -95,6 +95,11 @@ def normalize_numeral(text: str) -> str:
     return text
 
 
+def normalize_word(text: str) -> str:
+    """Normalize word by removing hyphen within word"""
+    return text.replace('-', '')
+
+
 def normalize_token(text: str, category: str) -> str:
     """Apply category-specific normalization.
 
@@ -120,5 +125,8 @@ def normalize_token(text: str, category: str) -> str:
     if category == CAT_NUMERAL:
         return normalize_numeral(text)
 
-    # No normalization for WORD, PUNCT, LEGAL, etc.
+    if category != CAT_PUNCT:
+        return normalize_word(text)
+
+    # No normalization for PUNCT, etc.
     return text

@@ -43,13 +43,19 @@ def domain_aware_tokenizer(
     # Define numeral patterns (always protected)
     num_inner = r'\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{1,2}:\d{2}|\d+(?:,\d+)*(?:\.\d+)?'
 
+    # Define punctuation characters (ASCII + Indic danda variants)
+    punctuation_chars = r".,?!;:\-\/\"'()\[\]{}—–+*=<>|@#%^&₹$।॥"
+    
+    # Define word character pattern (anything that's NOT punctuation or whitespace)
+    # This supports all Unicode scripts including Indic
+    word_char_pattern = f'[^{re.escape(punctuation_chars)}\\s]'
+
     # Build protected pattern with named groups
     if domain_config:
         # Wrap domain pattern with word boundaries using negative lookahead/lookbehind
-        # This prevents matching domain terms as substrings (e.g., "ia" inside "indian")
-        # (?<![a-zA-Z0-9]) = not preceded by alphanumeric
-        # (?![a-zA-Z0-9]) = not followed by alphanumeric
-        domain_with_boundaries = f'(?<![a-zA-Z0-9])(?:{domain_config.pattern_regex})(?![a-zA-Z0-9])'
+        # Uses Unicode-aware word character definition (not just [a-zA-Z0-9])
+        # This allows matching domain terms adjacent to Indic characters
+        domain_with_boundaries = f'(?<!{word_char_pattern})(?:{domain_config.pattern_regex})(?!{word_char_pattern})'
         protected_pattern = f'(?P<domain>{domain_with_boundaries})|(?P<numeral>{num_inner})'
     else:
         # Only numeral patterns
@@ -68,9 +74,14 @@ def domain_aware_tokenizer(
     # Replace entities with placeholder
     placeholder_text = re.sub(protected_pattern, " __ENTITY__ ", text, flags=flags)
 
-    # Separate punctuation
-    punctuation_chars = r"[.,?!;:\-\/\"'()\[\]{}—–+*=<>|@#%^&₹$]"
-    placeholder_text = re.sub(f"({punctuation_chars})", r" \1 ", placeholder_text)
+    # Smart punctuation separation: split only at word boundaries or when followed by space
+    # Preserve word-medial punctuation (e.g., "ice-cream", "O'Connor")
+    # Pattern: punctuation NOT between word characters (i.e., at boundaries or whitespace-adjacent)
+    punct_class = f'[{re.escape(punctuation_chars)}]'
+    # Split when: (1) at start of string, (2) at end of string, 
+    # (3) preceded by non-word char, (4) followed by non-word char or whitespace
+    punct_split_pattern = rf'(?<!{word_char_pattern})({punct_class})|({punct_class})(?!{word_char_pattern})'
+    placeholder_text = re.sub(punct_split_pattern, r' \1\2 ', placeholder_text)
 
     # Split into raw tokens
     raw_tokens = placeholder_text.split()
@@ -87,7 +98,10 @@ def domain_aware_tokenizer(
                 tokens.append(entity_val)
 
                 if entity_type == 'domain':
-                    tags.append(domain_config.category)
+                    if domain_config is not None:
+                        tags.append(domain_config.category)
+                    else:
+                        tags.append(CAT_WORD)  # Fallback
                 else:  # numeral
                     tags.append(CAT_NUMERAL)
 
