@@ -70,6 +70,7 @@ def compute_aggregate_metrics(sample_results, domain_config: Optional[DomainConf
             overall_agg[cat]["substitutions"] += report[cat]["substitutions"]
             overall_agg[cat]["insertions"] += report[cat]["insertions"]
             overall_agg[cat]["deletions"] += report[cat]["deletions"]
+            overall_agg[cat]["correct"] += report[cat]["correct"]
             overall_agg[cat]["total"] += report[cat]["total_ref"]
             overall_agg[cat]["sandhi_hits"] += report[cat]["sandhi_hits"]
 
@@ -77,6 +78,7 @@ def compute_aggregate_metrics(sample_results, domain_config: Optional[DomainConf
             dataset_aggs[ds][cat]["substitutions"] += report[cat]["substitutions"]
             dataset_aggs[ds][cat]["insertions"] += report[cat]["insertions"]
             dataset_aggs[ds][cat]["deletions"] += report[cat]["deletions"]
+            dataset_aggs[ds][cat]["correct"] += report[cat]["correct"]
             dataset_aggs[ds][cat]["total"] += report[cat]["total_ref"]
             dataset_aggs[ds][cat]["sandhi_hits"] += report[cat]["sandhi_hits"]
 
@@ -93,7 +95,7 @@ def compute_aggregate_metrics(sample_results, domain_config: Optional[DomainConf
                 "substitutions": a["substitutions"],
                 "insertions": a["insertions"],
                 "deletions": a["deletions"],
-                "correct": a["total"] - errs,
+                "correct": a["correct"],
                 "sandhi_hits": a["sandhi_hits"],
                 "total": a["total"],
                 "combined_total": combined_total  # Store for reference
