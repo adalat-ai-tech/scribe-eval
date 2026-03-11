@@ -1,0 +1,212 @@
+# Legal Domain Configuration
+# Indian legal terminology for ASR error analysis
+
+# Metadata
+@name: legal
+@category: LEGAL
+@label: LER
+@case_sensitive: false
+
+# Literal terms - common legal abbreviations
+# These will be automatically escaped for regex safety
+
+# Basic abbreviations
+u/s
+U/S
+r/w
+w.p.
+o.s.
+OS
+no.
+v.
+vs.
+art.
+sec.
+
+# Case types and legal instruments
+FIR
+EP
+CC
+IA
+
+# Courts and officials
+JFCM
+CJM
+CBI
+SI
+SHO
+CPO
+KSR
+
+# Acts and codes
+IPC
+CrPC
+BNS
+BSA
+BNSS
+NI
+NDPS
+LAR
+MV
+POCSO
+SCST
+
+# Evidence and materials
+MO
+
+# Legal Vocabulary (single-word terms only)
+# Note: Don't add terms here that are part of multi-word patterns below
+# (e.g., don't add "Police" since it's part of "Police Station")
+Article
+Section
+Crime
+
+# Malayalam legal terms (single words)
+ആധാരമെഴുത്തുകാരൻ
+സാക്ഷി
+പ്രതി
+സമൻസ്
+ഹർജിക്കാരൻ
+മഹസർ
+സർട്ടിഫിക്കറ്റ്
+കോർപ്പറേഷൻ
+എഗ്രിമെന്റ്
+പോക്കുവരവ്
+ടിയാൻ
+കുടിശ്ശിക
+മൊഴി
+രജിസ്റ്റർ
+കമ്മിഷൻ
+ഒന്നാംസാക്ഷി
+
+# Latin legal terms (single words)
+Fiat
+Supra
+Lacuna
+Mandamus
+Certiorari
+
+# Time indicators
+a.m.
+am
+p.m.
+pm
+
+# Regex patterns - flexible matching for witness/exhibit designations
+# Prefix with REGEX: to use pattern directly (not escaped)
+REGEX: PW[-\s]*\d+
+REGEX: CW[-\s]*\d+
+REGEX: DW[-\s]*\d+
+REGEX: Ext[.\-][-\s]*[A-Z]\d*
+REGEX: Ext[.\-][-\s]*P\d*
+REGEX: Evidence\s+Act[-\s]*\d+
+
+# Multi-word legal entities (must use regex patterns with \s+ for spaces)
+# English terms
+REGEX: Police\s+Station
+REGEX: Supreme\s+Court
+REGEX: High\s+Court
+REGEX: District\s+Court
+REGEX: Sessions\s+Court
+REGEX: Magistrate\s+Court
+REGEX: Trial\s+Court
+REGEX: Civil\s+Court
+REGEX: Criminal\s+Court
+REGEX: Family\s+Court
+REGEX: Labour\s+Court
+
+# Malayalam multi-word legal terms
+REGEX: അഴിമതി\s+കേസ്
+REGEX: അന്യായ\s+ബി\s+പട്ടിക\s+വസ്തു
+REGEX: ഫോറൻസിക്\s+വിദഗ്ദ്ധൻ
+REGEX: പ്രൂഫ്\s+അഫിഡവിറ്റ്‌
+REGEX: അഡ്വക്കേറ്റ്\s+കമ്മീഷണർ
+
+# Latin legal phrases (2 words)
+REGEX: Bona\s+Fide
+REGEX: Ex\s+parte
+REGEX: Inter\s+alia
+REGEX: Locus\s+Standi
+REGEX: Mens\s+rea
+REGEX: Non\s+obstante
+REGEX: Prima\s+facie
+REGEX: Res\s+Judicata
+REGEX: Ultra\s+vires
+REGEX: Ad\s+Hoc
+REGEX: Amicus\s+curiae
+REGEX: De\s+novo
+REGEX: De\s+jure
+REGEX: Habeas\s+corpus
+REGEX: In\s+limine
+REGEX: Mala\s+Fide
+REGEX: Obiter\s+[Dd]icta
+REGEX: Pendente\s+lite
+REGEX: Per\s+incuriam
+REGEX: Suo\s+Motu
+REGEX: De\s+facto
+REGEX: Ejusdem\s+Generis
+REGEX: Ex\s+ante
+REGEX: In\s+Personam
+REGEX: In\s+rem
+REGEX: In\s+Situ
+REGEX: Ipse\s+Dixit
+REGEX: Ipso\s+Facto
+REGEX: Modus\s+Operandi
+REGEX: Mutatis\s+mutandis
+REGEX: Obiter\s+dictum
+REGEX: Onus\s+probandi
+REGEX: Pari\s+Materia
+REGEX: Per\s+curiam
+REGEX: Pro\s+bono
+REGEX: Quasi\s+judicial
+REGEX: Quo\s+Warranto
+REGEX: Ratio\s+decidendi
+REGEX: Res\s+Integra
+REGEX: Sine\s+Die
+REGEX: Stare\s+Decisis
+REGEX: Status\s+quo
+REGEX: Sub\s+judice
+REGEX: Sub\s+Silentio
+REGEX: Ab\s+initio
+REGEX: Audi\s+alteram\s+partem
+REGEX: Functus\s+officio
+REGEX: Ex[-\s]*officio
+REGEX: Fait\s+accompli
+REGEX: Lis\s+pendens
+REGEX: Caveat\s+emptor
+REGEX: Sui\s+generis
+REGEX: Ex\s+Gratia
+REGEX: In\s+Re
+REGEX: Actus\s+Reus
+REGEX: In\s+absentia
+REGEX: Per\s+Contra
+REGEX: Per\s+Capita
+REGEX: Post\s+Mortem
+REGEX: Caveat\s+venditor
+
+# Latin legal phrases (3+ words)
+REGEX: Void\s+Ab\s+Initio
+REGEX: Consensus\s+ad\s+idem
+REGEX: Damnum\s+sine\s+injuria
+REGEX: Ex\s+Post\s+Facto
+REGEX: Jus\s+Ad\s+Rem
+REGEX: Jus\s+in\s+rem
+REGEX: Nemo\s+Judex\s+in\s+Causa\s+Sua
+REGEX: Non\s+Est\s+Factum
+REGEX: Noscitur\s+a\s+Sociis
+REGEX: Quid\s+Pro\s+Quo
+REGEX: Res\s+Ipsa\s+Loquitur
+REGEX: Sine\s+qua\s+non
+REGEX: Status\s+quo\s+ante
+REGEX: Ubi\s+Jus\s+Ibi\s+Remedium
+REGEX: Volenti\s+Non\s+Fit\s+Injuria
+REGEX: In\s+Loco\s+Parentis
+REGEX: Injuria\s+sine\s+damno
+
+# Pattern explanations:
+# PW[-\s]*\d+ matches: PW1, PW 1, PW-1, PW-123 (prosecution witness)
+# CW[-\s]*\d+ matches: CW1, CW 1, CW-1 (court witness)
+# DW[-\s]*\d+ matches: DW1, DW 1, DW-1 (defence witness)
+# Ext\.[-\s]*[A-Z]\d* matches: Ext.A, Ext. A1, Ext-B2 (exhibits)
+# Ext\.[-\s]*P\d* matches: Ext.P, Ext. P1, Ext-P2 (prosecution exhibits)
+# Evidence\s+Act[-\s]*\d+ matches: Evidence Act 65, Evidence Act-101 (Evidence Act sections)

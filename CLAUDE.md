@@ -56,6 +56,9 @@ python test_batch_aggregation.py
 
 # Test reporting functions
 python test_reporting.py
+
+# Test file-based domain configuration
+python test_domain_config_file.py
 ```
 
 ### Interactive Visualization
@@ -69,6 +72,8 @@ The visualizer provides:
 - **Detailed Error Counts**: Expandable section showing substitutions, insertions, deletions by category
 - **Individual Record Inspection**: Drill down into specific samples from batch results
 - **Session State**: Maintains last 100 batch results with field name persistence
+- **Sandhi Detection Toggle**: Sidebar checkbox to enable/disable Sandhi split/merge detection
+- **Normalize Toggle**: Sidebar checkbox for token normalization (date/currency format variations)
 
 ## Architecture
 
@@ -78,7 +83,8 @@ The visualizer provides:
    - `domain_aware_tokenizer(text, domain_config=None)`: Main tokenization function
    - Base categories: WORD, NUMERAL, PUNCT (always present)
    - Optional domain categories via `DomainConfig` class
-   - Pre-defined domains: `LEGAL_DOMAIN` (u/s, r/w, sec., art., v., vs., PW, CW), `MEDICAL_DOMAIN` (mg, ml, cc, mcg)
+   - Factory methods for bundled domains: `DomainConfig.legal()`, `DomainConfig.medical()`, `DomainConfig.financial()`, `DomainConfig.technical()`
+   - File-based configuration: `DomainConfig.from_file('config/custom.txt')`
    - Custom domains: list-based patterns or regex patterns
    - Domain entities are protected from punctuation splitting and tracked separately
    - Numeral patterns: dates (DD-MM-YYYY), times (HH:MM), currency with commas
@@ -87,18 +93,19 @@ The visualizer provides:
    - Modified Needleman-Wunsch algorithm with token-type-aware scoring
    - Cross-category substitution penalties (high penalty for punct ↔ word swaps)
    - Character-aware edit distance using Levenshtein for within-category errors
-   - Sandhi correction detection (merged/split words in Indic text)
+   - Sandhi correction detection (merged/split words in Indic text); toggled via `use_sandhi: bool = True`
    - Configurable weights via DEFAULT_WEIGHTS dict
 
 3. **Measurement** (`src/dicterrors/measure.py`)
-   - `token_error_rates(aligned_ref, aligned_hyp, domain_config=None)`: Computes category-specific error rates from aligned tokens
-   - `text_error_rates(ref_text, hyp_text, domain_config=None)`: End-to-end pipeline from raw text to error metrics
+   - `token_error_rates(aligned_ref, aligned_hyp, domain_config=None, normalize=True, use_sandhi=True)`: Computes category-specific error rates from aligned tokens
+   - `text_error_rates(ref_text, hyp_text, domain_config=None, normalize=True, use_sandhi=True)`: End-to-end pipeline from raw text to error metrics
+   - `use_sandhi=False` disables Sandhi split/merge detection — useful for non-agglutinative languages
    - **Normalized error rates**: Uses combined denominator (sum of all category totals) across all categories to prevent misleading sparse-category metrics
    - **Domain-aware metrics**: WER (Word Error Rate), NER (Numeral Error Rate), PER (Punctuation Error Rate), plus domain-specific rates (e.g., LER for legal, MER for medical)
    - Tracks substitutions, insertions, deletions, and Sandhi corrections per category
 
 4. **Batch Processing** (`src/dicterrors/measure_batch.py`)
-   - `compute_sample_errors(input_file, output_file=None, domain_config=None, ...)`: Process JSONL files with multiple samples
+   - `compute_sample_errors(input_file, output_file=None, domain_config=None, normalize=True, use_sandhi=True, ...)`: Process JSONL files with multiple samples
    - Optional `domain_config` parameter enables domain-specific error tracking
    - Optional `output_file` parameter saves detailed per-sample error reports as JSONL
    - Each detailed report includes category-wise breakdown (base + domain categories) with error rates, substitutions, insertions, deletions, correct counts, and Sandhi hits
@@ -133,16 +140,26 @@ The visualizer provides:
 
 - `src/dicterrors/`: Core library modules
   - `__init__.py`: Public API exports
-  - `domain_config.py`: DomainConfig class and pre-defined domains (LEGAL_DOMAIN, MEDICAL_DOMAIN)
+  - `config/`: Bundled domain configuration files (distributed with package)
+    - `__init__.py`
+    - `legal_terms.txt`: Indian legal terminology
+    - `medical_terms.txt`: Medical units and dosages
+    - `financial_terms.txt`: Currency symbols and amounts
+    - `technical_terms.txt`: Technical abbreviations (case-sensitive)
+  - `domain_config.py`: DomainConfig class with factory methods (`legal()`, `medical()`, `financial()`, `technical()`)
   - `tokenize.py`: Domain-aware token extraction and categorization
   - `align.py`: Alignment algorithm and scoring
   - `measure.py`: Single-sample error rate calculation
   - `measure_batch.py`: Multi-sample aggregation
   - `reporting.py`: Shared formatting functions for CLI and web UI
   - `constants.py`: Category constants and helper functions
+- `config/`: User-facing example configs (not bundled)
+  - `README.md`: Documentation and templates for custom domain configs
+  - `*.txt`: Example configuration files for reference
 - `examples/`: Sample scripts and evaluation datasets
   - `text_alignment.py`: Visual alignment demonstration
   - `error_report.py`: Single-sample error report generation
+  - `custom_domain_file.py`: Demonstrates factory methods, file-based, and inline domain configs
   - `batch_evaluate.py`: Batch evaluation with detailed JSONL output
 - `test_*.py`: Test suites (root level, not tracked in git)
 - `visualizer.py`: Streamlit interactive UI (root level)
@@ -156,16 +173,23 @@ The visualizer provides:
 - **PUNCT**: Punctuation marks
 
 **Domain Categories (configurable via DomainConfig):**
-- **LEGAL**: English legal abbreviations (u/s, r/w, w.p., o.s., sec., art., v., vs., PW, CW, Ext.)
-- **MEDICAL**: Medical measurements and units (mg, ml, cc, mcg, 500mg, 10ml)
+- **LEGAL**: Indian legal terminology (u/s, r/w, sec., art., v., vs., PW1/PW-1, CW1, Ext.A with flexible patterns)
+- **MEDICAL**: Medical measurements and units (mg, ml, cc, mcg, IU, 500mg, 10ml)
+- **CURRENCY**: Financial terms ($, €, ₹, USD, EUR, INR, $1,234.56)
+- **TECH**: Technical abbreviations (API, SDK, CLI, JSON, HTTP, v1.0 - case-sensitive)
 - **Custom**: Define your own domain with list or regex patterns
 
 **Usage:**
 ```python
-from dicterrors import domain_aware_tokenizer, LEGAL_DOMAIN, MEDICAL_DOMAIN, DomainConfig
+from dicterrors import domain_aware_tokenizer, DomainConfig
 
-# Use pre-defined domain
-tokens, tags = domain_aware_tokenizer("charged u/s 302 IPC", LEGAL_DOMAIN)
+# Use factory method for bundled domain
+legal_domain = DomainConfig.legal()
+tokens, tags = domain_aware_tokenizer("charged u/s 302 IPC", legal_domain)
+
+# Load from custom file
+custom_domain = DomainConfig.from_file("config/my_legal.txt")
+tokens, tags = domain_aware_tokenizer("my text", custom_domain)
 
 # No domain (base categories only)
 tokens, tags = domain_aware_tokenizer("regular text", None)
@@ -173,6 +197,141 @@ tokens, tags = domain_aware_tokenizer("regular text", None)
 # Custom domain
 financial = DomainConfig("financial", ["$", "€", "₹"], category="CURRENCY", label="CER")
 tokens, tags = domain_aware_tokenizer("Pay $100", financial)
+```
+
+## Loading Domain Patterns from Files
+
+Domain-specific terminology can be loaded from text files, making it easy to maintain and share domain configurations without modifying code.
+
+### File Format
+
+Configuration files use a simple line-based format:
+
+```
+# Comments start with hash
+@name: legal
+@category: LEGAL
+@label: LER
+@case_sensitive: false
+
+# Literal terms (one per line, automatically escaped for regex safety)
+u/s
+r/w
+sec.
+
+# Regex patterns (prefix with REGEX:, used directly without escaping)
+REGEX: PW[-\s]*\d+     # Matches PW1, PW 1, PW-1
+REGEX: CW[-\s]*\d+     # Matches CW1, CW 1, CW-1
+```
+
+**Format details:**
+- **Metadata lines**: `@key: value` format (optional, uses sensible defaults if missing)
+  - `@name`: Domain name (default: "domain")
+  - `@category`: Category name for tokens (default: "DOMAIN_{NAME}")
+  - `@label`: Short label for error rate (default: "{NAME}ER")
+  - `@case_sensitive`: true/false (default: false)
+- **Literal terms**: Plain text, one per line (automatically escaped with `re.escape()`)
+- **Regex patterns**: Prefix with `REGEX:`, used directly without escaping
+- **Comments**: Lines starting with `#` are ignored
+- **Inline comments**: Text after `#` on any line is removed
+
+### Loading from Python
+
+```python
+from dicterrors import DomainConfig, text_error_rates
+
+# Load from file (uses all metadata from file)
+legal_config = DomainConfig.from_file("config/legal_terms.txt")
+
+# Override specific parameters at runtime
+custom_config = DomainConfig.from_file(
+    "config/legal_terms.txt",
+    category="LEGAL_CUSTOM",
+    case_sensitive=True
+)
+
+# Use in analysis
+report = text_error_rates(ref, hyp, legal_config)
+```
+
+### Loading from CLI
+
+The `batch_evaluate.py` script supports loading domain configs from files:
+
+```bash
+# Use file-based domain config
+python batch_evaluate.py \
+    --input data/predictions.jsonl \
+    --domain-config config/legal_terms.txt
+
+# Without --domain-config, uses DomainConfig.legal() by default
+python batch_evaluate.py --input data/predictions.jsonl
+```
+
+### Sample Configuration Files
+
+The `config/` directory contains pre-made configuration files:
+
+- **`legal_terms.txt`**: Indian legal terminology with flexible witness designation patterns
+  - Literal terms: u/s, r/w, sec., art., v., vs., etc.
+  - Regex patterns: `PW[-\s]*\d+` matches PW1, PW 1, PW-1 (prosecution witness)
+  - Regex patterns: `CW[-\s]*\d+` matches CW1, CW 1, CW-1 (court witness)
+  - Regex patterns: `Ext\.[-\s]*[A-Z]\d*` matches Ext.A, Ext. A1, Ext-B2 (exhibits)
+
+- **`medical_terms.txt`**: Medical units and dosages
+  - Literal terms: mg, ml, cc, mcg, IU, kg, gm
+  - Regex patterns: `\d+\s*mg` matches 500mg, 500 mg
+
+- **`financial_terms.txt`**: Currency symbols and codes
+  - Literal terms: $, €, £, ¥, ₹, USD, EUR, INR
+  - Regex patterns: `\$\d+(?:,\d{3})*(?:\.\d{2})?` matches $100, $1,000, $1,234.56
+
+- **`technical_terms.txt`**: Technical abbreviations (case-sensitive)
+  - Literal terms: API, SDK, CLI, JSON, HTTP, HTTPS
+  - Regex patterns: `v\d+\.\d+(?:\.\d+)?` matches v1.0, v2.3.4
+
+### Pattern Matching Examples
+
+The file format enables flexible pattern matching that handles spacing and formatting variations:
+
+```python
+from dicterrors import DomainConfig, domain_aware_tokenizer
+
+# Load legal config with witness patterns
+legal = DomainConfig.from_file("config/legal_terms.txt")
+
+# All of these are recognized as LEGAL category:
+tokens1, tags1 = domain_aware_tokenizer("witness PW1 testified", legal)
+tokens2, tags2 = domain_aware_tokenizer("witness PW 1 testified", legal)  # Space between
+tokens3, tags3 = domain_aware_tokenizer("witness PW-1 testified", legal)  # Hyphen
+
+# All produce LEGAL tags
+assert "LEGAL" in tags1
+assert "LEGAL" in tags2
+assert "LEGAL" in tags3
+```
+
+### File Location Conventions
+
+- **Project configs**: Store in `config/` directory at repository root
+- **User configs**: Store in `~/.config/dicterrors/` for personal configurations
+- **Dataset-specific configs**: Store alongside dataset in data directory
+
+Example directory structure:
+```
+project/
+├── config/                     # Shared domain configs
+│   ├── legal_terms.txt
+│   ├── medical_terms.txt
+│   └── custom_domain.txt
+├── data/
+│   ├── court-transcripts/
+│   │   ├── predictions.jsonl
+│   │   └── legal_terms.txt    # Dataset-specific overrides
+│   └── medical-records/
+│       └── predictions.jsonl
+└── examples/
+    └── batch_evaluate.py
 ```
 
 ## JSONL Input Format
@@ -196,6 +355,8 @@ python batch_evaluate.py --help
 --ref-field              Field name for reference text (default: transcript_cleaned)
 --hyp-field              Field name for hypothesis text (default: prediction)
 --dataset-field          Field name for dataset identifier (default: source_dataset)
+--domain-config          Path to domain config file (e.g., config/legal_terms.txt)
+--no-normalize           Disable token normalization (strict matching)
 ```
 
 The script includes:

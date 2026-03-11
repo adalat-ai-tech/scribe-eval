@@ -159,6 +159,7 @@ source = { editable = "." }
 dependencies = [
     { name = "jiwer" },
     { name = "levenshtein" },
+    { name = "pandas" },
     { name = "streamlit" },
     { name = "tabulate" },
 ]
@@ -172,6 +173,7 @@ dev = [
 requires-dist = [
     { name = "jiwer", specifier = ">=4.0.0" },
     { name = "levenshtein", specifier = ">=0.27.1" },
+    { name = "pandas", specifier = ">=2.0.0" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "streamlit", specifier = ">=1.53.0" },
     { name = "tabulate", specifier = ">=0.9.0" },

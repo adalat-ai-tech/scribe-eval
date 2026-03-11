@@ -58,43 +58,126 @@ Tokens are classified into base categories plus optional domain categories:
 - **NUMERAL**: Numeric tokens including dates, times, and currency (123, 10:30, 22.05.2023)
 - **PUNCT**: Punctuation marks
 
-**Domain Categories (configurable):**
-- **LEGAL**: English legal abbreviations (u/s, r/w, w.p., o.s., sec., art., v., vs., PW, CW)
-- **MEDICAL**: Medical terms (mg, ml, cc, mcg, IU, units)
+**Domain Categories (configurable via DomainConfig):**
+- **LEGAL**: Indian legal terminology (u/s, r/w, sec., art., v., vs., PW1/PW-1, CW1, Ext.A)
+- **MEDICAL**: Medical units and dosages (mg, ml, cc, mcg, IU, 500mg, 10ml)
+- **CURRENCY**: Financial terms ($, €, ₹, USD, EUR, INR, $1,234.56)
+- **TECH**: Technical abbreviations (API, SDK, CLI, JSON, HTTP, v1.0)
 - **Custom**: Define your own domain with list or regex patterns
 
-### Domain Configuration
+## Domain Configuration
 
-DictErrors supports flexible domain-aware tokenization:
+DictErrors supports flexible domain-aware tokenization. Choose the approach that fits your workflow:
+
+### Quick Start: Factory Methods
+
+Use factory methods to load bundled domain configurations:
 
 ```python
-from dicterrors import DomainConfig, domain_aware_tokenizer, text_error_rates
+from dicterrors import DomainConfig, text_error_rates
 
-# Use pre-defined legal domain
-from dicterrors import LEGAL_DOMAIN
-tokens, tags = domain_aware_tokenizer("charged u/s 302 IPC", LEGAL_DOMAIN)
-# tokens: ["charged", "u/s", "302", "IPC"]
-# tags: ["WORD", "LEGAL", "NUMERAL", "WORD"]
+# Legal terminology (u/s, r/w, sec., PW1, CW2, Ext.A, etc.)
+domain = DomainConfig.legal()
+report = text_error_rates(ref, hyp, domain)
 
-# Use pre-defined medical domain
-from dicterrors import MEDICAL_DOMAIN
-tokens, tags = domain_aware_tokenizer("Take 500mg daily", MEDICAL_DOMAIN)
-# tokens: ["Take", "500mg", "daily"]
-# tags: ["WORD", "MEDICAL", "WORD"]
+# Medical measurements (mg, ml, 500mg, 10ml, etc.)
+domain = DomainConfig.medical()
 
-# Create custom domain with list of terms
-financial = DomainConfig("financial", ["$", "€", "₹"], category="CURRENCY", label="CER")
-tokens, tags = domain_aware_tokenizer("Pay $100", financial)
-# tokens: ["Pay", "$", "100"]
-# tags: ["WORD", "CURRENCY", "NUMERAL"]
+# Financial terms ($, €, ₹, $1,234.56, etc.)
+domain = DomainConfig.financial()
 
-# Create custom domain with regex
-technical = DomainConfig("tech", r'API|SDK|CLI|JSON|HTTP[S]?', category="TECH", label="TER")
-
-# No domain (only base categories)
-tokens, tags = domain_aware_tokenizer("Regular text", None)
-# tags will only be: ["WORD", "WORD"]
+# Technical abbreviations (API, SDK, v1.0, etc.)
+domain = DomainConfig.technical()
 ```
+
+### Production: File-Based Configuration
+
+Load custom domain configs from files for version control and team sharing:
+
+```python
+from dicterrors import DomainConfig, text_error_rates
+
+# Load from your project's config file
+domain = DomainConfig.from_file("config/custom_legal.txt")
+report = text_error_rates(ref, hyp, domain)
+```
+
+**File Format** (`config/custom_legal.txt`):
+```
+# Domain configuration file
+@name: legal
+@category: LEGAL
+@label: LER
+@case_sensitive: false
+
+# Literal terms (automatically escaped for regex safety)
+u/s
+r/w
+sec.
+
+# Regex patterns (prefix with REGEX:, used directly)
+REGEX: PW[-\s]*\d+     # Matches PW1, PW 1, PW-1
+REGEX: CW[-\s]*\d+     # Matches CW1, CW 1, CW-1
+REGEX: Ext\.[-\s]*[A-Z]\d*  # Matches Ext.A, Ext. B2
+```
+
+**Metadata fields** (all optional with sensible defaults):
+- `@name`: Domain identifier (default: "domain")
+- `@category`: Token category name (default: "DOMAIN_{NAME}")
+- `@label`: Short label for error rate metric (default: "{NAME}ER")
+- `@case_sensitive`: Case-sensitive matching (default: false, accepts true/false/yes/no/1/0)
+
+**Pattern types:**
+- **Literal terms**: One per line, automatically escaped with `re.escape()` for safety
+- **Regex patterns**: Prefix with `REGEX:`, used directly without escaping, supports full regex syntax
+- **Comments**: Lines starting with `#` or text after `#` on any line
+
+**Sample config files** are bundled with the package in `src/dicterrors/config/`:
+- `legal_terms.txt` - Indian legal terminology
+- `medical_terms.txt` - Medical units and dosages
+- `financial_terms.txt` - Currency symbols and amounts
+- `technical_terms.txt` - Technical abbreviations (case-sensitive)
+
+You can copy and modify these for your projects. See `config/README.md` for detailed file format documentation.
+
+### Custom Inline Domains
+
+Create domains inline for quick experiments:
+
+```python
+from dicterrors import DomainConfig
+
+# List-based patterns (automatically escaped)
+financial = DomainConfig("financial", ["$", "€", "₹"], category="CURRENCY", label="CER")
+
+# Regex patterns (used directly)
+technical = DomainConfig("tech", r'API|SDK|CLI|v\d+\.\d+', category="TECH", label="TER")
+
+# Use in evaluation
+report = text_error_rates(ref, hyp, financial)
+```
+
+### No Domain
+
+Use base categories only (WORD, NUMERAL, PUNCT) by passing `None`:
+
+```python
+# Explicit opt-out of domain tracking
+report = text_error_rates(ref, hyp, None)
+```
+
+### Bundled Domain Configurations
+
+DictErrors includes four pre-configured domains accessible via factory methods:
+
+| Factory Method | Category | Label | Description |
+|----------------|----------|-------|-------------|
+| `DomainConfig.legal()` | LEGAL | LER | Indian legal terminology (u/s, r/w, sec., art., v., vs., PW1, CW2, Ext.A) with flexible witness/exhibit patterns |
+| `DomainConfig.medical()` | MEDICAL | MER | Medical units and dosages (mg, ml, cc, mcg, IU, 500mg, 10ml patterns) |
+| `DomainConfig.financial()` | CURRENCY | CER | Currency symbols and amounts ($, €, ₹, USD, EUR, INR, $1,234.56 patterns) |
+| `DomainConfig.technical()` | TECH | TER | Technical abbreviations (API, SDK, CLI, JSON, HTTP, v1.0 patterns) - case-sensitive |
+
+**Note:** Factory methods load from bundled config files. For customization, use `DomainConfig.from_file()` with your own files.
 
 ### Normalized Error Rates
 
@@ -138,12 +221,13 @@ uv pip freeze > requirements.txt
 ### Basic Usage
 
 ```python
-from dicterrors import text_error_rates, LEGAL_DOMAIN
+from dicterrors import text_error_rates, DomainConfig
 
 # Analyze legal transcription
 ref = "charged u/s 302 IPC on 22.05.2023"
 hyp = "charged u/s 303 IPC on 22.05.2023"
-report = text_error_rates(ref, hyp, LEGAL_DOMAIN)
+domain = DomainConfig.legal()
+report = text_error_rates(ref, hyp, domain)
 
 # Access error rates
 print(f"Word Error Rate: {report['WORD']['error_rate']:.2%}")
@@ -170,17 +254,18 @@ print(f"Medical Error Rate: {report['MEDICAL']['error_rate']:.2%}")
 ### Batch Processing
 
 ```python
-from dicterrors import compute_sample_errors, compute_aggregate_metrics, LEGAL_DOMAIN
+from dicterrors import compute_sample_errors, compute_aggregate_metrics, DomainConfig
 
 # Process JSONL file
+domain = DomainConfig.legal()
 results = compute_sample_errors(
     "predictions.jsonl",
     output_file="detailed_results.jsonl",
-    domain_config=LEGAL_DOMAIN
+    domain_config=domain
 )
 
 # Get aggregate metrics
-metrics = compute_aggregate_metrics(results, domain_config=LEGAL_DOMAIN)
+metrics = compute_aggregate_metrics(results, domain_config=domain)
 
 # Access overall metrics
 print(metrics['overall']['WORD']['error_rate'])
@@ -289,7 +374,9 @@ Upload a JSONL file with multiple samples to get:
 
 ### ✅ Implemented
 - **Domain-aware tokenization** with configurable patterns (list or regex)
-- Pre-defined domains: Legal (LER) and Medical (MER)
+- **File-based domain configuration** with bundled configs
+- **Factory methods for pre-defined domains** (legal, medical, financial, technical)
+- Pre-defined domains: Legal (LER), Medical (MER), Financial (CER), Technical (TER)
 - Custom domain creation with `DomainConfig` class
 - Token categorization (WORD, NUMERAL, PUNCT, + domain categories)
 - Normalized error rates with combined denominator
@@ -297,7 +384,7 @@ Upload a JSONL file with multiple samples to get:
 - Interactive visualization with Streamlit
 - Batch evaluation with dataset-level aggregation
 - Comprehensive test suite
-- Clean, flexible API without backward compatibility baggage
+- Clean, flexible API
 
 ### 🚧 TODO
 - Indic language legal entity detection (धारा, आईपीसी, अनुच्छेद, etc.) as pre-defined domain
@@ -313,27 +400,52 @@ Upload a JSONL file with multiple samples to get:
 - Tokenizes text with optional domain-aware entity shielding
 - Returns: `(tokens, tags)` tuple
 
-**`text_error_rates(ref_text, hyp_text, domain_config=None)`**
+**`text_error_rates(ref_text, hyp_text, domain_config=None, normalize=True, use_sandhi=True)`**
 - End-to-end error rate calculation from raw text
+- `use_sandhi`: When `False`, disables Sandhi split/merge detection (useful for non-agglutinative languages)
 - Returns: Dictionary with error metrics for each category
 
-**`token_error_rates(aligned_ref, aligned_hyp, domain_config=None)`**
+**`token_error_rates(aligned_ref, aligned_hyp, domain_config=None, normalize=True, use_sandhi=True)`**
 - Calculate error rates from pre-aligned tokens
+- `use_sandhi`: When `False`, disables Sandhi hit counting
 - Returns: Dictionary with error metrics for each category
 
-**`compute_sample_errors(input_file, output_file=None, domain_config=None, ...)`**
+**`compute_sample_errors(input_file, output_file=None, domain_config=None, normalize=True, use_sandhi=True, ...)`**
 - Process JSONL file with multiple samples
+- `use_sandhi`: Propagated to per-sample error calculation
 - Returns: List of results with detailed reports
 
 **`compute_aggregate_metrics(sample_results, domain_config=None)`**
 - Aggregate metrics across samples
 - Returns: Dictionary with 'overall' and 'by_dataset' metrics
 
-### Pre-defined Domains
+### DomainConfig Factory Methods
 
-**`LEGAL_DOMAIN`**: English legal abbreviations (u/s, r/w, sec., art., v., vs., PW, CW, Ext.)
+Factory methods load bundled domain configurations from package resources:
 
-**`MEDICAL_DOMAIN`**: Medical measurements (mg, ml, cc, mcg, plus numeric patterns like 500mg)
+**`DomainConfig.legal() -> DomainConfig`**
+- Load bundled legal domain configuration
+- Category: LEGAL, Label: LER
+- Includes: u/s, r/w, sec., art., v., vs., PW1/PW-1/PW 1, CW1, Ext.A patterns
+
+**`DomainConfig.medical() -> DomainConfig`**
+- Load bundled medical domain configuration
+- Category: MEDICAL, Label: MER
+- Includes: mg, ml, cc, mcg, IU, 500mg, 10ml patterns
+
+**`DomainConfig.financial() -> DomainConfig`**
+- Load bundled financial domain configuration
+- Category: CURRENCY, Label: CER
+- Includes: $, €, ₹, USD, EUR, INR, $1,234.56 patterns
+
+**`DomainConfig.technical() -> DomainConfig`**
+- Load bundled technical domain configuration (case-sensitive)
+- Category: TECH, Label: TER
+- Includes: API, SDK, CLI, JSON, HTTP, v1.0 patterns
+
+**`DomainConfig.from_file(file_path, ...) -> DomainConfig`**
+- Load custom domain configuration from file
+- See "Domain Configuration" section for file format details
 
 ### DomainConfig Class
 

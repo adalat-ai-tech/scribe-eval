@@ -1,6 +1,14 @@
 import Levenshtein as levenshtein
 from .constants import CAT_WORD, CAT_PUNCT, CAT_NUMERAL
 
+def is_sandhi_eligible(tag) -> bool:
+    """Check if a tag is eligible for Sandhi split/merge operations.
+
+    Sandhi operations apply to all categories except PUNCT and NUMERAL.
+    This includes WORD and all domain-specific categories (LEGAL, MEDICAL, etc.).
+    """
+    return tag not in (CAT_PUNCT, CAT_NUMERAL)
+
 # --- SCORING CONFIGURATION ---
 DEFAULT_WEIGHTS = {
     'gap_penalty': -2.5,              # Gap penalty for words, legal terms, numerals
@@ -36,7 +44,7 @@ def get_mismatch_penalty(w1, t1, w2, t2, weights=DEFAULT_WEIGHTS) -> float:
 
     # For mismatch between other categories, penalty based on string distance
     dist = levenshtein_distance(w1, w2)
-    return weights['mismatch_default_penalty'] - (dist * 0.5)
+    return weights['mismatch_default_penalty'] - (dist * 0.2)
 
 def check_sandhi_match(combined_words, single_text, weights) -> float:
     """Checks if two words (split) equal one word (merge) with Sandhi rules."""
@@ -62,7 +70,7 @@ def check_sandhi_match(combined_words, single_text, weights) -> float:
 
     return -float('inf')
 
-def align_arrays(arr1, tags1, arr2, tags2, weights=None) -> tuple[list[tuple[str, str]], list[tuple[str, str]], float]:
+def align_arrays(arr1, tags1, arr2, tags2, weights=None, use_sandhi: bool = True) -> tuple[list[tuple[str, str]], list[tuple[str, str]], float]:
     if weights is None: weights = DEFAULT_WEIGHTS
 
     m, n = len(arr1), len(arr2)
@@ -90,18 +98,21 @@ def align_arrays(arr1, tags1, arr2, tags2, weights=None) -> tuple[list[tuple[str
             del_val = dp[i-1][j] + get_gap_penalty(tags1[i-1], weights)
             ins_val = dp[i][j-1] + get_gap_penalty(tags2[j-1], weights)
 
-            # 3. Sandhi Split/Merge (Only for CAT_WORD)
+            # 3. Sandhi Split/Merge (for all categories except PUNCT and NUMERAL)
             split_val = merge_val = -float('inf')
 
-            # Split: 1 Ref matches 2 Hyp
-            if j >= 2 and tags1[i-1] == CAT_WORD and tags2[j-2] == CAT_WORD and tags2[j-1] == CAT_WORD:
-                score_split = check_sandhi_match([arr2[j-2], arr2[j-1]], arr1[i-1], weights)
-                split_val = dp[i-1][j-2] + score_split
+            if use_sandhi:
+                # Split: 1 Ref matches 2 Hyp
+                if (j >= 2 and is_sandhi_eligible(tags1[i-1]) and
+                    is_sandhi_eligible(tags2[j-2]) and is_sandhi_eligible(tags2[j-1])):
+                    score_split = check_sandhi_match([arr2[j-2], arr2[j-1]], arr1[i-1], weights)
+                    split_val = dp[i-1][j-2] + score_split
 
-            # Merge: 2 Ref match 1 Hyp
-            if i >= 2 and tags1[i-2] == CAT_WORD and tags1[i-1] == CAT_WORD and tags2[j-1] == CAT_WORD:
-                score_merge = check_sandhi_match([arr1[i-2], arr1[i-1]], arr2[j-1], weights)
-                merge_val = dp[i-2][j-1] + score_merge
+                # Merge: 2 Ref match 1 Hyp
+                if (i >= 2 and is_sandhi_eligible(tags1[i-2]) and
+                    is_sandhi_eligible(tags1[i-1]) and is_sandhi_eligible(tags2[j-1])):
+                    score_merge = check_sandhi_match([arr1[i-2], arr1[i-1]], arr2[j-1], weights)
+                    merge_val = dp[i-2][j-1] + score_merge
 
             dp[i][j] = max(match_val, del_val, ins_val, split_val, merge_val)
 
@@ -115,18 +126,18 @@ def align_arrays(arr1, tags1, arr2, tags2, weights=None) -> tuple[list[tuple[str
         def is_close(v): return abs(curr - v) < 1e-7
 
         # Trace Sandhi Split
-        if j >= 2 and i > 0 and tags1[i-1] == CAT_WORD:
+        if use_sandhi and j >= 2 and i > 0 and is_sandhi_eligible(tags1[i-1]):
             score = check_sandhi_match([arr2[j-2], arr2[j-1]], arr1[i-1], weights)
             if is_close(dp[i-1][j-2] + score):
                 aligned_ref.append((arr1[i-1], tags1[i-1]))
-                aligned_hyp.append((f"SPLIT:{arr2[j-2]} {arr2[j-1]}", CAT_WORD))
+                aligned_hyp.append((f"SPLIT:{arr2[j-2]} {arr2[j-1]}", tags1[i-1]))
                 i -= 1; j -= 2; continue
 
         # Trace Sandhi Merge
-        if i >= 2 and j > 0 and tags2[j-1] == CAT_WORD:
+        if use_sandhi and i >= 2 and j > 0 and is_sandhi_eligible(tags2[j-1]):
             score = check_sandhi_match([arr1[i-2], arr1[i-1]], arr2[j-1], weights)
             if is_close(dp[i-2][j-1] + score):
-                aligned_ref.append((f"MERGE:{arr1[i-2]} {arr1[i-1]}", CAT_WORD))
+                aligned_ref.append((f"MERGE:{arr1[i-2]} {arr1[i-1]}", tags2[j-1]))
                 aligned_hyp.append((arr2[j-1], tags2[j-1]))
                 i -= 2; j -= 1; continue
 

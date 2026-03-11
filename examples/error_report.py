@@ -21,7 +21,7 @@ from dicterrors import (
     align_arrays,
     token_error_rates,
     CAT_WORD, CAT_PUNCT, CAT_NUMERAL,
-    LEGAL_DOMAIN
+    DomainConfig
 )
 from dicterrors.reporting import (
     format_metrics_dict,
@@ -33,8 +33,8 @@ from dicterrors.reporting import (
 def generate_error_report(text1, text2):
     """Generate a detailed error report for two texts."""
 
-    # Use legal domain configuration
-    domain_config = LEGAL_DOMAIN
+    # Using bundled legal domain. For custom domains, see custom_domain_file.py
+    domain_config = DomainConfig.legal()
 
     # Header
     print("=" * 50)

@@ -14,7 +14,7 @@ from dicterrors import (
     compute_sample_errors,
     DEFAULT_WEIGHTS,
     CAT_WORD, CAT_PUNCT, CAT_NUMERAL,
-    LEGAL_DOMAIN
+    DomainConfig
 )
 from dicterrors.reporting import (
     format_dataset_table,
@@ -247,14 +247,14 @@ def render_metrics_comparison(report, jiwer_wer, domain_config):
         """, unsafe_allow_html=True)
 
 # --- HELPER: RENDER ANALYSIS ---
-def render_analysis(ref_text, hyp_text, weights, normalize=True):
+def render_analysis(ref_text, hyp_text, weights, normalize=True, use_sandhi=True):
     # Use legal domain configuration
-    domain_config = LEGAL_DOMAIN
+    domain_config = DomainConfig.legal()
 
     # 1. DictErrors Calculation
     t1, g1 = domain_aware_tokenizer(ref_text, domain_config)
     t2, g2 = domain_aware_tokenizer(hyp_text, domain_config)
-    a_ref, a_hyp, _ = align_arrays(t1, g1, t2, g2, weights=weights)
+    a_ref, a_hyp, _ = align_arrays(t1, g1, t2, g2, weights=weights, use_sandhi=use_sandhi)
     report = token_error_rates(a_ref, a_hyp, domain_config, normalize)
 
     # 2. Jiwer Calculation
@@ -322,6 +322,14 @@ normalize_enabled = st.sidebar.checkbox(
     help="When enabled, treats date/currency format variations as matches (22.05.2023 = 22/05/2023, 10,500 = 10500)"
 )
 
+# Sandhi detection toggle
+st.sidebar.header("🔀 Sandhi Detection")
+use_sandhi_enabled = st.sidebar.checkbox(
+    "Enable Sandhi Detection",
+    value=True,
+    help="When enabled, detects Sandhi splits/merges in agglutinative languages (e.g., 'ഇന്നല്ലെങ്കിൽ' ↔ 'ഇന്ന് അല്ലെങ്കിൽ')"
+)
+
 # Session state management
 st.sidebar.divider()
 st.sidebar.header("🗑️ Session Management")
@@ -341,10 +349,10 @@ tab_manual, tab_json = st.tabs(["Manual Inspection", "Batch Dataset Analysis"])
 
 with tab_manual:
     mc1, mc2 = st.columns(2)
-    with mc1: m_ref = st.text_area("Reference", height=100, value="U/S 302 പ്രകാരം ഇന്ന് അല്ലെങ്കിൽ നാളെ ശിക്ഷിക്കപ്പെടും")
-    with mc2: m_hyp = st.text_area("Hypothesis", height=100, value="US 302 പ്രകാരം ഇന്നല്ലെങ്കിൽ നാളെ ശിക്ഷിക്കപ്പെടും")
+    with mc1: m_ref = st.text_area("Reference", height=100, value="IPC 302 പ്രകാരം ഇന്ന് അല്ലെങ്കിൽ നാളെ ശിക്ഷിക്കപ്പെടും")
+    with mc2: m_hyp = st.text_area("Hypothesis", height=100, value="IPS 302 പ്രകാരം ഇന്നല്ലെങ്കിൽ നാളെ ശിക്ഷിക്കപ്പെടും")
     if st.button("Analyze Manual Input", type="primary"):
-        render_analysis(m_ref, m_hyp, weights, normalize_enabled)
+        render_analysis(m_ref, m_hyp, weights, normalize_enabled, use_sandhi_enabled)
 
  #--- UPDATED TAB 2: JSON/JSONL ---
 with tab_json:
@@ -407,10 +415,10 @@ with tab_json:
                 
                 try:
                     # Use legal domain configuration
-                    domain_config = LEGAL_DOMAIN
+                    domain_config = DomainConfig.legal()
 
                     # 1. DictErrors Calculation
-                    res_detailed = compute_sample_errors(tmp_path, ref_field=ref_col, hyp_field=hyp_col, domain_config=domain_config, normalize=normalize_enabled)
+                    res_detailed = compute_sample_errors(tmp_path, ref_field=ref_col, hyp_field=hyp_col, domain_config=domain_config, normalize=normalize_enabled, use_sandhi=use_sandhi_enabled)
 
                     # Ensure source_dataset is attached for aggregation
                     for i, r in enumerate(res_detailed):
@@ -460,4 +468,4 @@ with tab_json:
                            format_func=lambda i: f"Record {i+1}: {res_list[i][saved_ref_col][:60]}...")
 
         sel = res_list[idx]
-        render_analysis(sel[saved_ref_col], sel[saved_hyp_col], weights, normalize_enabled)
+        render_analysis(sel[saved_ref_col], sel[saved_hyp_col], weights, normalize_enabled, use_sandhi_enabled)

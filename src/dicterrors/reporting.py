@@ -28,7 +28,9 @@ def format_metrics_dict(metrics: Dict, domain_config: Optional[DomainConfig] = N
 
     if domain_config:
         result[domain_config.label] = f"{metrics[domain_config.category]['error_rate']:.2%}"
-        result["Sandhi"] = metrics[CAT_WORD]['sandhi_hits']
+        # Sum sandhi_hits across all categories (Sandhi can occur in WORD, LEGAL, MEDICAL, etc.)
+        total_sandhi = sum(metrics[cat]['sandhi_hits'] for cat in metrics.keys())
+        result["Sandhi"] = total_sandhi
         result["Total"] = metrics[CAT_WORD].get('combined_total', 0)
 
     return result
@@ -45,11 +47,14 @@ def extract_error_rates(report: Dict, domain_config: Optional[DomainConfig] = No
     Returns:
         Dictionary with raw numeric error rates
     """
+    # Sum sandhi_hits across all categories (Sandhi can occur in WORD, LEGAL, MEDICAL, etc.)
+    total_sandhi = sum(report[cat]['sandhi_hits'] for cat in report.keys())
+
     result = {
         'wer': report[CAT_WORD]['error_rate'],
         'ner': report[CAT_NUMERAL]['error_rate'],
         'per': report[CAT_PUNCT]['error_rate'],
-        'sandhi': report[CAT_WORD]['sandhi_hits']
+        'sandhi': total_sandhi
     }
 
     if domain_config:

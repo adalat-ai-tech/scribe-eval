@@ -13,11 +13,7 @@ from .constants import (
 )
 
 # --- Domain Configuration ---
-from .domain_config import (
-    DomainConfig,
-    LEGAL_DOMAIN,
-    MEDICAL_DOMAIN
-)
+from .domain_config import DomainConfig
 
 # --- Tokenization ---
 from .tokenize import (

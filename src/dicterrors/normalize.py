@@ -4,7 +4,7 @@ This module provides normalization functions to convert tokens to canonical form
 for comparison purposes while preserving original formatting for display.
 """
 import re
-from .constants import CAT_NUMERAL
+from .constants import CAT_NUMERAL, CAT_PUNCT
 
 
 def normalize_date(text: str) -> str:
@@ -61,6 +61,48 @@ def normalize_currency(text: str) -> str:
     return text
 
 
+def normalize_kannada_numerals(text: str) -> str:
+    """Normalize Kannada numerals to Arabic numerals.
+
+    Converts Kannada digits (೦-೯) to their Arabic numeral equivalents (0-9).
+    Handles full strings containing Kannada numerals.
+
+    Args:
+        text: Token text that may contain Kannada numerals
+
+    Returns:
+        Text with Kannada numerals replaced by Arabic numerals
+
+    Examples:
+        >>> normalize_kannada_numerals("೧೮೩")
+        '189'
+        >>> normalize_kannada_numerals("೧೫.೦೫.೨೦೨೩")
+        '15.08.2023'
+        >>> normalize_kannada_numerals("೧,೫೦೦")
+        '1,500'
+    """
+    # Kannada to Arabic numeral mapping
+    kannada_to_arabic = {
+        '೦': '0',
+        '೧': '1',
+        '೨': '2',
+        '೩': '3',
+        '೪': '4',
+        '೫': '5',
+        '೬': '6',
+        '೭': '7',
+        '೮': '8',
+        '೯': '9',
+    }
+
+    # Replace each Kannada digit with its Arabic equivalent
+    result = []
+    for char in text:
+        result.append(kannada_to_arabic.get(char, char))
+
+    return ''.join(result)
+
+
 def normalize_numeral(text: str) -> str:
     """Apply all numeral normalization rules.
 
@@ -80,7 +122,12 @@ def normalize_numeral(text: str) -> str:
         '10500'
         >>> normalize_numeral("10:30")
         '10:30'
+        >>> normalize_numeral("೧೫.೦೫.೨೦೮೯")
+        '15-08-2023'
     """
+    # First, normalize Kannada numerals to Arabic numerals
+    text = normalize_kannada_numerals(text)
+
     # Try date normalization first
     normalized = normalize_date(text)
     if normalized != text:
@@ -93,6 +140,11 @@ def normalize_numeral(text: str) -> str:
 
     # Time formats (HH:MM) already canonical
     return text
+
+
+def normalize_word(text: str) -> str:
+    """Normalize word by removing hyphen within word"""
+    return text.replace('-', '')
 
 
 def normalize_token(text: str, category: str) -> str:
@@ -120,5 +172,8 @@ def normalize_token(text: str, category: str) -> str:
     if category == CAT_NUMERAL:
         return normalize_numeral(text)
 
-    # No normalization for WORD, PUNCT, LEGAL, etc.
+    if category != CAT_PUNCT:
+        return normalize_word(text)
+
+    # No normalization for PUNCT, etc.
     return text

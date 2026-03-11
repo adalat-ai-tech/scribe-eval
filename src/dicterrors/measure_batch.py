@@ -6,7 +6,7 @@ from .constants import get_categories, init_stat_dict, calculate_combined_total,
 from .domain_config import DomainConfig
 import json
 
-def compute_sample_errors(input_file, output_file=None, ref_field="transcript_cleaned", hyp_field="prediction", source_dataset_field="source_dataset", domain_config: Optional[DomainConfig] = None, normalize: bool = True) -> list[dict]:
+def compute_sample_errors(input_file, output_file=None, ref_field="transcript_cleaned", hyp_field="prediction", source_dataset_field="source_dataset", domain_config: Optional[DomainConfig] = None, normalize: bool = True, use_sandhi: bool = True) -> list[dict]:
     """
     Compute error metrics for all samples in a JSONL file.
 
@@ -30,8 +30,8 @@ def compute_sample_errors(input_file, output_file=None, ref_field="transcript_cl
             if source_dataset_field not in data or data[source_dataset_field] is None:
                 data[source_dataset_field] = "unknown"
 
-            # Pass domain_config and normalize to text_error_rates
-            report = text_error_rates(data[ref_field], data[hyp_field], domain_config, normalize)
+            # Pass domain_config, normalize and use_sandhi to text_error_rates
+            report = text_error_rates(data[ref_field], data[hyp_field], domain_config, normalize, use_sandhi)
             data["detailed_report"] = report
             results.append(data)
 
@@ -70,6 +70,7 @@ def compute_aggregate_metrics(sample_results, domain_config: Optional[DomainConf
             overall_agg[cat]["substitutions"] += report[cat]["substitutions"]
             overall_agg[cat]["insertions"] += report[cat]["insertions"]
             overall_agg[cat]["deletions"] += report[cat]["deletions"]
+            overall_agg[cat]["correct"] += report[cat]["correct"]
             overall_agg[cat]["total"] += report[cat]["total_ref"]
             overall_agg[cat]["sandhi_hits"] += report[cat]["sandhi_hits"]
 
@@ -77,6 +78,7 @@ def compute_aggregate_metrics(sample_results, domain_config: Optional[DomainConf
             dataset_aggs[ds][cat]["substitutions"] += report[cat]["substitutions"]
             dataset_aggs[ds][cat]["insertions"] += report[cat]["insertions"]
             dataset_aggs[ds][cat]["deletions"] += report[cat]["deletions"]
+            dataset_aggs[ds][cat]["correct"] += report[cat]["correct"]
             dataset_aggs[ds][cat]["total"] += report[cat]["total_ref"]
             dataset_aggs[ds][cat]["sandhi_hits"] += report[cat]["sandhi_hits"]
 
@@ -93,7 +95,7 @@ def compute_aggregate_metrics(sample_results, domain_config: Optional[DomainConf
                 "substitutions": a["substitutions"],
                 "insertions": a["insertions"],
                 "deletions": a["deletions"],
-                "correct": a["total"] - errs,
+                "correct": a["correct"],
                 "sandhi_hits": a["sandhi_hits"],
                 "total": a["total"],
                 "combined_total": combined_total  # Store for reference
