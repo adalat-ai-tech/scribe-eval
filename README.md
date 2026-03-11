@@ -3,7 +3,7 @@
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-DictErrors is a specialized tool for analyzing ASR (Automatic Speech Recognition) transcription errors in Indic languages (Malayalam, Kannada). It provides fine-grained error metrics by categorizing tokens into base categories (WORD, NUMERAL, PUNCT) and optional domain-specific categories (LEGAL, MEDICAL, CURRENCY, TECH, or custom).
+DictErrors is a specialized tool for analyzing ASR (Automatic Speech Recognition) transcription errors in Indic languages (Malayalam, Kannada). It provides fine-grained error metrics by categorizing tokens into base categories (WORD, NUMERAL, PUNCT) and optional domain-specific categories (LEGAL, MEDICAL, TECH, or custom).
 
 Domain-critical terminology is shielded from incorrect splitting and tracked separately — so a single misrecognized legal term doesn't inflate your general WER.
 
@@ -47,13 +47,12 @@ print(f"NER: {report['NUMERAL']['error_rate']:.2%}")
 | PUNCT | base | PER | Punctuation marks |
 | LEGAL | domain | LER | Indian legal terminology (u/s, r/w, PW1, Ext.A) |
 | MEDICAL | domain | MER | Medical units and dosages (mg, ml, 500mg) |
-| CURRENCY | domain | CER | Currency symbols and amounts ($, ₹, $1,234.56) |
 | TECH | domain | TER | Technical abbreviations (API, SDK, v1.0) |
 | Custom | domain | configurable | Define your own with lists or regex patterns |
 
 ## Domain Configuration
 
-Factory methods for bundled domains: `DomainConfig.legal()`, `DomainConfig.medical()`, `DomainConfig.financial()`, `DomainConfig.technical()`
+Factory methods for bundled domains: `DomainConfig.legal()`, `DomainConfig.medical()`, `DomainConfig.technical()`
 
 File-based and custom inline configs are also supported. See [docs/domain-configuration.md](docs/domain-configuration.md).
 

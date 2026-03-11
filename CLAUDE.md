@@ -83,7 +83,7 @@ The visualizer provides:
    - `domain_aware_tokenizer(text, domain_config=None)`: Main tokenization function
    - Base categories: WORD, NUMERAL, PUNCT (always present)
    - Optional domain categories via `DomainConfig` class
-   - Factory methods for bundled domains: `DomainConfig.legal()`, `DomainConfig.medical()`, `DomainConfig.financial()`, `DomainConfig.technical()`
+   - Factory methods for bundled domains: `DomainConfig.legal()`, `DomainConfig.medical()`, `DomainConfig.technical()`
    - File-based configuration: `DomainConfig.from_file('config/custom.txt')`
    - Custom domains: list-based patterns or regex patterns
    - Domain entities are protected from punctuation splitting and tracked separately
@@ -144,9 +144,8 @@ The visualizer provides:
     - `__init__.py`
     - `legal_terms.txt`: Indian legal terminology
     - `medical_terms.txt`: Medical units and dosages
-    - `financial_terms.txt`: Currency symbols and amounts
     - `technical_terms.txt`: Technical abbreviations (case-sensitive)
-  - `domain_config.py`: DomainConfig class with factory methods (`legal()`, `medical()`, `financial()`, `technical()`)
+  - `domain_config.py`: DomainConfig class with factory methods (`legal()`, `medical()`, `technical()`)
   - `tokenize.py`: Domain-aware token extraction and categorization
   - `align.py`: Alignment algorithm and scoring
   - `measure.py`: Single-sample error rate calculation
@@ -175,7 +174,6 @@ The visualizer provides:
 **Domain Categories (configurable via DomainConfig):**
 - **LEGAL**: Indian legal terminology (u/s, r/w, sec., art., v., vs., PW1/PW-1, CW1, Ext.A with flexible patterns)
 - **MEDICAL**: Medical measurements and units (mg, ml, cc, mcg, IU, 500mg, 10ml)
-- **CURRENCY**: Financial terms ($, €, ₹, USD, EUR, INR, $1,234.56)
 - **TECH**: Technical abbreviations (API, SDK, CLI, JSON, HTTP, v1.0 - case-sensitive)
 - **Custom**: Define your own domain with list or regex patterns
 
@@ -195,8 +193,8 @@ tokens, tags = domain_aware_tokenizer("my text", custom_domain)
 tokens, tags = domain_aware_tokenizer("regular text", None)
 
 # Custom domain
-financial = DomainConfig("financial", ["$", "€", "₹"], category="CURRENCY", label="CER")
-tokens, tags = domain_aware_tokenizer("Pay $100", financial)
+custom = DomainConfig("custom", ["u/s", "r/w"], category="CUSTOM", label="CuER")
+tokens, tags = domain_aware_tokenizer("charged u/s 302", custom)
 ```
 
 ## Loading Domain Patterns from Files
@@ -282,9 +280,6 @@ The `config/` directory contains pre-made configuration files:
   - Literal terms: mg, ml, cc, mcg, IU, kg, gm
   - Regex patterns: `\d+\s*mg` matches 500mg, 500 mg
 
-- **`financial_terms.txt`**: Currency symbols and codes
-  - Literal terms: $, €, £, ¥, ₹, USD, EUR, INR
-  - Regex patterns: `\$\d+(?:,\d{3})*(?:\.\d{2})?` matches $100, $1,000, $1,234.56
 
 - **`technical_terms.txt`**: Technical abbreviations (case-sensitive)
   - Literal terms: API, SDK, CLI, JSON, HTTP, HTTPS

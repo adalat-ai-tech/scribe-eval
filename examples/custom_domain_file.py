@@ -33,33 +33,18 @@ report_med = text_error_rates(ref_med, hyp_med, medical_domain)
 print(f"\nMedical Domain - MER: {report_med['MEDICAL']['error_rate']:.2%}")
 print(f"  Medical terms found: {report_med['MEDICAL']['correct']} correct")
 
-# Use bundled financial domain (for demonstration with financial text)
-ref_fin = "paid $100 and €50 for total of ₹10,500"
-hyp_fin = "paid $100 and euro 50 for total of rupees 10,500"
-financial_domain = DomainConfig.financial()
-report_fin = text_error_rates(ref_fin, hyp_fin, financial_domain)
-print(f"\nFinancial Domain - CER: {report_fin['CURRENCY']['error_rate']:.2%}")
-print(f"  Currency terms: {report_fin['CURRENCY']['substitutions']} substitutions")
-
 print("\n" + "=" * 80)
 print("APPROACH 2: Custom File-Based Config")
 print("=" * 80)
 
-# Load from custom file (if it exists)
-import os
-# Path to config directory (when running from examples/)
-config_path = os.path.join(os.path.dirname(__file__), "..", "config", "legal_terms.txt")
-if os.path.exists(config_path):
-    custom_domain = DomainConfig.from_file(config_path)
-    report_custom = text_error_rates(ref, hyp, custom_domain)
-    print(f"\nCustom Legal Domain (from file) - {custom_domain.label}: {report_custom[custom_domain.category]['error_rate']:.2%}")
-    print(f"  Configuration: category={custom_domain.category}, label={custom_domain.label}")
-else:
-    print("\nCustom config file not found at:", config_path)
-    print("Copy from bundled configs to customize:")
-    print("  python -c \"from pathlib import Path; from dicterrors.domain_config import DomainConfig; \\")
-    print("    import shutil; config_path = Path(DomainConfig.legal.__code__.co_filename).parent / 'config' / 'legal_terms.txt'; \\")
-    print("    shutil.copy(config_path, 'my_custom_legal.txt')\"")
+# Load from a user-supplied custom file using DomainConfig.from_file()
+# Example: custom_domain = DomainConfig.from_file("path/to/my_legal_terms.txt")
+# For now, demonstrate with the bundled legal config used as a custom variant
+custom_domain = DomainConfig.legal()
+report_custom = text_error_rates(ref, hyp, custom_domain)
+print(f"\nCustom Legal Domain (via factory) - {custom_domain.label}: {report_custom[custom_domain.category]['error_rate']:.2%}")
+print(f"  Configuration: category={custom_domain.category}, label={custom_domain.label}")
+print("  (To use a custom file: DomainConfig.from_file('path/to/my_legal_terms.txt'))")
 
 print("\n" + "=" * 80)
 print("APPROACH 3: Inline Custom Domain")
@@ -67,15 +52,15 @@ print("=" * 80)
 
 # Create custom domain inline
 custom_inline = DomainConfig(
-    "financial_custom",
-    ["$", "€", "₹", "Rs.", "rupees"],
-    category="CURRENCY",
-    label="CER"
+    "custom",
+    ["u/s", "r/w", "sec.", "art."],
+    category="CUSTOM",
+    label="CuER"
 )
 report_inline = text_error_rates(ref, hyp, custom_inline)
-print(f"\nInline Financial Domain - CER: {report_inline['CURRENCY']['error_rate']:.2%}")
-print(f"  Currency substitutions: {report_inline['CURRENCY']['substitutions']}")
-print(f"  (Detects 'Rs.' → 'rupees' and similar variations)")
+print(f"\nInline Custom Domain - CuER: {report_inline['CUSTOM']['error_rate']:.2%}")
+print(f"  Custom term substitutions: {report_inline['CUSTOM']['substitutions']}")
+print(f"  (Detects 'u/s' → 'under section' and similar variations)")
 
 print("\n" + "=" * 80)
 print("\nKey Takeaways:")
