@@ -72,6 +72,8 @@ The visualizer provides:
 - **Detailed Error Counts**: Expandable section showing substitutions, insertions, deletions by category
 - **Individual Record Inspection**: Drill down into specific samples from batch results
 - **Session State**: Maintains last 100 batch results with field name persistence
+- **Sandhi Detection Toggle**: Sidebar checkbox to enable/disable Sandhi split/merge detection
+- **Normalize Toggle**: Sidebar checkbox for token normalization (date/currency format variations)
 
 ## Architecture
 
@@ -91,18 +93,19 @@ The visualizer provides:
    - Modified Needleman-Wunsch algorithm with token-type-aware scoring
    - Cross-category substitution penalties (high penalty for punct ↔ word swaps)
    - Character-aware edit distance using Levenshtein for within-category errors
-   - Sandhi correction detection (merged/split words in Indic text)
+   - Sandhi correction detection (merged/split words in Indic text); toggled via `use_sandhi: bool = True`
    - Configurable weights via DEFAULT_WEIGHTS dict
 
 3. **Measurement** (`src/dicterrors/measure.py`)
-   - `token_error_rates(aligned_ref, aligned_hyp, domain_config=None)`: Computes category-specific error rates from aligned tokens
-   - `text_error_rates(ref_text, hyp_text, domain_config=None)`: End-to-end pipeline from raw text to error metrics
+   - `token_error_rates(aligned_ref, aligned_hyp, domain_config=None, normalize=True, use_sandhi=True)`: Computes category-specific error rates from aligned tokens
+   - `text_error_rates(ref_text, hyp_text, domain_config=None, normalize=True, use_sandhi=True)`: End-to-end pipeline from raw text to error metrics
+   - `use_sandhi=False` disables Sandhi split/merge detection — useful for non-agglutinative languages
    - **Normalized error rates**: Uses combined denominator (sum of all category totals) across all categories to prevent misleading sparse-category metrics
    - **Domain-aware metrics**: WER (Word Error Rate), NER (Numeral Error Rate), PER (Punctuation Error Rate), plus domain-specific rates (e.g., LER for legal, MER for medical)
    - Tracks substitutions, insertions, deletions, and Sandhi corrections per category
 
 4. **Batch Processing** (`src/dicterrors/measure_batch.py`)
-   - `compute_sample_errors(input_file, output_file=None, domain_config=None, ...)`: Process JSONL files with multiple samples
+   - `compute_sample_errors(input_file, output_file=None, domain_config=None, normalize=True, use_sandhi=True, ...)`: Process JSONL files with multiple samples
    - Optional `domain_config` parameter enables domain-specific error tracking
    - Optional `output_file` parameter saves detailed per-sample error reports as JSONL
    - Each detailed report includes category-wise breakdown (base + domain categories) with error rates, substitutions, insertions, deletions, correct counts, and Sandhi hits

@@ -4,7 +4,7 @@ from .align import align_arrays
 from .constants import get_categories, init_stat_dict, calculate_combined_total
 from .domain_config import DomainConfig
 
-def token_error_rates(aligned_ref, aligned_hyp, domain_config: Optional[DomainConfig] = None, normalize: bool = True) -> dict[str, dict[str, float | int]]:
+def token_error_rates(aligned_ref, aligned_hyp, domain_config: Optional[DomainConfig] = None, normalize: bool = True, use_sandhi: bool = True) -> dict[str, dict[str, float | int]]:
     """
     Calculate error rates from aligned tokens.
 
@@ -90,7 +90,7 @@ def token_error_rates(aligned_ref, aligned_hyp, domain_config: Optional[DomainCo
 
     return report
 
-def text_error_rates(ref_text, hyp_text, domain_config: Optional[DomainConfig] = None, normalize: bool = True) -> dict[str, dict[str, float | int]]:
+def text_error_rates(ref_text, hyp_text, domain_config: Optional[DomainConfig] = None, normalize: bool = True, use_sandhi: bool = True) -> dict[str, dict[str, float | int]]:
     """
     Calculate error rates from raw text.
 
@@ -105,5 +105,5 @@ def text_error_rates(ref_text, hyp_text, domain_config: Optional[DomainConfig] =
     """
     t1, g1 = domain_aware_tokenizer(ref_text, domain_config)
     t2, g2 = domain_aware_tokenizer(hyp_text, domain_config)
-    aligned_ref, aligned_hyp, _ = align_arrays(t1, g1, t2, g2)
+    aligned_ref, aligned_hyp, _ = align_arrays(t1, g1, t2, g2, use_sandhi=use_sandhi)
     return token_error_rates(aligned_ref, aligned_hyp, domain_config, normalize)

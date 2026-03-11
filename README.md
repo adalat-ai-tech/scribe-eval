@@ -400,16 +400,19 @@ Upload a JSONL file with multiple samples to get:
 - Tokenizes text with optional domain-aware entity shielding
 - Returns: `(tokens, tags)` tuple
 
-**`text_error_rates(ref_text, hyp_text, domain_config=None)`**
+**`text_error_rates(ref_text, hyp_text, domain_config=None, normalize=True, use_sandhi=True)`**
 - End-to-end error rate calculation from raw text
+- `use_sandhi`: When `False`, disables Sandhi split/merge detection (useful for non-agglutinative languages)
 - Returns: Dictionary with error metrics for each category
 
-**`token_error_rates(aligned_ref, aligned_hyp, domain_config=None)`**
+**`token_error_rates(aligned_ref, aligned_hyp, domain_config=None, normalize=True, use_sandhi=True)`**
 - Calculate error rates from pre-aligned tokens
+- `use_sandhi`: When `False`, disables Sandhi hit counting
 - Returns: Dictionary with error metrics for each category
 
-**`compute_sample_errors(input_file, output_file=None, domain_config=None, ...)`**
+**`compute_sample_errors(input_file, output_file=None, domain_config=None, normalize=True, use_sandhi=True, ...)`**
 - Process JSONL file with multiple samples
+- `use_sandhi`: Propagated to per-sample error calculation
 - Returns: List of results with detailed reports
 
 **`compute_aggregate_metrics(sample_results, domain_config=None)`**
