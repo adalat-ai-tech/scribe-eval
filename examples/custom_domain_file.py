@@ -33,14 +33,6 @@ report_med = text_error_rates(ref_med, hyp_med, medical_domain)
 print(f"\nMedical Domain - MER: {report_med['MEDICAL']['error_rate']:.2%}")
 print(f"  Medical terms found: {report_med['MEDICAL']['correct']} correct")
 
-# Use bundled financial domain (for demonstration with financial text)
-ref_fin = "paid $100 and €50 for total of ₹10,500"
-hyp_fin = "paid $100 and euro 50 for total of rupees 10,500"
-financial_domain = DomainConfig.financial()
-report_fin = text_error_rates(ref_fin, hyp_fin, financial_domain)
-print(f"\nFinancial Domain - CER: {report_fin['CURRENCY']['error_rate']:.2%}")
-print(f"  Currency terms: {report_fin['CURRENCY']['substitutions']} substitutions")
-
 print("\n" + "=" * 80)
 print("APPROACH 2: Custom File-Based Config")
 print("=" * 80)
@@ -60,15 +52,15 @@ print("=" * 80)
 
 # Create custom domain inline
 custom_inline = DomainConfig(
-    "financial_custom",
-    ["$", "€", "₹", "Rs.", "rupees"],
-    category="CURRENCY",
-    label="CER"
+    "custom",
+    ["u/s", "r/w", "sec.", "art."],
+    category="CUSTOM",
+    label="CuER"
 )
 report_inline = text_error_rates(ref, hyp, custom_inline)
-print(f"\nInline Financial Domain - CER: {report_inline['CURRENCY']['error_rate']:.2%}")
-print(f"  Currency substitutions: {report_inline['CURRENCY']['substitutions']}")
-print(f"  (Detects 'Rs.' → 'rupees' and similar variations)")
+print(f"\nInline Custom Domain - CuER: {report_inline['CUSTOM']['error_rate']:.2%}")
+print(f"  Custom term substitutions: {report_inline['CUSTOM']['substitutions']}")
+print(f"  (Detects 'u/s' → 'under section' and similar variations)")
 
 print("\n" + "=" * 80)
 print("\nKey Takeaways:")

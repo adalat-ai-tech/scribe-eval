@@ -4,14 +4,13 @@ DictErrors supports flexible domain-aware tokenization via the `DomainConfig` cl
 
 ## Factory Methods (Bundled Domains)
 
-Four pre-configured domains are bundled with the package:
+Three pre-configured domains are bundled with the package:
 
 ```python
 from dicterrors import DomainConfig, text_error_rates
 
 domain = DomainConfig.legal()      # Indian legal terminology
 domain = DomainConfig.medical()    # Medical units and dosages
-domain = DomainConfig.financial()  # Currency symbols and amounts
 domain = DomainConfig.technical()  # Technical abbreviations (case-sensitive)
 
 report = text_error_rates(ref, hyp, domain)
@@ -21,7 +20,6 @@ report = text_error_rates(ref, hyp, domain)
 |---|---|---|---|
 | `DomainConfig.legal()` | LEGAL | LER | u/s, r/w, sec., art., v., vs., PW1/PW-1, CW1, Ext.A |
 | `DomainConfig.medical()` | MEDICAL | MER | mg, ml, cc, mcg, IU, 500mg, 10ml |
-| `DomainConfig.financial()` | CURRENCY | CER | $, €, ₹, USD, EUR, INR, $1,234.56 |
 | `DomainConfig.technical()` | TECH | TER | API, SDK, CLI, JSON, HTTP, v1.0 |
 
 ## File-Based Configuration
@@ -72,7 +70,6 @@ REGEX: Ext\.[-\s]*[A-Z]\d*  # Matches Ext.A, Ext. B2
 Sample config files are included in `src/dicterrors/config/`:
 - `legal_terms.txt` — Indian legal terminology
 - `medical_terms.txt` — Medical units and dosages
-- `financial_terms.txt` — Currency symbols and amounts
 - `technical_terms.txt` — Technical abbreviations (case-sensitive)
 
 Copy and modify these for your projects. The `config/` directory at the repo root contains additional example files with inline documentation.
@@ -94,13 +91,13 @@ custom = DomainConfig.from_file(
 from dicterrors import DomainConfig
 
 # List-based patterns (automatically escaped)
-financial = DomainConfig("financial", ["$", "€", "₹"], category="CURRENCY", label="CER")
+custom = DomainConfig("custom", ["u/s", "r/w"], category="CUSTOM", label="CuER")
 
 # Regex pattern (used directly)
 technical = DomainConfig("tech", r'API|SDK|CLI|v\d+\.\d+', category="TECH", label="TER")
 
 # Use in evaluation
-report = text_error_rates(ref, hyp, financial)
+report = text_error_rates(ref, hyp, custom)
 ```
 
 ## No Domain

@@ -31,10 +31,10 @@ print(f"Tags: {tags}")
 print()
 
 # Test 4: Custom domain
-print("=== Test 4: Custom Financial Domain ===")
-financial = DomainConfig("financial", ["$", "€", "₹"], category="CURRENCY", label="CER")
-text = "Pay $100 or ₹7500"
-tokens, tags = domain_aware_tokenizer(text, financial)
+print("=== Test 4: Custom Domain ===")
+custom = DomainConfig("custom", ["u/s", "r/w", "sec."], category="CUSTOM", label="CuER")
+text = "charged u/s 302 sec. 3 IPC"
+tokens, tags = domain_aware_tokenizer(text, custom)
 print(f"Text: {text}")
 print(f"Tokens: {tokens}")
 print(f"Tags: {tags}")

@@ -24,7 +24,7 @@ class DomainConfig:
         Initialize domain configuration.
 
         Args:
-            name: Domain name (e.g., "legal", "medical", "financial")
+            name: Domain name (e.g., "legal", "medical", "technical")
             patterns: Either a regex pattern string or list of domain terms
             category: Category name for tokens (default: "DOMAIN_{NAME}")
             label: Short label for error rate (default: "{NAME}ER")
@@ -38,10 +38,7 @@ class DomainConfig:
             >>> medical = DomainConfig("medical", r'mg|ml|cc|\d+mg')
 
             >>> # Custom category and label
-            >>> financial = DomainConfig("financial",
-            ...     ["$", "€", "₹"],
-            ...     category="CURRENCY",
-            ...     label="CER")
+            >>> custom = DomainConfig("custom", ["u/s", "r/w"], category="CUSTOM", label="CuER")
         """
         self.name = name
         self.case_sensitive = case_sensitive
@@ -264,24 +261,6 @@ class DomainConfig:
             >>> report = text_error_rates(ref, hyp, domain)
         """
         config_path = Path(__file__).parent / "config" / "medical_terms.txt"
-        return cls.from_file(str(config_path))
-
-    @classmethod
-    def financial(cls) -> 'DomainConfig':
-        """Load pre-defined financial domain from bundled config.
-
-        Includes currency symbols and codes: $, €, ₹, USD, EUR, INR,
-        amount patterns like $100, $1,234.56.
-
-        Returns:
-            DomainConfig instance for financial terminology with category='CURRENCY', label='CER'
-
-        Examples:
-            >>> from dicterrors import DomainConfig, text_error_rates
-            >>> domain = DomainConfig.financial()
-            >>> report = text_error_rates(ref, hyp, domain)
-        """
-        config_path = Path(__file__).parent / "config" / "financial_terms.txt"
         return cls.from_file(str(config_path))
 
     @classmethod
