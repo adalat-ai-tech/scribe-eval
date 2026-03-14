@@ -3,7 +3,9 @@
 This module provides normalization functions to convert tokens to canonical forms
 for comparison purposes while preserving original formatting for display.
 """
+
 import re
+
 from .constants import CAT_NUMERAL, CAT_PUNCT
 
 
@@ -28,7 +30,7 @@ def normalize_date(text: str) -> str:
         '22-05-2023'
     """
     # Match dates with any separator (. / -)
-    pattern = r'(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})'
+    pattern = r"(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})"
     match = re.match(pattern, text)
     if match:
         day, month, year = match.groups()
@@ -56,8 +58,8 @@ def normalize_currency(text: str) -> str:
         >>> normalize_currency("123")
         '123'
     """
-    if ',' in text and any(c.isdigit() for c in text):
-        return text.replace(',', '')
+    if "," in text and any(c.isdigit() for c in text):
+        return text.replace(",", "")
     return text
 
 
@@ -83,16 +85,16 @@ def normalize_kannada_numerals(text: str) -> str:
     """
     # Kannada to Arabic numeral mapping
     kannada_to_arabic = {
-        '೦': '0',
-        '೧': '1',
-        '೨': '2',
-        '೩': '3',
-        '೪': '4',
-        '೫': '5',
-        '೬': '6',
-        '೭': '7',
-        '೮': '8',
-        '೯': '9',
+        "೦": "0",
+        "೧": "1",
+        "೨": "2",
+        "೩": "3",
+        "೪": "4",
+        "೫": "5",
+        "೬": "6",
+        "೭": "7",
+        "೮": "8",
+        "೯": "9",
     }
 
     # Replace each Kannada digit with its Arabic equivalent
@@ -100,7 +102,7 @@ def normalize_kannada_numerals(text: str) -> str:
     for char in text:
         result.append(kannada_to_arabic.get(char, char))
 
-    return ''.join(result)
+    return "".join(result)
 
 
 def normalize_numeral(text: str) -> str:
@@ -144,7 +146,7 @@ def normalize_numeral(text: str) -> str:
 
 def normalize_word(text: str) -> str:
     """Normalize word by removing hyphen within word"""
-    return text.replace('-', '')
+    return text.replace("-", "")
 
 
 def normalize_token(text: str, category: str) -> str:
