@@ -4,12 +4,23 @@ Report formatting and presentation utilities.
 This module provides shared functions for formatting error metrics
 and alignment results for both CLI and web UI presentations.
 """
-from typing import Dict, List, Tuple, Optional
-from .constants import CAT_WORD, CAT_NUMERAL, CAT_PUNCT, get_categories, format_table_header, TABLE_WIDTH
+
+from typing import Dict, List, Optional, Tuple
+
+from .constants import (
+    CAT_NUMERAL,
+    CAT_PUNCT,
+    CAT_WORD,
+    TABLE_WIDTH,
+    format_table_header,
+    get_categories,
+)
 from .domain_config import DomainConfig
 
 
-def format_metrics_dict(metrics: Dict, domain_config: Optional[DomainConfig] = None) -> Dict[str, str]:
+def format_metrics_dict(
+    metrics: Dict, domain_config: Optional[DomainConfig] = None
+) -> Dict[str, str]:
     """
     Extract WER/DER/NER/PER from aggregate metrics.
 
@@ -29,9 +40,9 @@ def format_metrics_dict(metrics: Dict, domain_config: Optional[DomainConfig] = N
     if domain_config:
         result[domain_config.label] = f"{metrics[domain_config.category]['error_rate']:.2%}"
         # Sum sandhi_hits across all categories (Sandhi can occur in WORD, LEGAL, MEDICAL, etc.)
-        total_sandhi = sum(metrics[cat]['sandhi_hits'] for cat in metrics.keys())
+        total_sandhi = sum(metrics[cat]["sandhi_hits"] for cat in metrics.keys())
         result["Sandhi"] = total_sandhi
-        result["Total"] = metrics[CAT_WORD].get('combined_total', 0)
+        result["Total"] = metrics[CAT_WORD].get("combined_total", 0)
 
     return result
 
@@ -48,23 +59,25 @@ def extract_error_rates(report: Dict, domain_config: Optional[DomainConfig] = No
         Dictionary with raw numeric error rates
     """
     # Sum sandhi_hits across all categories (Sandhi can occur in WORD, LEGAL, MEDICAL, etc.)
-    total_sandhi = sum(report[cat]['sandhi_hits'] for cat in report.keys())
+    total_sandhi = sum(report[cat]["sandhi_hits"] for cat in report.keys())
 
     result = {
-        'wer': report[CAT_WORD]['error_rate'],
-        'ner': report[CAT_NUMERAL]['error_rate'],
-        'per': report[CAT_PUNCT]['error_rate'],
-        'sandhi': total_sandhi
+        "wer": report[CAT_WORD]["error_rate"],
+        "ner": report[CAT_NUMERAL]["error_rate"],
+        "per": report[CAT_PUNCT]["error_rate"],
+        "sandhi": total_sandhi,
     }
 
     if domain_config:
         # Use lowercase label for consistency
-        result[domain_config.label.lower()] = report[domain_config.category]['error_rate']
+        result[domain_config.label.lower()] = report[domain_config.category]["error_rate"]
 
     return result
 
 
-def format_dataset_table(agg_results: Dict, domain_config: Optional[DomainConfig] = None) -> List[Dict]:
+def format_dataset_table(
+    agg_results: Dict, domain_config: Optional[DomainConfig] = None
+) -> List[Dict]:
     """
     Format aggregate results as list of dicts for table display.
 
@@ -78,20 +91,22 @@ def format_dataset_table(agg_results: Dict, domain_config: Optional[DomainConfig
     table_data = []
 
     # Overall row
-    overall = format_metrics_dict(agg_results['overall'], domain_config)
-    overall['Dataset'] = 'OVERALL'
+    overall = format_metrics_dict(agg_results["overall"], domain_config)
+    overall["Dataset"] = "OVERALL"
     table_data.append(overall)
 
     # Per-dataset rows
-    for ds, metrics in agg_results['by_dataset'].items():
+    for ds, metrics in agg_results["by_dataset"].items():
         row = format_metrics_dict(metrics, domain_config)
-        row['Dataset'] = ds
+        row["Dataset"] = ds
         table_data.append(row)
 
     return table_data
 
 
-def format_error_counts_table(report: Dict, domain_config: Optional[DomainConfig] = None) -> List[Dict]:
+def format_error_counts_table(
+    report: Dict, domain_config: Optional[DomainConfig] = None
+) -> List[Dict]:
     """
     Format error counts by category for detailed inspection.
 
@@ -108,16 +123,20 @@ def format_error_counts_table(report: Dict, domain_config: Optional[DomainConfig
     for cat in categories:
         if cat not in report:
             continue
-        counts.extend([
-            {"Category": cat, "Type": "Substitutions", "Count": report[cat]["substitutions"]},
-            {"Category": cat, "Type": "Insertions", "Count": report[cat]["insertions"]},
-            {"Category": cat, "Type": "Deletions", "Count": report[cat]["deletions"]},
-            {"Category": cat, "Type": "Correct", "Count": report[cat]["correct"]}
-        ])
+        counts.extend(
+            [
+                {"Category": cat, "Type": "Substitutions", "Count": report[cat]["substitutions"]},
+                {"Category": cat, "Type": "Insertions", "Count": report[cat]["insertions"]},
+                {"Category": cat, "Type": "Deletions", "Count": report[cat]["deletions"]},
+                {"Category": cat, "Type": "Correct", "Count": report[cat]["correct"]},
+            ]
+        )
     return counts
 
 
-def write_summary_to_file(agg_results: Dict, output_path: str, domain_config: Optional[DomainConfig] = None) -> None:
+def write_summary_to_file(
+    agg_results: Dict, output_path: str, domain_config: Optional[DomainConfig] = None
+) -> None:
     """
     Write evaluation summary to file safely.
 
@@ -126,7 +145,7 @@ def write_summary_to_file(agg_results: Dict, output_path: str, domain_config: Op
         output_path: Path to output file
         domain_config: Domain configuration for label formatting
     """
-    with open(output_path, 'w', encoding='utf-8') as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         table_data = format_dataset_table(agg_results, domain_config)
 
         # Write formatted table with proper headers
@@ -135,7 +154,7 @@ def write_summary_to_file(agg_results: Dict, output_path: str, domain_config: Op
         f.write(format_table_header(domain_label) + "\n")
 
         for row in table_data:
-            is_overall = row['Dataset'] == 'OVERALL'
+            is_overall = row["Dataset"] == "OVERALL"
             if is_overall and table_data.index(row) > 0:
                 # Add separator line before OVERALL row if it's not first
                 f.write("-" * TABLE_WIDTH + "\n")
@@ -153,7 +172,9 @@ def write_summary_to_file(agg_results: Dict, output_path: str, domain_config: Op
         f.write("=" * TABLE_WIDTH + "\n")
 
 
-def format_alignment_dict(aligned_ref: List[Tuple], aligned_hyp: List[Tuple], normalize: bool = True) -> List[Dict]:
+def format_alignment_dict(
+    aligned_ref: List[Tuple], aligned_hyp: List[Tuple], normalize: bool = True
+) -> List[Dict]:
     """
     Extract alignment data as structured dict for rendering.
 
@@ -182,6 +203,7 @@ def format_alignment_dict(aligned_ref: List[Tuple], aligned_hyp: List[Tuple], no
             # Check if tokens match after normalization
             if normalize:
                 from .normalize import normalize_token
+
                 ref_normalized = normalize_token(ref_txt, ref_tag)
                 hyp_normalized = normalize_token(hyp_txt, hyp_tag)
                 if ref_normalized == hyp_normalized:
@@ -192,21 +214,29 @@ def format_alignment_dict(aligned_ref: List[Tuple], aligned_hyp: List[Tuple], no
                 error_type = "substitution"
 
         # Clean display text - remove markers
-        display_ref = ref_txt.replace("MERGE:", "").replace("SPLIT:", "") if ref_txt != "**" else "**"
-        display_hyp = hyp_txt.replace("MERGE:", "").replace("SPLIT:", "") if hyp_txt != "**" else "**"
+        display_ref = (
+            ref_txt.replace("MERGE:", "").replace("SPLIT:", "") if ref_txt != "**" else "**"
+        )
+        display_hyp = (
+            hyp_txt.replace("MERGE:", "").replace("SPLIT:", "") if hyp_txt != "**" else "**"
+        )
         token_type = ref_tag if ref_tag != "GAP" else hyp_tag
 
-        results.append({
-            'ref_text': display_ref,
-            'hyp_text': display_hyp,
-            'error_type': error_type,
-            'token_type': token_type
-        })
+        results.append(
+            {
+                "ref_text": display_ref,
+                "hyp_text": display_hyp,
+                "error_type": error_type,
+                "token_type": token_type,
+            }
+        )
 
     return results
 
 
-def format_alignment_table(aligned_ref: List[Tuple], aligned_hyp: List[Tuple], normalize: bool = True) -> List[Dict]:
+def format_alignment_table(
+    aligned_ref: List[Tuple], aligned_hyp: List[Tuple], normalize: bool = True
+) -> List[Dict]:
     """
     Format aligned tokens for visualization table.
 
@@ -226,12 +256,14 @@ def format_alignment_table(aligned_ref: List[Tuple], aligned_hyp: List[Tuple], n
     # Add position and capitalize error types for table display
     rows = []
     for i, item in enumerate(alignment_data):
-        rows.append({
-            "Position": i + 1,
-            "Reference": item['ref_text'],
-            "Hypothesis": item['hyp_text'],
-            "Error Type": item['error_type'].capitalize(),
-            "Token Type": item['token_type']
-        })
+        rows.append(
+            {
+                "Position": i + 1,
+                "Reference": item["ref_text"],
+                "Hypothesis": item["hyp_text"],
+                "Error Type": item["error_type"].capitalize(),
+                "Token Type": item["token_type"],
+            }
+        )
 
     return rows

@@ -1,12 +1,29 @@
+import json
 from collections import defaultdict
 from typing import Optional
+
+from .constants import (
+    TABLE_WIDTH,
+    calculate_combined_total,
+    format_table_header,
+    get_categories,
+    init_stat_dict,
+)
+from .domain_config import DomainConfig
 from .measure import text_error_rates
 from .reporting import format_dataset_table
-from .constants import get_categories, init_stat_dict, calculate_combined_total, format_table_header, TABLE_WIDTH
-from .domain_config import DomainConfig
-import json
 
-def compute_sample_errors(input_file, output_file=None, ref_field="transcript_cleaned", hyp_field="prediction", source_dataset_field="source_dataset", domain_config: Optional[DomainConfig] = None, normalize: bool = True, use_sandhi: bool = True) -> list[dict]:
+
+def compute_sample_errors(
+    input_file,
+    output_file=None,
+    ref_field="transcript_cleaned",
+    hyp_field="prediction",
+    source_dataset_field="source_dataset",
+    domain_config: Optional[DomainConfig] = None,
+    normalize: bool = True,
+    use_sandhi: bool = True,
+) -> list[dict]:
     """
     Compute error metrics for all samples in a JSONL file.
 
@@ -31,7 +48,9 @@ def compute_sample_errors(input_file, output_file=None, ref_field="transcript_cl
                 data[source_dataset_field] = "unknown"
 
             # Pass domain_config, normalize and use_sandhi to text_error_rates
-            report = text_error_rates(data[ref_field], data[hyp_field], domain_config, normalize, use_sandhi)
+            report = text_error_rates(
+                data[ref_field], data[hyp_field], domain_config, normalize, use_sandhi
+            )
             data["detailed_report"] = report
             results.append(data)
 
@@ -43,7 +62,10 @@ def compute_sample_errors(input_file, output_file=None, ref_field="transcript_cl
 
     return results
 
-def compute_aggregate_metrics(sample_results, domain_config: Optional[DomainConfig] = None) -> dict[str, dict[str, dict[str, dict[str, float | int]]]]:
+
+def compute_aggregate_metrics(
+    sample_results, domain_config: Optional[DomainConfig] = None
+) -> dict[str, dict[str, dict[str, dict[str, float | int]]]]:
     """
     Aggregate metrics across all samples.
 
@@ -98,14 +120,15 @@ def compute_aggregate_metrics(sample_results, domain_config: Optional[DomainConf
                 "correct": a["correct"],
                 "sandhi_hits": a["sandhi_hits"],
                 "total": a["total"],
-                "combined_total": combined_total  # Store for reference
+                "combined_total": combined_total,  # Store for reference
             }
         return metrics
 
     return {
         "overall": calculate_rates(overall_agg),
-        "by_dataset": {ds: calculate_rates(stats) for ds, stats in dataset_aggs.items()}
+        "by_dataset": {ds: calculate_rates(stats) for ds, stats in dataset_aggs.items()},
     }
+
 
 def print_evaluation_summary(agg_results, domain_config: Optional[DomainConfig] = None) -> None:
     """
@@ -122,8 +145,11 @@ def print_evaluation_summary(agg_results, domain_config: Optional[DomainConfig] 
     print(format_table_header(domain_label))
 
     for row in table_data:
-        is_overall = row['Dataset'] == 'OVERALL'
-        print(f"{row['Dataset']:<25} | {row['WER']:>8} | {row[domain_label]:>8} | {row['NER']:>8} | {row['PER']:>8} | {row['Sandhi']:>6}")
+        is_overall = row["Dataset"] == "OVERALL"
+        print(
+            f"{row['Dataset']:<25} | {row['WER']:>8} | {row[domain_label]:>8}"
+            f" | {row['NER']:>8} | {row['PER']:>8} | {row['Sandhi']:>6}"
+        )
         if is_overall:
             print("-" * TABLE_WIDTH)
 

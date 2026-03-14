@@ -1,10 +1,18 @@
 from typing import Optional
-from .tokenize import domain_aware_tokenizer
-from .align import align_arrays
-from .constants import get_categories, init_stat_dict, calculate_combined_total
-from .domain_config import DomainConfig
 
-def token_error_rates(aligned_ref, aligned_hyp, domain_config: Optional[DomainConfig] = None, normalize: bool = True, use_sandhi: bool = True) -> dict[str, dict[str, float | int]]:
+from .align import align_arrays
+from .constants import calculate_combined_total, get_categories, init_stat_dict
+from .domain_config import DomainConfig
+from .tokenize import domain_aware_tokenizer
+
+
+def token_error_rates(
+    aligned_ref,
+    aligned_hyp,
+    domain_config: Optional[DomainConfig] = None,
+    normalize: bool = True,
+    use_sandhi: bool = True,
+) -> dict[str, dict[str, float | int]]:
     """
     Calculate error rates from aligned tokens.
 
@@ -21,7 +29,6 @@ def token_error_rates(aligned_ref, aligned_hyp, domain_config: Optional[DomainCo
     stats = init_stat_dict(categories)
 
     for (r_text, r_tag), (h_text, h_tag) in zip(aligned_ref, aligned_hyp):
-        
         # 1. Handle Insertions (Gap in Reference)
         if r_text == "**":
             # We categorize the insertion error based on what the ASR hallucinated
@@ -30,7 +37,8 @@ def token_error_rates(aligned_ref, aligned_hyp, domain_config: Optional[DomainCo
             continue
 
         # All other cases (Match, Sub, Del) are categorized by the REFERENCE tag
-        if r_tag not in stats: continue
+        if r_tag not in stats:
+            continue
         curr = stats[r_tag]
 
         # 2. Handle Sandhi (Corrected Matches)
@@ -56,6 +64,7 @@ def token_error_rates(aligned_ref, aligned_hyp, domain_config: Optional[DomainCo
             # Check if tokens match after normalization (if enabled)
             if normalize:
                 from .normalize import normalize_token
+
                 r_normalized = normalize_token(r_text, r_tag)
                 h_normalized = normalize_token(h_text, h_tag)
                 if r_normalized == h_normalized:
@@ -85,12 +94,19 @@ def token_error_rates(aligned_ref, aligned_hyp, domain_config: Optional[DomainCo
             "correct": s["correct"],
             "total_ref": s["total"],
             "sandhi_hits": s["sandhi_hits"],
-            "combined_total": combined_total  # Store for transparency
+            "combined_total": combined_total,  # Store for transparency
         }
 
     return report
 
-def text_error_rates(ref_text, hyp_text, domain_config: Optional[DomainConfig] = None, normalize: bool = True, use_sandhi: bool = True) -> dict[str, dict[str, float | int]]:
+
+def text_error_rates(
+    ref_text,
+    hyp_text,
+    domain_config: Optional[DomainConfig] = None,
+    normalize: bool = True,
+    use_sandhi: bool = True,
+) -> dict[str, dict[str, float | int]]:
     """
     Calculate error rates from raw text.
 

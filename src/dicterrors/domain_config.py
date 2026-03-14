@@ -4,9 +4,10 @@ Domain configuration for domain-aware tokenization.
 Allows users to specify domain-critical terminology that should be
 treated as atomic tokens and tracked separately for error analysis.
 """
+
 import re
 from pathlib import Path
-from typing import List, Union, Optional
+from typing import List, Optional, Union
 
 
 class DomainConfig:
@@ -18,7 +19,7 @@ class DomainConfig:
         patterns: Union[str, List[str]],
         category: Optional[str] = None,
         label: Optional[str] = None,
-        case_sensitive: bool = False
+        case_sensitive: bool = False,
     ):
         r"""
         Initialize domain configuration.
@@ -51,7 +52,7 @@ class DomainConfig:
                 raise ValueError("patterns list cannot be empty")
             # Escape special regex characters in each term
             escaped = [re.escape(term) for term in patterns]
-            self.pattern_regex = '|'.join(escaped)
+            self.pattern_regex = "|".join(escaped)
         else:
             raise TypeError("patterns must be str (regex) or list (terms)")
 
@@ -77,8 +78,8 @@ class DomainConfig:
         name: Optional[str] = None,
         category: Optional[str] = None,
         label: Optional[str] = None,
-        case_sensitive: Optional[bool] = None
-    ) -> 'DomainConfig':
+        case_sensitive: Optional[bool] = None,
+    ) -> "DomainConfig":
         r"""
         Load domain configuration from a text file.
 
@@ -128,6 +129,7 @@ class DomainConfig:
         """
         # Validate file exists and is readable
         import os
+
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"Configuration file not found: {file_path}")
         if not os.access(file_path, os.R_OK):
@@ -138,40 +140,40 @@ class DomainConfig:
         literal_terms = []
         regex_patterns = []
 
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             for line_num, line in enumerate(f, start=1):
                 # Strip whitespace
                 line = line.strip()
 
                 # Skip empty lines and comments
-                if not line or line.startswith('#'):
+                if not line or line.startswith("#"):
                     continue
 
                 # Parse metadata lines (@key: value)
-                if line.startswith('@'):
-                    if ':' not in line:
+                if line.startswith("@"):
+                    if ":" not in line:
                         raise ValueError(
                             f"Invalid metadata format at line {line_num}: {line}\n"
                             f"Expected format: @key: value"
                         )
-                    key, value = line[1:].split(':', 1)
+                    key, value = line[1:].split(":", 1)
                     metadata[key.strip()] = value.strip()
                     continue
 
                 # Parse regex patterns (REGEX: pattern)
-                if line.startswith('REGEX:'):
+                if line.startswith("REGEX:"):
                     pattern = line[6:].strip()
                     # Remove inline comments
-                    if '#' in pattern:
-                        pattern = pattern.split('#')[0].strip()
+                    if "#" in pattern:
+                        pattern = pattern.split("#")[0].strip()
                     if pattern:
                         regex_patterns.append(pattern)
                     continue
 
                 # Otherwise, it's a literal term
                 # Remove inline comments
-                if '#' in line:
-                    line = line.split('#')[0].strip()
+                if "#" in line:
+                    line = line.split("#")[0].strip()
                 if line:
                     literal_terms.append(line)
 
@@ -198,25 +200,24 @@ class DomainConfig:
                     re.compile(pattern)
                 except re.error as e:
                     raise ValueError(
-                        f"Invalid regex pattern in {file_path}: {pattern}\n"
-                        f"Error: {e}"
+                        f"Invalid regex pattern in {file_path}: {pattern}\nError: {e}"
                     ) from e
             all_patterns.extend(regex_patterns)
 
         # Combine all patterns with |
-        combined_pattern = '|'.join(all_patterns)
+        combined_pattern = "|".join(all_patterns)
 
         # Extract metadata with parameter overrides
-        final_name = name or metadata.get('name', 'domain')
-        final_category = category or metadata.get('category')
-        final_label = label or metadata.get('label')
+        final_name = name or metadata.get("name", "domain")
+        final_category = category or metadata.get("category")
+        final_label = label or metadata.get("label")
 
         # Parse case_sensitive from metadata
         if case_sensitive is not None:
             final_case_sensitive = case_sensitive
         else:
-            cs_str = metadata.get('case_sensitive', 'false').lower()
-            final_case_sensitive = cs_str in ('true', 'yes', '1')
+            cs_str = metadata.get("case_sensitive", "false").lower()
+            final_case_sensitive = cs_str in ("true", "yes", "1")
 
         # Create and return DomainConfig instance
         return cls(
@@ -224,11 +225,11 @@ class DomainConfig:
             patterns=combined_pattern,
             category=final_category,
             label=final_label,
-            case_sensitive=final_case_sensitive
+            case_sensitive=final_case_sensitive,
         )
 
     @classmethod
-    def legal(cls) -> 'DomainConfig':
+    def legal(cls) -> "DomainConfig":
         """Load pre-defined legal domain from bundled config.
 
         Includes Indian legal terminology: u/s, r/w, sec., art., v., vs.,
@@ -246,7 +247,7 @@ class DomainConfig:
         return cls.from_file(str(config_path))
 
     @classmethod
-    def medical(cls) -> 'DomainConfig':
+    def medical(cls) -> "DomainConfig":
         """Load pre-defined medical domain from bundled config.
 
         Includes medical units and dosages: mg, ml, cc, mcg, IU,
@@ -264,7 +265,7 @@ class DomainConfig:
         return cls.from_file(str(config_path))
 
     @classmethod
-    def technical(cls) -> 'DomainConfig':
+    def technical(cls) -> "DomainConfig":
         """Load pre-defined technical domain from bundled config.
 
         Includes technical abbreviations (case-sensitive): API, SDK, CLI,
