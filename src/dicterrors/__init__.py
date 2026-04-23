@@ -7,6 +7,29 @@ with support for domain-aware entity shielding and Sandhi-aware alignment.
 # --- Alignment Logic ---
 from .align import DEFAULT_WEIGHTS as DEFAULT_WEIGHTS
 from .align import align_arrays as align_arrays
+
+# --- Analysis & Insights ---
+from .analysis import (
+    compute_category_contributions as compute_category_contributions,
+)
+from .analysis import (
+    compute_error_summary as compute_error_summary,
+)
+from .analysis import (
+    compute_error_type_distribution as compute_error_type_distribution,
+)
+from .analysis import (
+    compute_frequent_deletions as compute_frequent_deletions,
+)
+from .analysis import (
+    compute_frequent_insertions as compute_frequent_insertions,
+)
+from .analysis import (
+    compute_frequent_substitutions as compute_frequent_substitutions,
+)
+from .analysis import (
+    compute_total_error_rate as compute_total_error_rate,
+)
 from .constants import (
     CAT_NUMERAL as CAT_NUMERAL,
 )
@@ -28,13 +51,22 @@ from .domain_config import DomainConfig as DomainConfig
 
 # --- Measurement & Error Rates ---
 from .measure import (
+    text_error_details as text_error_details,
+)
+from .measure import (
     text_error_rates as text_error_rates,
+)
+from .measure import (
+    token_error_details as token_error_details,
 )
 from .measure import (
     token_error_rates as token_error_rates,
 )
 
 # --- Batch Processing & Reporting ---
+from .measure_batch import (
+    aggregate_error_details as aggregate_error_details,
+)
 from .measure_batch import (
     compute_aggregate_metrics as compute_aggregate_metrics,
 )
@@ -70,10 +102,16 @@ from .reporting import (
     format_alignment_table as format_alignment_table,
 )
 from .reporting import (
+    format_contribution_table as format_contribution_table,
+)
+from .reporting import (
     format_dataset_table as format_dataset_table,
 )
 from .reporting import (
     format_error_counts_table as format_error_counts_table,
+)
+from .reporting import (
+    format_frequent_errors_table as format_frequent_errors_table,
 )
 from .reporting import (
     format_metrics_dict as format_metrics_dict,

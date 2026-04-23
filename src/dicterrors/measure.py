@@ -100,6 +100,119 @@ def token_error_rates(
     return report
 
 
+def token_error_details(
+    aligned_ref,
+    aligned_hyp,
+    domain_config: Optional[DomainConfig] = None,
+    normalize: bool = True,
+) -> list[dict]:
+    """
+    Extract individual token-level error records from aligned tokens.
+
+    Walks the same aligned pairs as token_error_rates() but records each
+    error as a structured dict instead of just counting. Correct matches
+    and sandhi matches are excluded.
+
+    Args:
+        aligned_ref: list of (text, tag) tuples
+        aligned_hyp: list of (text, tag) tuples
+        domain_config: Domain configuration (None for no domain)
+        normalize: If True, check normalized equality for matches
+
+    Returns:
+        List of error record dicts. Each dict has:
+            - "error_type": "substitution" | "insertion" | "deletion"
+            - "category": the token category (WORD, PUNCT, NUMERAL, etc.)
+            - "ref_token": the reference token text (None for insertions)
+            - "hyp_token": the hypothesis token text (None for deletions)
+    """
+    categories = set(get_categories(domain_config))
+    errors = []
+
+    for (r_text, r_tag), (h_text, h_tag) in zip(aligned_ref, aligned_hyp):
+        # 1. Handle Insertions (Gap in Reference)
+        if r_text == "**":
+            if h_tag in categories:
+                errors.append(
+                    {
+                        "error_type": "insertion",
+                        "category": h_tag,
+                        "ref_token": None,
+                        "hyp_token": h_text,
+                    }
+                )
+            continue
+
+        # Skip unknown reference tags
+        if r_tag not in categories:
+            continue
+
+        # 2. Handle Sandhi (Corrected Matches) — not errors, skip
+        if "MERGE:" in r_text or "SPLIT:" in h_text:
+            continue
+
+        # 3. Standard Logic
+        if h_text == "**":
+            errors.append(
+                {
+                    "error_type": "deletion",
+                    "category": r_tag,
+                    "ref_token": r_text,
+                    "hyp_token": None,
+                }
+            )
+        elif r_text == h_text:
+            pass  # Correct match
+        else:
+            # Check normalization
+            if normalize:
+                from .normalize import normalize_token
+
+                r_normalized = normalize_token(r_text, r_tag)
+                h_normalized = normalize_token(h_text, h_tag)
+                if r_normalized == h_normalized:
+                    continue  # Normalized match — not an error
+
+            errors.append(
+                {
+                    "error_type": "substitution",
+                    "category": r_tag,
+                    "ref_token": r_text,
+                    "hyp_token": h_text,
+                }
+            )
+
+    return errors
+
+
+def text_error_details(
+    ref_text,
+    hyp_text,
+    domain_config: Optional[DomainConfig] = None,
+    normalize: bool = True,
+    use_sandhi: bool = True,
+) -> list[dict]:
+    """
+    Extract token-level error records from raw text.
+
+    End-to-end: tokenize -> align -> extract error details.
+
+    Args:
+        ref_text: Reference text
+        hyp_text: Hypothesis text
+        domain_config: Domain configuration (None for no domain)
+        normalize: If True, apply normalization for matching
+        use_sandhi: If True, detect sandhi splits/merges
+
+    Returns:
+        List of error record dicts (see token_error_details)
+    """
+    t1, g1 = domain_aware_tokenizer(ref_text, domain_config)
+    t2, g2 = domain_aware_tokenizer(hyp_text, domain_config)
+    aligned_ref, aligned_hyp, _ = align_arrays(t1, g1, t2, g2, use_sandhi=use_sandhi)
+    return token_error_details(aligned_ref, aligned_hyp, domain_config, normalize)
+
+
 def text_error_rates(
     ref_text,
     hyp_text,

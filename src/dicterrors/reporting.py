@@ -172,6 +172,136 @@ def write_summary_to_file(
         f.write("=" * TABLE_WIDTH + "\n")
 
 
+def format_contribution_table(
+    contributions: Dict, domain_config: Optional[DomainConfig] = None
+) -> List[Dict]:
+    """
+    Format category breakdown as table rows with correct/error counts.
+
+    Args:
+        contributions: From compute_category_contributions()
+        domain_config: For category label mapping
+
+    Returns:
+        List of dicts sorted by ref_tokens descending, plus a TOTAL row.
+        Each dict includes:
+            Error Rate: (S+I+D) / category_ref_tokens — accuracy within this category
+            Impact on Total: (S+I+D) / total_ref_tokens — contribution to overall ER
+    """
+    # Display names for categories
+    category_display = {
+        CAT_WORD: "Word Tokens",
+        CAT_PUNCT: "Punctuation Tokens",
+        CAT_NUMERAL: "Numeral Tokens",
+    }
+
+    rows = []
+    total_correct = 0
+    total_subs = 0
+    total_dels = 0
+    total_ins = 0
+    total_ref = 0
+
+    # First pass: compute total_ref for the "Impact on Total" column
+    for data in contributions.values():
+        total_ref += data.get("ref_tokens", 0)
+
+    for cat, data in sorted(contributions.items(), key=lambda x: x[1]["ref_tokens"], reverse=True):
+        ref = data["ref_tokens"]
+        cat_er = (data["error_count"] / ref * 100) if ref > 0 else 0.0
+        impact = (data["error_count"] / total_ref * 100) if total_ref > 0 else 0.0
+        display_name = category_display.get(cat, "Domain Tokens")
+        rows.append(
+            {
+                "Category": display_name,
+                "Ref Tokens": ref,
+                "Exact Match": data["correct"],
+                "Accuracy": f"{data['correct_pct']:.1f}%",
+                "Sub": data["substitutions"],
+                "Del": data["deletions"],
+                "Ins": data["insertions"],
+                "Errors": data["error_count"],
+                "Error Rate": f"{cat_er:.1f}%",
+                "Impact on Total": f"{impact:.1f}%",
+            }
+        )
+        total_correct += data["correct"]
+        total_subs += data["substitutions"]
+        total_dels += data["deletions"]
+        total_ins += data["insertions"]
+
+    total_errors = total_subs + total_ins + total_dels
+    total_correct_pct = (total_correct / total_ref * 100) if total_ref > 0 else 0.0
+    total_er_pct = (total_errors / total_ref * 100) if total_ref > 0 else 0.0
+    rows.append(
+        {
+            "Category": "TOTAL",
+            "Ref Tokens": total_ref,
+            "Exact Match": total_correct,
+            "Accuracy": f"{total_correct_pct:.1f}%",
+            "Sub": total_subs,
+            "Del": total_dels,
+            "Ins": total_ins,
+            "Errors": total_errors,
+            "Error Rate": f"{total_er_pct:.1f}%",
+            "Impact on Total": f"{total_er_pct:.1f}%",
+        }
+    )
+    return rows
+
+
+def format_frequent_errors_table(
+    freq_data: Dict[str, List], error_type: str, top_n: int = 10
+) -> List[Dict]:
+    """
+    Format frequent error data as table rows.
+
+    Args:
+        freq_data: From compute_frequent_substitutions/deletions/insertions.
+            Uses the "_all" key for overall ranking.
+        error_type: "substitution", "deletion", or "insertion"
+        top_n: Max rows to return
+
+    Returns:
+        For substitutions: [{Rank, Category, Reference, Hypothesis, Count}]
+        For deletions/insertions: [{Rank, Category, Token, Count}]
+    """
+    # Use "_all" for the overall flat ranking
+    items = freq_data.get("_all", [])[:top_n]
+
+    # Build a reverse lookup: token -> category (from per-category data)
+    token_to_cat: Dict[str, str] = {}
+    for cat, cat_items in freq_data.items():
+        if cat == "_all":
+            continue
+        for item in cat_items:
+            if error_type == "substitution":
+                token_to_cat[(item[0], item[1])] = cat
+            else:
+                token_to_cat[item[0]] = cat
+
+    rows = []
+    for rank, item in enumerate(items, 1):
+        if error_type == "substitution":
+            ref, hyp, count = item
+            cat = token_to_cat.get((ref, hyp), "")
+            rows.append(
+                {
+                    "Rank": rank,
+                    "Category": cat,
+                    "Reference": ref,
+                    "Hypothesis": hyp,
+                    "Count": count,
+                }
+            )
+        else:
+            token, count = item
+            cat = token_to_cat.get(token, "")
+            rows.append({"Rank": rank, "Category": cat, "Token": token, "Count": count})
+
+    return rows
+
+
 def format_alignment_dict(
     aligned_ref: List[Tuple], aligned_hyp: List[Tuple], normalize: bool = True
 ) -> List[Dict]:
