@@ -40,6 +40,9 @@ charts = ["matplotlib>=3.7.0"]
 visualizer = ["streamlit>=1.53.0", "pandas>=2.0.0", "matplotlib>=3.7.0"]
 dev = ["pytest>=8.0", "pytest-cov", "ruff>=0.6", "mypy", "build", "twine"]
 
+[project.scripts]
+scribe-visualizer = "scribe.visualizer.__main__:main"
+
 [project.urls]
 Homepage = "https://github.com/adalat-ai-tech/scribe-eval"
 Repository = "https://github.com/adalat-ai-tech/scribe-eval"

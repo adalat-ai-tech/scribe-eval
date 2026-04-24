@@ -68,7 +68,8 @@ See [docs/batch-processing.md](docs/batch-processing.md) for the Python API, CLI
 ## Interactive Visualizer
 
 ```bash
-streamlit run visualizer.py
+pip install 'scribe-eval[visualizer]'
+scribe-visualizer
 ```
 
 See [docs/visualizer.md](docs/visualizer.md).

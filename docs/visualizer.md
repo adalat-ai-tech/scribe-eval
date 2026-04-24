@@ -1,12 +1,17 @@
 # Interactive Visualizer
 
-DictErrors includes a Streamlit-based web UI for exploring alignment and error metrics interactively.
+scribe-eval ships a Streamlit-based web UI for exploring alignment and error metrics interactively.
 
 ## Launching
 
+Install the `visualizer` extra and run the bundled command:
+
 ```bash
-streamlit run visualizer.py
+pip install 'scribe-eval[visualizer]'
+scribe-visualizer
 ```
+
+Any extra arguments are forwarded to `streamlit run` (e.g. `scribe-visualizer --server.port 8502`).
 
 ## Tabs
 
