@@ -1,7 +1,16 @@
+"""scribe: diagnostic evaluation framework for ASR rich transcription.
+
+Provides categorical error decomposition (lexical, numeral, punctuation,
+and domain-specific rates) with sandhi-tolerant alignment. Language-agnostic
+at the core; bundled domain configs target Indic and legal/medical domains.
 """
-DictErrors: A specialized evaluation framework for Indic language ASR
-with support for domain-aware entity shielding and Sandhi-aware alignment.
-"""
+
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("scribe-eval")
+except PackageNotFoundError:  # pragma: no cover - editable install edge case
+    __version__ = "0.0.0+unknown"
 
 # --- Categories & Constants ---
 # --- Alignment Logic ---
