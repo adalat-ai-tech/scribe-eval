@@ -36,7 +36,7 @@ print(f"NER: {report['NUMERAL']['error_rate']:.2%}")
 - **Sandhi correction detection** — identifies merged/split words common in Indic ASR
 - **Normalized error rates** — combined denominator prevents misleading metrics for sparse categories
 - **Batch evaluation** — process JSONL files with per-sample detail and dataset-level aggregation
-- **Interactive visualizer** — Streamlit UI with color-coded alignment and per-sample drill-down
+- **Interactive visualizer** — Streamlit UI with color-coded alignment, TER/Accuracy metric tiles, category breakdown chart, frequent-error tables, and per-sample drill-down
 
 ## Token Categories
 
@@ -60,7 +60,7 @@ File-based and custom inline configs are also supported. See [docs/domain-config
 
 ```bash
 cd examples/
-uv run batch_evaluate.py --input predictions.jsonl --domain-config config/legal_terms.txt
+uv run batch_evaluate.py --input predictions.jsonl --domain-config config/legal_terms.txt --analysis --chart
 ```
 
 See [docs/batch-processing.md](docs/batch-processing.md) for the Python API, CLI arguments, and output schema.

@@ -46,8 +46,7 @@ uv run batch_evaluate.py \
     --top-n 15
 
 # Generates: summary_report.txt, evaluation-detailed.jsonl,
-#            analysis_report.txt, category_breakdown.png,
-#            frequent_substitutions.png, frequent_deletions.png
+#            analysis_report.txt, category_breakdown.png
 ```
 
 ### Testing
@@ -77,11 +76,14 @@ streamlit run visualizer.py
 ```
 
 The visualizer provides:
-- **Manual Inspection Tab**: Single-sample text alignment and error analysis
+- **Single Sample Analysis Tab**: Auto-renders alignment and metrics when both fields are non-empty; no button press required
 - **Batch Dataset Analysis**: Upload JSONL files for aggregate metrics across datasets
-- **Detailed Error Counts**: Expandable section showing substitutions, insertions, deletions by category
+- **Token Error Rate + Accuracy metric tiles**: Both shown with equal visual weight; Accuracy tooltip explains why TER + Accuracy ≠ 100% when insertions or Sandhis are present
+- **Category breakdown chart**: Stacked bar showing Exact Match / Sub / Del / Ins per category plus TER contribution panel
+- **Frequent errors tables**: Top-N substitutions, deletions, insertions in sub-tabs (tables only)
 - **Individual Record Inspection**: Drill down into specific samples from batch results
-- **Session State**: Maintains last 100 batch results with field name persistence
+- **Session State**: Maintains last 100 batch results; analysis summary cached separately for instant top-N slider updates without rerunning batch
+- **Domain Selector**: Sidebar dropdown (Legal / Medical / Technical / From file / None)
 - **Sandhi Detection Toggle**: Sidebar checkbox to enable/disable Sandhi split/merge detection
 - **Normalize Toggle**: Sidebar checkbox for token normalization (date/currency format variations)
 
@@ -141,7 +143,6 @@ The visualizer provides:
      - **Left panel** (wide): Stacked horizontal bar — Exact Match (green) / Substitutions (red) / Deletions (amber) / Insertions (blue) per category + TOTAL row. Accuracy % annotated inside bar (or outside for small bars).
      - **Right panel**: Category contribution to total TER — same stacked colors showing (S+I+D)/total_ref_tokens per category + TOTAL. Dynamic title: "Category Contribution to X.X% Token Error Rate"
      - Category order: Word Tokens → Domain Tokens → Numeral Tokens → Punctuation Tokens, TOTAL at bottom
-   - `frequent_errors_bar_chart(freq_data, error_type, top_n=10, output_path=None)`: Simple horizontal bar chart for substitutions/deletions/insertions
 
 7. **Reporting** (`src/dicterrors/reporting.py`)
    - Shared formatting functions used across CLI and web UI
@@ -175,7 +176,7 @@ The visualizer provides:
 
 **Error Detail Records**: `token_error_details()` emits one dict per aligned token pair: `{"error_type": "substitution"|"insertion"|"deletion", "category": tag, "ref_token": str|None, "hyp_token": str|None}`. Sandhi (MERGE:/SPLIT:) matches are skipped. These records power the frequent-error analysis without storing data in JSONL output.
 
-**Session State Persistence (Visualizer)**: The Streamlit visualizer stores field names (`ref_col`, `hyp_col`) alongside evaluation results in session state. This prevents NameError crashes when Streamlit re-runs the script (e.g., when clicking the file uploader). Field names are retrieved with `.get()` and fallback defaults ('reference', 'hypothesis') for robustness.
+**Session State Persistence (Visualizer)**: The Streamlit visualizer stores field names (`ref_col`, `hyp_col`) alongside evaluation results in session state. This prevents NameError crashes when Streamlit re-runs the script (e.g., when clicking the file uploader). `analysis_summary` and `all_error_details` are cached in session state so the top-N slider can recompute frequent-error tables instantly without rerunning the full batch. `domain_config_snapshot` detects when the domain config has changed since the last batch run.
 
 ## File Organization
 
@@ -406,8 +407,6 @@ python batch_evaluate.py --help
 
 **Chart output** (when `--chart` is passed):
 - `category_breakdown.png`: 2-panel stacked bar figure (token matches + category contribution)
-- `frequent_substitutions.png`: Top-N substitution pairs
-- `frequent_deletions.png`: Top-N deleted tokens
 
 The script includes:
 - Input file validation (existence, readability, non-empty)
@@ -447,30 +446,20 @@ The Streamlit visualizer (`visualizer.py`) uses session state to preserve result
 
 **Stored in session state:**
 - `detailed_results`: List of per-sample error dictionaries (limited to 100 most recent)
-- `global_jiwer`: Overall jiwer WER score for the batch
+- `jiwer_stats`: Dict with `wer`, `cer`, `subs`, `ins`, `dels` from jiwer for the batch
 - `ref_col`: Field name used for reference text (e.g., "transcript_cleaned")
 - `hyp_col`: Field name used for hypothesis text (e.g., "prediction")
+- `agg_metrics`: Output of `compute_aggregate_metrics()` — drives the overall and per-dataset tables
+- `all_error_details`: Flat list of per-token error records from `aggregate_error_details()` — cached so the top-N slider recomputes without rerunning the batch
+- `analysis_summary`: Output of `compute_error_summary()` keyed by current top-N — recomputed cheaply from `all_error_details` when top-N changes
+- `domain_config_snapshot`: Dict with `name` and `category` of the domain config at batch time — used to warn the user if they change the domain config after a batch run
 
-**Why store field names:**
-- Streamlit re-runs the entire script on every user interaction (including clicking file uploader)
-- Field names (`ref_col`, `hyp_col`) are only defined when records are loaded
-- Individual Record Inspection section needs these names to display stored results
-- Without session storage, accessing stored results after clicking uploader causes NameError
-
-**Implementation pattern:**
-```python
-# Store when saving results (visualizer.py:289-294)
-st.session_state['detailed_results'] = res_detailed[-MAX_STORED_RESULTS:]
-st.session_state['global_jiwer'] = jiwer_wer
-st.session_state['ref_col'] = ref_col
-st.session_state['hyp_col'] = hyp_col
-
-# Retrieve when displaying individual records (visualizer.py:302-310)
-saved_ref_col = st.session_state.get('ref_col', 'reference')
-saved_hyp_col = st.session_state.get('hyp_col', 'hypothesis')
-```
+**Why cache field names and analysis:**
+- Streamlit re-runs the entire script on every user interaction
+- Field names are only defined when records are loaded; without session storage, accessing results after a re-run causes NameError
+- `all_error_details` can be large; caching avoids reprocessing the JSONL on every top-N change
+- `domain_config_snapshot` detects config drift so users aren't looking at analysis from the wrong domain
 
 **Safety features:**
-- Uses `.get()` with fallback defaults to handle edge cases
-- Clear Session Data button removes all session state keys
-- Prevents KeyError if session state is corrupted or manually modified
+- All keys retrieved with `.get()` and fallback defaults
+- `clear_session_keys()` removes all session state keys (Clear Session Data button)
