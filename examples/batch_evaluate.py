@@ -132,7 +132,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Use defaults (expects ./dictation-eval/predictions.jsonl)
+  # Use defaults (reads ./predictions.jsonl, writes to ./output/)
   python batch_evaluate.py
 
   # Custom input file and output directory
@@ -149,14 +149,14 @@ Examples:
     parser.add_argument(
         "-i",
         "--input",
-        default="./nemo-adalat/in_22.jsonl",
-        help="Input JSONL file with predictions (default: ./dictation-eval/predictions.jsonl)",
+        default="./predictions.jsonl",
+        help="Input JSONL file with predictions (default: ./predictions.jsonl)",
     )
     parser.add_argument(
         "-o",
         "--output-dir",
-        default="./nemo-adalat",
-        help="Output directory for results (default: ./dictation-eval)",
+        default="./output",
+        help="Output directory for results (default: ./output)",
     )
     parser.add_argument(
         "--ref-field",
