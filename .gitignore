@@ -24,6 +24,10 @@ ENV/
 .coverage
 htmlcov/
 
+# Lint / type-check caches
+.ruff_cache/
+.mypy_cache/
+
 # Jupyter Notebook
 .ipynb_checkpoints
 
@@ -34,3 +38,22 @@ htmlcov/
 
 # Root-level test files (kept locally for development)
 /test*.py
+
+# AI/dev harness configuration (kept local, not in public repo)
+CLAUDE.md
+AGENTS.md
+.claude/
+
+# Internal-only documentation
+docs/internal/
+
+# Benchmark / evaluation outputs
+# Only examples/ SUBDIRECTORIES are ignored; top-level example scripts stay tracked.
+examples/*/
+# User-specific domain configs sitting flat in examples/ or src/scribe/config/
+examples/custom_*.txt
+src/scribe/config/custom_*.txt
+# Ad-hoc test scripts dropped in examples/ (separate from the tests/ tree)
+examples/test_*.py
+# Root-level eval result directory
+malayalam-model-results/
