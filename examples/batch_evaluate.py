@@ -198,7 +198,7 @@ Examples:
     parser.add_argument(
         "--chart",
         action="store_true",
-        help="Save error analysis charts as PNG (requires --analysis)",
+        help="Save category breakdown chart as PNG (requires --analysis)",
     )
 
     args = parser.parse_args()
@@ -288,37 +288,11 @@ Examples:
             # Save charts if requested
             if args.chart:
                 try:
-                    from dicterrors.charts import (
-                        category_breakdown_chart,
-                        frequent_errors_bar_chart,
-                    )
+                    from dicterrors.charts import category_breakdown_chart
 
-                    # Category breakdown chart (correct/sub/del/ins per category)
                     breakdown_path = str(output_dir / "category_breakdown.png")
                     category_breakdown_chart(summary["contributions"], output_path=breakdown_path)
                     print(f"Category breakdown chart saved to: {breakdown_path}")
-
-                    # Substitution frequency chart
-                    if summary["frequent_substitutions"].get("_all"):
-                        sub_path = str(output_dir / "frequent_substitutions.png")
-                        frequent_errors_bar_chart(
-                            summary["frequent_substitutions"],
-                            "substitution",
-                            top_n=args.top_n,
-                            output_path=sub_path,
-                        )
-                        print(f"Substitution chart saved to: {sub_path}")
-
-                    # Deletion frequency chart
-                    if summary["frequent_deletions"].get("_all"):
-                        del_path = str(output_dir / "frequent_deletions.png")
-                        frequent_errors_bar_chart(
-                            summary["frequent_deletions"],
-                            "deletion",
-                            top_n=args.top_n,
-                            output_path=del_path,
-                        )
-                        print(f"Deletion chart saved to: {del_path}")
 
                 except ImportError:
                     print(
