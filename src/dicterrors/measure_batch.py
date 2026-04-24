@@ -10,7 +10,7 @@ from .constants import (
     init_stat_dict,
 )
 from .domain_config import DomainConfig
-from .measure import text_error_rates
+from .measure import text_error_details, text_error_rates
 from .reporting import format_dataset_table
 
 
@@ -23,6 +23,7 @@ def compute_sample_errors(
     domain_config: Optional[DomainConfig] = None,
     normalize: bool = True,
     use_sandhi: bool = True,
+    collect_error_details: bool = False,
 ) -> list[dict]:
     """
     Compute error metrics for all samples in a JSONL file.
@@ -35,6 +36,8 @@ def compute_sample_errors(
         source_dataset_field: Field name for dataset identifier
         domain_config: Domain configuration (None for no domain)
         normalize: If True, apply normalization for matching (default: True)
+        collect_error_details: If True, also collect per-token error records
+            for frequency analysis. Stored in each result's "error_details" key.
 
     Returns:
         List of result dictionaries with detailed reports
@@ -47,20 +50,45 @@ def compute_sample_errors(
             if source_dataset_field not in data or data[source_dataset_field] is None:
                 data[source_dataset_field] = "unknown"
 
+            ref = data[ref_field]
+            hyp = data[hyp_field]
+
             # Pass domain_config, normalize and use_sandhi to text_error_rates
-            report = text_error_rates(
-                data[ref_field], data[hyp_field], domain_config, normalize, use_sandhi
-            )
+            report = text_error_rates(ref, hyp, domain_config, normalize, use_sandhi)
             data["detailed_report"] = report
+
+            if collect_error_details:
+                data["error_details"] = text_error_details(
+                    ref, hyp, domain_config, normalize, use_sandhi
+                )
+
             results.append(data)
 
     # Save detailed results if output file is specified
     if output_file:
         with open(output_file, "w", encoding="utf-8") as f:
             for result in results:
-                f.write(json.dumps(result, ensure_ascii=False) + "\n")
+                # Don't persist error_details to JSONL (large, used only in-memory)
+                out = {k: v for k, v in result.items() if k != "error_details"}
+                f.write(json.dumps(out, ensure_ascii=False) + "\n")
 
     return results
+
+
+def aggregate_error_details(sample_results: list[dict]) -> list[dict]:
+    """
+    Concatenate all error_details from sample results into one flat list.
+
+    Args:
+        sample_results: from compute_sample_errors(collect_error_details=True)
+
+    Returns:
+        Flat list of all error record dicts across all samples.
+    """
+    all_details = []
+    for result in sample_results:
+        all_details.extend(result.get("error_details", []))
+    return all_details
 
 
 def compute_aggregate_metrics(

@@ -14,6 +14,8 @@ Each line in the JSONL file must have:
 
 ## Python API
 
+### Basic batch evaluation
+
 ```python
 from dicterrors import compute_sample_errors, compute_aggregate_metrics, DomainConfig
 
@@ -38,12 +40,46 @@ for dataset, data in metrics['by_dataset'].items():
     print(f"{dataset}: WER={data['WORD']['error_rate']:.2%}")
 ```
 
+### Error analysis (contributions + frequent errors)
+
+```python
+from dicterrors import (
+    aggregate_error_details,
+    compute_error_summary,
+    format_contribution_table,
+    format_frequent_errors_table,
+)
+
+# Enable per-token error tracking during batch run
+results = compute_sample_errors(
+    "predictions.jsonl",
+    domain_config=domain,
+    collect_error_details=True,
+)
+
+metrics = compute_aggregate_metrics(results, domain_config=domain)
+
+# Flatten all token-level error records across samples
+all_error_details = aggregate_error_details(results)
+
+# Full analysis in one call
+summary = compute_error_summary(metrics["overall"], all_error_details, top_n=10)
+print(f"TER:      {summary['total_error_rate']:.2%}")
+print(f"Accuracy: {summary['total_correct_pct']:.1f}%")
+
+# Formatted tables for display
+contrib_rows = format_contribution_table(summary["contributions"], domain)
+sub_rows = format_frequent_errors_table(summary["frequent_substitutions"], "substitution", top_n=10)
+del_rows = format_frequent_errors_table(summary["frequent_deletions"], "deletion", top_n=10)
+ins_rows = format_frequent_errors_table(summary["frequent_insertions"], "insertion", top_n=10)
+```
+
 ## CLI (`batch_evaluate.py`)
 
 ```bash
 cd examples/
 
-# Default run (uses built-in sample data)
+# Default run
 uv run batch_evaluate.py
 
 # Custom input/output
@@ -53,10 +89,17 @@ uv run batch_evaluate.py \
     --ref-field reference \
     --hyp-field hypothesis
 
-# With a domain config file
+# With domain config file
 uv run batch_evaluate.py \
     --input data/predictions.jsonl \
     --domain-config config/legal_terms.txt
+
+# With detailed error analysis and category breakdown chart
+uv run batch_evaluate.py \
+    --input data/predictions.jsonl \
+    --analysis \
+    --top-n 15 \
+    --chart
 ```
 
 ### All CLI Arguments
@@ -70,11 +113,21 @@ uv run batch_evaluate.py \
 | `--dataset-field` | `source_dataset` | Dataset identifier field |
 | `--domain-config` | *(uses `DomainConfig.legal()`)* | Path to domain config file |
 | `--no-normalize` | *(normalization enabled)* | Disable token normalization |
+| `--analysis` | *(off)* | Enable detailed error analysis (contributions, frequent errors) |
+| `--top-n N` | `10` | Number of top frequent errors to display |
+| `--chart` | *(off)* | Save `category_breakdown.png` (requires `--analysis` and `matplotlib`) |
 
 ### Output Files
 
+Always produced:
 - `evaluation-summary.txt` — formatted aggregate metrics table
 - `evaluation-detailed.jsonl` — per-sample breakdown (see below)
+
+With `--analysis`:
+- `analysis_report.txt` — TER, accuracy, category breakdown table, top-N frequent substitutions/deletions/insertions
+
+With `--analysis --chart`:
+- `category_breakdown.png` — 2-panel stacked bar chart: token matches per category (left panel) and each category's contribution to the overall TER (right panel)
 
 ## Detailed JSONL Output Format
 
