@@ -1,3 +1,12 @@
+try:
+    import streamlit as st
+except ImportError as exc:
+    raise SystemExit(
+        "The Streamlit visualizer requires the 'visualizer' extra.\n"
+        "Install it with:\n"
+        "    pip install 'scribe-eval[visualizer]'"
+    ) from exc
+
 import json
 import os
 import tempfile
@@ -5,7 +14,6 @@ from pathlib import Path
 
 import jiwer
 import pandas as pd
-import streamlit as st
 
 from scribe import (
     DEFAULT_WEIGHTS,
