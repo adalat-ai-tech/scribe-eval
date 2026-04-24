@@ -7,7 +7,7 @@ import jiwer
 import pandas as pd
 import streamlit as st
 
-from dicterrors import (
+from scribe import (
     DEFAULT_WEIGHTS,
     DomainConfig,
     aggregate_error_details,
@@ -20,7 +20,7 @@ from dicterrors import (
     text_error_details,
     token_error_rates,
 )
-from dicterrors.reporting import (
+from scribe.reporting import (
     extract_error_rates,
     format_alignment_dict,
     format_contribution_table,
@@ -29,7 +29,7 @@ from dicterrors.reporting import (
 )
 
 try:
-    from dicterrors.charts import category_breakdown_chart
+    from scribe.charts import category_breakdown_chart
 
     HAS_CHARTS = True
 except ImportError:

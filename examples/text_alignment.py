@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Example script demonstrating text alignment using dicterrors package.
+Example script demonstrating text alignment using the scribe package.
 
 This example shows how to:
-1. Import the necessary functions from the dicterrors package
+1. Import the necessary functions from the scribe package
 2. Tokenize and align two input texts
 3. Print the alignment results
 
@@ -14,11 +14,8 @@ If no arguments are provided, the script uses default example texts.
 """
 
 import sys
-from dicterrors import (
-    domain_aware_tokenizer,
-    align_arrays,
-    DomainConfig
-)
+
+from scribe import DomainConfig, align_arrays, domain_aware_tokenizer
 
 
 def print_alignment(text1, text2, aligned1, aligned2, score):

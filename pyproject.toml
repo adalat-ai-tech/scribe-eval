@@ -1,5 +1,5 @@
 [project]
-name = "dicterrors"
+name = "scribe-eval"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -24,7 +24,7 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [tool.setuptools.package-data]
-dicterrors = ["config/*.txt"]
+scribe = ["config/*.txt"]
 
 [tool.ruff]
 line-length = 100

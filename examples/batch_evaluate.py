@@ -15,7 +15,7 @@ from pathlib import Path
 
 from tabulate import tabulate
 
-from dicterrors import (
+from scribe import (
     DomainConfig,
     aggregate_error_details,
     compute_aggregate_metrics,
@@ -288,7 +288,7 @@ Examples:
             # Save charts if requested
             if args.chart:
                 try:
-                    from dicterrors.charts import category_breakdown_chart
+                    from scribe.charts import category_breakdown_chart
 
                     breakdown_path = str(output_dir / "category_breakdown.png")
                     category_breakdown_chart(summary["contributions"], output_path=breakdown_path)

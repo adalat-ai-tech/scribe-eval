@@ -239,7 +239,7 @@ class DomainConfig:
             DomainConfig instance for legal terminology with category='LEGAL', label='LER'
 
         Examples:
-            >>> from dicterrors import DomainConfig, text_error_rates
+            >>> from scribe import DomainConfig, text_error_rates
             >>> domain = DomainConfig.legal()
             >>> report = text_error_rates(ref, hyp, domain)
         """
@@ -257,7 +257,7 @@ class DomainConfig:
             DomainConfig instance for medical terminology with category='MEDICAL', label='MER'
 
         Examples:
-            >>> from dicterrors import DomainConfig, text_error_rates
+            >>> from scribe import DomainConfig, text_error_rates
             >>> domain = DomainConfig.medical()
             >>> report = text_error_rates(ref, hyp, domain)
         """
@@ -275,7 +275,7 @@ class DomainConfig:
             DomainConfig instance for technical terminology with category='TECH', label='TER'
 
         Examples:
-            >>> from dicterrors import DomainConfig, text_error_rates
+            >>> from scribe import DomainConfig, text_error_rates
             >>> domain = DomainConfig.technical()
             >>> report = text_error_rates(ref, hyp, domain)
         """

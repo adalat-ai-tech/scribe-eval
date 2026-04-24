@@ -7,7 +7,7 @@ DictErrors supports flexible domain-aware tokenization via the `DomainConfig` cl
 Three pre-configured domains are bundled with the package:
 
 ```python
-from dicterrors import DomainConfig, text_error_rates
+from scribe import DomainConfig, text_error_rates
 
 domain = DomainConfig.legal()      # Indian legal terminology
 domain = DomainConfig.medical()    # Medical units and dosages
@@ -67,7 +67,7 @@ REGEX: Ext\.[-\s]*[A-Z]\d*  # Matches Ext.A, Ext. B2
 
 ### Bundled Config Files
 
-Sample config files are included in `src/dicterrors/config/`:
+Sample config files are included in `src/scribe/config/`:
 - `legal_terms.txt` — Indian legal terminology
 - `medical_terms.txt` — Medical units and dosages
 - `technical_terms.txt` — Technical abbreviations (case-sensitive)
@@ -88,7 +88,7 @@ custom = DomainConfig.from_file(
 ## Inline Custom Domains
 
 ```python
-from dicterrors import DomainConfig
+from scribe import DomainConfig
 
 # List-based patterns (automatically escaped)
 custom = DomainConfig("custom", ["u/s", "r/w"], category="CUSTOM", label="CuER")
@@ -111,7 +111,7 @@ report = text_error_rates(ref, hyp, None)
 ## File Location Conventions
 
 - **Project configs**: `config/` directory at the repository root
-- **Personal configs**: `~/.config/dicterrors/`
+- **Personal configs**: `~/.config/scribe-eval/`
 - **Dataset-specific configs**: Alongside the dataset in the data directory
 
 ```

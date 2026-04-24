@@ -244,38 +244,6 @@ wheels = [
 ]
 
 [[package]]
-name = "dicterrors"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "jiwer" },
-    { name = "levenshtein" },
-    { name = "matplotlib" },
-    { name = "pandas" },
-    { name = "streamlit" },
-    { name = "tabulate" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "jiwer", specifier = ">=4.0.0" },
-    { name = "levenshtein", specifier = ">=0.27.1" },
-    { name = "matplotlib", specifier = ">=3.7.0" },
-    { name = "pandas", specifier = ">=2.0.0" },
-    { name = "pytest", marker = "extra == 'dev'" },
-    { name = "ruff", marker = "extra == 'dev'" },
-    { name = "streamlit", specifier = ">=1.53.0" },
-    { name = "tabulate", specifier = ">=0.9.0" },
-]
-provides-extras = ["dev"]
-
-[[package]]
 name = "fonttools"
 version = "4.62.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1346,6 +1314,38 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/89/7a/09ece68445ceac348df06e08bf75db72d0e8427765b96c9c0ffabc1be1d9/ruff-0.15.6-py3-none-win_amd64.whl", hash = "sha256:aee25bc84c2f1007ecb5037dff75cef00414fdf17c23f07dc13e577883dca406", size = 11787271 },
     { url = "https://files.pythonhosted.org/packages/7f/d0/578c47dd68152ddddddf31cd7fc67dc30b7cdf639a86275fda821b0d9d98/ruff-0.15.6-py3-none-win_arm64.whl", hash = "sha256:c34de3dd0b0ba203be50ae70f5910b17188556630e2178fd7d79fc030eb0d837", size = 11060497 },
 ]
+
+[[package]]
+name = "scribe-eval"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "jiwer" },
+    { name = "levenshtein" },
+    { name = "matplotlib" },
+    { name = "pandas" },
+    { name = "streamlit" },
+    { name = "tabulate" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "jiwer", specifier = ">=4.0.0" },
+    { name = "levenshtein", specifier = ">=0.27.1" },
+    { name = "matplotlib", specifier = ">=3.7.0" },
+    { name = "pandas", specifier = ">=2.0.0" },
+    { name = "pytest", marker = "extra == 'dev'" },
+    { name = "ruff", marker = "extra == 'dev'" },
+    { name = "streamlit", specifier = ">=1.53.0" },
+    { name = "tabulate", specifier = ">=0.9.0" },
+]
+provides-extras = ["dev"]
 
 [[package]]
 name = "six"

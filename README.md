@@ -18,7 +18,7 @@ uv sync && uv pip install -e .
 ## Quick Start
 
 ```python
-from dicterrors import text_error_rates, DomainConfig
+from scribe import text_error_rates, DomainConfig
 
 ref = "charged u/s 302 IPC on 22.05.2023"
 hyp = "charged u/s 303 IPC on 22.05.2023"

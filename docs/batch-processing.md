@@ -17,7 +17,7 @@ Each line in the JSONL file must have:
 ### Basic batch evaluation
 
 ```python
-from dicterrors import compute_sample_errors, compute_aggregate_metrics, DomainConfig
+from scribe import compute_sample_errors, compute_aggregate_metrics, DomainConfig
 
 domain = DomainConfig.legal()
 
@@ -43,7 +43,7 @@ for dataset, data in metrics['by_dataset'].items():
 ### Error analysis (contributions + frequent errors)
 
 ```python
-from dicterrors import (
+from scribe import (
     aggregate_error_details,
     compute_error_summary,
     format_contribution_table,

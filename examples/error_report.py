@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Example script demonstrating detailed error reporting using dicterrors package.
+Example script demonstrating detailed error reporting using the scribe package.
 
 This example shows how to:
-1. Import the necessary functions from the dicterrors package
+1. Import the necessary functions from the scribe package
 2. Tokenize and align two input texts
 3. Generate a comprehensive error report with various error metrics
 4. Visualize the alignment with error details
@@ -15,19 +15,19 @@ If no arguments are provided, the script uses default example texts.
 """
 
 import sys
+
 from tabulate import tabulate
-from dicterrors import (
-    domain_aware_tokenizer,
+
+from scribe import (
+    CAT_NUMERAL,
+    CAT_PUNCT,
+    CAT_WORD,
+    DomainConfig,
     align_arrays,
+    domain_aware_tokenizer,
     token_error_rates,
-    CAT_WORD, CAT_PUNCT, CAT_NUMERAL,
-    DomainConfig
 )
-from dicterrors.reporting import (
-    format_metrics_dict,
-    format_error_counts_table,
-    format_alignment_table
-)
+from scribe.reporting import format_alignment_table, format_error_counts_table, format_metrics_dict
 
 
 def generate_error_report(text1, text2):
@@ -64,15 +64,18 @@ def generate_error_report(text1, text2):
     print("=" * 50)
     metrics_table = [
         ["Word Error Rate (WER)", metrics["WER"]],
-        [f"{domain_config.name.title()} Error Rate ({domain_config.label})", metrics[domain_config.label]],
+        [
+            f"{domain_config.name.title()} Error Rate ({domain_config.label})",
+            metrics[domain_config.label],
+        ],
         ["Numeral Error Rate (NER)", metrics["NER"]],
         ["Punctuation Error Rate (PER)", metrics["PER"]],
-        ["Word Correct", report[CAT_WORD]['correct']],
-        [f"{domain_config.name.title()} Correct", report[domain_config.category]['correct']],
-        ["Numeral Correct", report[CAT_NUMERAL]['correct']],
-        ["Punctuation Correct", report[CAT_PUNCT]['correct']],
-        ["Combined Total Tokens", report[CAT_WORD]['combined_total']],
-        ["Sandhi Corrections", metrics["Sandhi"]]
+        ["Word Correct", report[CAT_WORD]["correct"]],
+        [f"{domain_config.name.title()} Correct", report[domain_config.category]["correct"]],
+        ["Numeral Correct", report[CAT_NUMERAL]["correct"]],
+        ["Punctuation Correct", report[CAT_PUNCT]["correct"]],
+        ["Combined Total Tokens", report[CAT_WORD]["combined_total"]],
+        ["Sandhi Corrections", metrics["Sandhi"]],
     ]
     print(tabulate(metrics_table, headers=["Metric", "Value"], tablefmt="grid"))
 
