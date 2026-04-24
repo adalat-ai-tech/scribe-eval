@@ -37,7 +37,17 @@ uv run batch_evaluate.py \
     --ref-field reference \
     --hyp-field hypothesis
 
-# Generates: evaluation-summary.txt and evaluation-detailed.jsonl
+# Batch evaluation with detailed error analysis and charts
+uv run batch_evaluate.py \
+    --input ./my-data/predictions.jsonl \
+    --output-dir ./results \
+    --analysis \
+    --chart \
+    --top-n 15
+
+# Generates: summary_report.txt, evaluation-detailed.jsonl,
+#            analysis_report.txt, category_breakdown.png,
+#            frequent_substitutions.png, frequent_deletions.png
 ```
 
 ### Testing
@@ -99,25 +109,48 @@ The visualizer provides:
 3. **Measurement** (`src/dicterrors/measure.py`)
    - `token_error_rates(aligned_ref, aligned_hyp, domain_config=None, normalize=True, use_sandhi=True)`: Computes category-specific error rates from aligned tokens
    - `text_error_rates(ref_text, hyp_text, domain_config=None, normalize=True, use_sandhi=True)`: End-to-end pipeline from raw text to error metrics
+   - `token_error_details(aligned_ref, aligned_hyp, domain_config=None, normalize=True)`: Returns flat list of individual error records (substitution/insertion/deletion) per aligned token pair — used for frequent-error analysis
+   - `text_error_details(ref_text, hyp_text, domain_config=None, normalize=True, use_sandhi=True)`: End-to-end pipeline from raw text to error detail records
    - `use_sandhi=False` disables Sandhi split/merge detection — useful for non-agglutinative languages
    - **Normalized error rates**: Uses combined denominator (sum of all category totals) across all categories to prevent misleading sparse-category metrics
    - **Domain-aware metrics**: WER (Word Error Rate), NER (Numeral Error Rate), PER (Punctuation Error Rate), plus domain-specific rates (e.g., LER for legal, MER for medical)
    - Tracks substitutions, insertions, deletions, and Sandhi corrections per category
 
 4. **Batch Processing** (`src/dicterrors/measure_batch.py`)
-   - `compute_sample_errors(input_file, output_file=None, domain_config=None, normalize=True, use_sandhi=True, ...)`: Process JSONL files with multiple samples
+   - `compute_sample_errors(input_file, output_file=None, domain_config=None, normalize=True, use_sandhi=True, collect_error_details=False, ...)`: Process JSONL files with multiple samples
+   - `collect_error_details=True` stores per-token error records in memory (needed for `--analysis`; excluded from JSONL output)
    - Optional `domain_config` parameter enables domain-specific error tracking
    - Optional `output_file` parameter saves detailed per-sample error reports as JSONL
    - Each detailed report includes category-wise breakdown (base + domain categories) with error rates, substitutions, insertions, deletions, correct counts, and Sandhi hits
    - `compute_aggregate_metrics(sample_results, domain_config=None)`: Dataset-level and overall aggregation
+   - `aggregate_error_details(sample_results)`: Flatten per-sample error detail records into a single list for frequency analysis
    - `print_evaluation_summary()`: Formatted output table with WER/NER/PER plus domain-specific rates (e.g., LER, MER)
 
-5. **Reporting** (`src/dicterrors/reporting.py`)
+5. **Analysis** (`src/dicterrors/analysis.py`)
+   - `compute_category_contributions(metrics)`: Full breakdown per category — correct/sub/del/ins counts, ref_tokens, correct_pct, error_count, contribution_pct
+   - `compute_total_error_rate(metrics)`: Composite TER as a float (sum of all category error_rates using combined denominator)
+   - `compute_error_type_distribution(metrics)`: Sub/ins/del percentage split per category
+   - `compute_frequent_substitutions(error_details, top_n)`: Most frequent ref→hyp substitution pairs; returns `{cat: [(ref, hyp, count)], "_all": [...]}`
+   - `compute_frequent_deletions(error_details, top_n)`: Most frequently deleted reference tokens; returns `{cat: [(token, count)], "_all": [...]}`
+   - `compute_frequent_insertions(error_details, top_n)`: Most frequently inserted hypothesis tokens
+   - `compute_error_summary(metrics, error_details, top_n)`: All of the above in one call; also includes `total_correct_pct`
+
+6. **Charts** (`src/dicterrors/charts.py`)
+   - Requires `matplotlib` (optional dependency; raises ImportError with install instructions if missing)
+   - `category_breakdown_chart(contributions, output_path=None, title=...)`: 2-panel figure
+     - **Left panel** (wide): Stacked horizontal bar — Exact Match (green) / Substitutions (red) / Deletions (amber) / Insertions (blue) per category + TOTAL row. Accuracy % annotated inside bar (or outside for small bars).
+     - **Right panel**: Category contribution to total TER — same stacked colors showing (S+I+D)/total_ref_tokens per category + TOTAL. Dynamic title: "Category Contribution to X.X% Token Error Rate"
+     - Category order: Word Tokens → Domain Tokens → Numeral Tokens → Punctuation Tokens, TOTAL at bottom
+   - `frequent_errors_bar_chart(freq_data, error_type, top_n=10, output_path=None)`: Simple horizontal bar chart for substitutions/deletions/insertions
+
+7. **Reporting** (`src/dicterrors/reporting.py`)
    - Shared formatting functions used across CLI and web UI
    - `format_metrics_dict()`: Convert error metrics to formatted dictionary (returns formatted strings)
    - `extract_error_rates()`: Extract raw numeric error rates (WER/LER/NER/PER/Sandhi) for UI components
    - `format_dataset_table()`: Create dataset-level summary tables
    - `format_error_counts_table()`: Format error counts by category
+   - `format_contribution_table(contributions, domain_config)`: Category breakdown table with columns: Category, Ref Tokens, Exact Match, Accuracy, Sub, Del, Ins, Errors, Error Rate (S+I+D/category_ref), Impact on Total (S+I+D/total_ref)
+   - `format_frequent_errors_table(freq_data, error_type, top_n)`: Frequent error table rows; substitutions include Rank/Category/Reference/Hypothesis/Count, deletions/insertions include Rank/Category/Token/Count
    - `format_alignment_table()`: Visual alignment display with match indicators
    - `format_alignment_dict()`: Shared error detection logic returning structured data
    - `write_summary_to_file()`: Safe file writing for evaluation summaries
@@ -134,6 +167,14 @@ The visualizer provides:
 
 **Shared Reporting Module**: The `reporting.py` module eliminates code duplication between CLI tools and the Streamlit web UI by providing common formatting functions. This ensures consistent output presentation across all interfaces.
 
+**Two Error Rate Columns**: Category analysis tables expose two complementary rates:
+- **Error Rate**: `(S+I+D) / category_ref_tokens` — how accurately the model handles this category in isolation
+- **Impact on Total**: `(S+I+D) / total_ref_tokens` — how much this category contributes to the overall TER score
+
+**Standard Terminology**: Token categories display as "Word Tokens", "Domain Tokens", "Numeral Tokens", "Punctuation Tokens". Match columns use "Exact Match" and "Accuracy" (not "Correct" or "Match%").
+
+**Error Detail Records**: `token_error_details()` emits one dict per aligned token pair: `{"error_type": "substitution"|"insertion"|"deletion", "category": tag, "ref_token": str|None, "hyp_token": str|None}`. Sandhi (MERGE:/SPLIT:) matches are skipped. These records power the frequent-error analysis without storing data in JSONL output.
+
 **Session State Persistence (Visualizer)**: The Streamlit visualizer stores field names (`ref_col`, `hyp_col`) alongside evaluation results in session state. This prevents NameError crashes when Streamlit re-runs the script (e.g., when clicking the file uploader). Field names are retrieved with `.get()` and fallback defaults ('reference', 'hypothesis') for robustness.
 
 ## File Organization
@@ -148,9 +189,11 @@ The visualizer provides:
   - `domain_config.py`: DomainConfig class with factory methods (`legal()`, `medical()`, `technical()`)
   - `tokenize.py`: Domain-aware token extraction and categorization
   - `align.py`: Alignment algorithm and scoring
-  - `measure.py`: Single-sample error rate calculation
-  - `measure_batch.py`: Multi-sample aggregation
-  - `reporting.py`: Shared formatting functions for CLI and web UI
+  - `measure.py`: Single-sample error rate calculation; includes `token_error_details()` and `text_error_details()`
+  - `measure_batch.py`: Multi-sample aggregation; includes `aggregate_error_details()`
+  - `analysis.py`: Analysis computations — category contributions, TER, frequent errors
+  - `charts.py`: matplotlib chart generation (optional dependency); category breakdown and frequent error bar charts
+  - `reporting.py`: Shared formatting functions for CLI and web UI; includes `format_contribution_table()` and `format_frequent_errors_table()`
   - `constants.py`: Category constants and helper functions
 - `config/`: User-facing example configs (not bundled)
   - `README.md`: Documentation and templates for custom domain configs
@@ -352,7 +395,19 @@ python batch_evaluate.py --help
 --dataset-field          Field name for dataset identifier (default: source_dataset)
 --domain-config          Path to domain config file (e.g., config/legal_terms.txt)
 --no-normalize           Disable token normalization (strict matching)
+--analysis               Enable detailed error analysis (TER, category contributions, frequent errors)
+--top-n N                Number of top frequent errors to display (default: 10)
+--chart                  Save error analysis charts as PNG (requires --analysis and matplotlib)
 ```
+
+**Analysis output** (when `--analysis` is passed):
+- Console: Overall X% correct | Y% TER, token breakdown table, frequent substitutions/deletions/insertions
+- `analysis_report.txt`: Same content saved to output directory
+
+**Chart output** (when `--chart` is passed):
+- `category_breakdown.png`: 2-panel stacked bar figure (token matches + category contribution)
+- `frequent_substitutions.png`: Top-N substitution pairs
+- `frequent_deletions.png`: Top-N deleted tokens
 
 The script includes:
 - Input file validation (existence, readability, non-empty)
@@ -382,6 +437,7 @@ This project uses `uv` for dependency management. Core dependencies:
 - `jiwer>=4.0.0`: Baseline WER comparison
 - `streamlit>=1.53.0`: Interactive visualization
 - `tabulate>=0.9.0`: Formatted table output
+- `matplotlib>=3.7.0`: Chart generation (optional; only needed for `--chart` flag)
 
 ## Visualizer Implementation Details
 
