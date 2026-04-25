@@ -36,9 +36,6 @@ htmlcov/
 *.swp
 .DS_Store
 
-# Root-level test files (kept locally for development)
-/test*.py
-
 # AI/dev harness configuration (kept local, not in public repo)
 CLAUDE.md
 AGENTS.md
