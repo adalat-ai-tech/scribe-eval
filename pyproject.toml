@@ -69,3 +69,13 @@ ignore = []
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
+
+[tool.coverage.run]
+source = ["scribe"]
+# Streamlit UI and optional matplotlib charts are not unit-testable; they
+# require browser automation or image-diff tooling. Excluded from coverage
+# so the headline number reflects the testable library surface.
+omit = [
+    "src/scribe/visualizer/*",
+    "src/scribe/charts.py",
+]
