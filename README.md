@@ -64,11 +64,16 @@ Factory methods for bundled domains: `DomainConfig.legal()`, `DomainConfig.medic
 
 File-based and custom inline configs are also supported. See [docs/domain-configuration.md](docs/domain-configuration.md).
 
+## Examples
+
+Runnable scripts under [`examples/`](examples/) demonstrate alignment,
+single-sample reports, domain-config patterns, and full batch evaluation.
+See [`examples/README.md`](examples/README.md) for the full index.
+
 ## Batch Processing
 
 ```bash
-cd examples/
-uv run batch_evaluate.py --input predictions.jsonl --domain-config config/legal_terms.txt --analysis --chart
+uv run examples/batch_evaluate.py --analysis --chart
 ```
 
 See [docs/batch-processing.md](docs/batch-processing.md) for the Python API, CLI arguments, and output schema.
