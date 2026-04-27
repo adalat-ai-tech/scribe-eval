@@ -90,3 +90,20 @@ def test_token_error_rates_reports_substitution_count():
     aligned_hyp = [("a", "WORD"), ("x", "WORD"), ("c", "WORD")]
     report = token_error_rates(aligned_ref, aligned_hyp)
     assert report["WORD"]["substitutions"] == 1
+
+
+def test_category_with_zero_ref_tokens_has_zero_error_rate():
+    """A category with no reference tokens reports error_rate=0 (no
+    division-by-zero) and combined_total reflects only populated
+    categories.
+    """
+    aligned_ref = [("hello", "WORD"), ("world", "WORD")]
+    aligned_hyp = [("hello", "WORD"), ("world", "WORD")]
+    report = token_error_rates(aligned_ref, aligned_hyp)
+    assert report["PUNCT"]["total_ref"] == 0
+    assert report["PUNCT"]["error_rate"] == 0.0
+    assert report["NUMERAL"]["total_ref"] == 0
+    assert report["NUMERAL"]["error_rate"] == 0.0
+    assert report["WORD"]["combined_total"] == 2
+    assert report["PUNCT"]["combined_total"] == 2
+    assert report["NUMERAL"]["combined_total"] == 2

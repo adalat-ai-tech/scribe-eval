@@ -6,8 +6,10 @@ from scribe import (
     compute_sample_errors,
     domain_aware_tokenizer,
     extract_error_rates,
+    format_alignment_dict,
     format_alignment_table,
     format_dataset_table,
+    format_error_counts_table,
     format_metrics_dict,
     text_error_rates,
     write_summary_to_file,
@@ -120,3 +122,45 @@ def test_write_summary_to_file_creates_a_readable_file(tmp_path, legal_domain):
     content = target.read_text(encoding="utf-8")
     assert content.strip(), "Summary file is empty"
     assert "OVERALL" in content
+
+
+def test_format_error_counts_table_emits_four_rows_per_category(legal_domain):
+    """For each category in the report, format_error_counts_table emits
+    four rows (Substitutions, Insertions, Deletions, Correct) with counts
+    that mirror the underlying report.
+    """
+    report = _basic_report(legal_domain)
+    rows = format_error_counts_table(report, legal_domain)
+    assert isinstance(rows, list)
+    assert all(isinstance(row, dict) for row in rows)
+    by_cat: dict = {}
+    for row in rows:
+        by_cat.setdefault(row["Category"], {})[row["Type"]] = row["Count"]
+    assert by_cat, "Expected at least one category in the counts table"
+    for cat, types in by_cat.items():
+        assert set(types) == {"Substitutions", "Insertions", "Deletions", "Correct"}
+        assert types["Substitutions"] == report[cat]["substitutions"]
+        assert types["Insertions"] == report[cat]["insertions"]
+        assert types["Deletions"] == report[cat]["deletions"]
+        assert types["Correct"] == report[cat]["correct"]
+
+
+def test_format_alignment_dict_classifies_each_position(legal_domain):
+    """format_alignment_dict labels each aligned position with one of
+    correct / substitution / insertion / deletion / sandhi, and exposes
+    ref_text, hyp_text, and token_type fields.
+    """
+    ref_toks, ref_tags = domain_aware_tokenizer("charged u/s 302", legal_domain)
+    hyp_toks, hyp_tags = domain_aware_tokenizer("charged us 302", legal_domain)
+    aligned_ref, aligned_hyp, _ = align_arrays(ref_toks, ref_tags, hyp_toks, hyp_tags)
+    rows = format_alignment_dict(aligned_ref, aligned_hyp)
+    assert rows, "Expected at least one alignment row"
+    valid_types = {"correct", "substitution", "insertion", "deletion", "sandhi"}
+    for row in rows:
+        assert row["error_type"] in valid_types
+        assert "ref_text" in row
+        assert "hyp_text" in row
+        assert "token_type" in row
+    # The u/s -> us substitution should land as a substitution row.
+    error_types = [row["error_type"] for row in rows]
+    assert "substitution" in error_types
