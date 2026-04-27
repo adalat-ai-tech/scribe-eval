@@ -77,25 +77,23 @@ ins_rows = format_frequent_errors_table(summary["frequent_insertions"], "inserti
 ## CLI (`batch_evaluate.py`)
 
 ```bash
-cd examples/
-
-# Default run
-uv run batch_evaluate.py
+# Default run (uses the bundled examples/predictions.jsonl sample)
+uv run examples/batch_evaluate.py
 
 # Custom input/output
-uv run batch_evaluate.py \
+uv run examples/batch_evaluate.py \
     --input ./my-data/predictions.jsonl \
     --output-dir ./results \
     --ref-field reference \
     --hyp-field hypothesis
 
 # With domain config file
-uv run batch_evaluate.py \
+uv run examples/batch_evaluate.py \
     --input data/predictions.jsonl \
     --domain-config config/legal_terms.txt
 
 # With detailed error analysis and category breakdown chart
-uv run batch_evaluate.py \
+uv run examples/batch_evaluate.py \
     --input data/predictions.jsonl \
     --analysis \
     --top-n 15 \
@@ -106,8 +104,8 @@ uv run batch_evaluate.py \
 
 | Argument | Default | Description |
 |---|---|---|
-| `-i`, `--input` | `./dictation-eval/predictions.jsonl` | Input JSONL file |
-| `-o`, `--output-dir` | `./dictation-eval` | Output directory |
+| `-i`, `--input` | bundled `examples/predictions.jsonl` | Input JSONL file |
+| `-o`, `--output-dir` | `examples/output/` | Output directory (defaults alongside the script) |
 | `--ref-field` | `transcript_cleaned` | Reference field name |
 | `--hyp-field` | `prediction` | Hypothesis field name |
 | `--dataset-field` | `source_dataset` | Dataset identifier field |

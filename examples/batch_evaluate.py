@@ -127,12 +127,19 @@ def save_analysis_to_file(summary, output_path, domain_config, top_n):
 
 def main():
     """Main entry point with CLI argument parsing."""
+    # Default input and output sit alongside the script; resolve relative
+    # to __file__ so the demo runs from any cwd (`uv run examples/batch_evaluate.py`
+    # from the repo root works the same as `cd examples && uv run ...`).
+    script_dir = Path(__file__).parent
+    default_input = str(script_dir / "predictions.jsonl")
+    default_output = str(script_dir / "output")
+
     parser = argparse.ArgumentParser(
         description="Batch evaluation of ASR predictions with detailed error analysis",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Use defaults (reads ./predictions.jsonl, writes to ./output/)
+  # Use defaults (bundled sample data, writes to ./output/)
   python batch_evaluate.py
 
   # Custom input file and output directory
@@ -149,14 +156,14 @@ Examples:
     parser.add_argument(
         "-i",
         "--input",
-        default="./predictions.jsonl",
-        help="Input JSONL file with predictions (default: ./predictions.jsonl)",
+        default=default_input,
+        help="Input JSONL file with predictions (default: bundled sample alongside this script)",
     )
     parser.add_argument(
         "-o",
         "--output-dir",
-        default="./output",
-        help="Output directory for results (default: ./output)",
+        default=default_output,
+        help="Output directory for results (default: examples/output/ alongside this script)",
     )
     parser.add_argument(
         "--ref-field",
