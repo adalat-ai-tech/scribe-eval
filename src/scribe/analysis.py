@@ -2,8 +2,8 @@
 Analytical computations for ASR error insights.
 
 This module transforms measured error data into actionable insights:
-total error rates, category contributions, error type distributions,
-and frequency analysis of specific token errors.
+Token Error Rate (TER), category contributions, error type
+distributions, and frequency analysis of specific token errors.
 """
 
 from collections import Counter
@@ -11,7 +11,7 @@ from collections import Counter
 
 def compute_total_error_rate(metrics: dict[str, dict]) -> float:
     """
-    Compute composite Total Error Rate from category metrics.
+    Compute the composite Token Error Rate (TER) from category metrics.
 
     Since each category's error_rate uses combined_total as denominator,
     the sum naturally equals total_errors / combined_total.
@@ -21,7 +21,8 @@ def compute_total_error_rate(metrics: dict[str, dict]) -> float:
                  maps category name -> dict with 'error_rate' key
 
     Returns:
-        Total error rate as a float (0.0 to 1.0)
+        Token Error Rate as a float (0.0 to 1.0+; can exceed 1.0 when
+        insertions outnumber matched reference tokens).
     """
     return sum(cat_data["error_rate"] for cat_data in metrics.values())
 

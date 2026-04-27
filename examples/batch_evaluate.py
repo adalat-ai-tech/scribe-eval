@@ -5,7 +5,7 @@ Batch evaluation script with CLI arguments and proper error handling.
 Processes JSONL files containing reference and hypothesis pairs, computes
 error metrics (WER/LER/NER/PER), and outputs detailed per-sample reports
 and aggregate summaries. With --analysis, provides additional insights:
-total error rate, category contributions, and frequent error patterns.
+Token Error Rate (TER), category contributions, and frequent error patterns.
 """
 
 import argparse

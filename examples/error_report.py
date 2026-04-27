@@ -4,7 +4,7 @@ Single-sample error report — the analog of `batch_evaluate.py --analysis`
 for a single (reference, hypothesis) pair.
 
 Shows the same "Token Breakdown by Category" table that the batch CLI
-produces, with overall correct % and total error rate (TER) on top.
+produces, with overall accuracy and Token Error Rate (TER) on top.
 
 Usage:
     python error_report.py "First text" "Second text"
