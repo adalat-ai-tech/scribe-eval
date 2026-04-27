@@ -1,6 +1,6 @@
 # Batch Processing
 
-DictErrors supports processing multiple samples from a JSONL file and aggregating metrics across datasets.
+scribe-eval supports processing multiple samples from a JSONL file and aggregating metrics across datasets.
 
 ## Input Format
 

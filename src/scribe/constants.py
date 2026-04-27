@@ -1,5 +1,5 @@
 """
-Constants and shared definitions for the DictErrors package.
+Constants and shared definitions for the scribe package.
 
 This module serves as the single source of truth for all package-wide constants
 including token categories, formatting parameters, and utility functions.

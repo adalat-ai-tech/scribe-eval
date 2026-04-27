@@ -1,6 +1,6 @@
 # Domain Configuration
 
-DictErrors supports flexible domain-aware tokenization via the `DomainConfig` class. Domain entities are extracted before general tokenization to prevent incorrect splitting (e.g., `u/s` stays as one token) and are tracked separately in error metrics.
+scribe-eval supports flexible domain-aware tokenization via the `DomainConfig` class. Domain entities are extracted before general tokenization to prevent incorrect splitting (e.g., `u/s` stays as one token) and are tracked separately in error metrics.
 
 ## Factory Methods (Bundled Domains)
 
