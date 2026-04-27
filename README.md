@@ -1,18 +1,26 @@
-# DictErrors — Dictation Error Analysis for Indic Languages
+# SCRIBE — Diagnostic Evaluation for Indic & Domain-Specific ASR
 
-[![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/scribe-eval.svg)](https://pypi.org/project/scribe-eval/)
+[![Python](https://img.shields.io/pypi/pyversions/scribe-eval.svg)](https://pypi.org/project/scribe-eval/)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-DictErrors is a specialized tool for analyzing ASR (Automatic Speech Recognition) transcription errors in Indic languages (Malayalam, Kannada). It provides fine-grained error metrics by categorizing tokens into base categories (WORD, NUMERAL, PUNCT) and optional domain-specific categories (LEGAL, MEDICAL, TECH, or custom).
+`scribe-eval` is the open-source evaluation framework introduced in the SCRIBE
+paper (*Diagnostic Evaluation and Rich Transcription Models for Indic ASR*,
+under review at Interspeech 2026). It provides fine-grained error metrics for
+ASR systems on Indic languages (Malayalam, Kannada, Hindi, ...) and on
+domain-specific transcription (legal, medical, technical).
 
-Domain-critical terminology is shielded from incorrect splitting and tracked separately — so a single misrecognized legal term doesn't inflate your general WER.
+Token categories are decomposed into base classes (WORD, NUMERAL, PUNCT) and
+optional domain classes (LEGAL, MEDICAL, TECH, or custom). Domain-critical
+terminology is shielded from incorrect splitting and tracked separately — so a
+single misrecognized legal term doesn't inflate your general WER.
 
 ## Installation
 
 ```bash
-git clone https://github.com/adalat-ai-tech/dict-errors.git
-cd dict-errors
-uv sync && uv pip install -e .
+pip install scribe-eval                # core library
+pip install 'scribe-eval[visualizer]'  # adds Streamlit UI
+pip install 'scribe-eval[charts]'      # adds matplotlib charts
 ```
 
 ## Quick Start
@@ -76,7 +84,20 @@ See [docs/visualizer.md](docs/visualizer.md).
 
 ## Dependencies
 
-- `levenshtein>=0.27.1`, `jiwer>=4.0.0`, `streamlit>=1.53.0`, `tabulate>=0.9.0`
+Core: `jiwer>=4.0.0`, `levenshtein>=0.27.1`, `tabulate>=0.9.0`
+
+Optional extras: `matplotlib` (for `[charts]`), `streamlit` and `pandas` (for `[visualizer]`).
+
+## Citation
+
+The SCRIBE paper is currently under anonymous review at Interspeech 2026. A
+BibTeX entry will be added here once the proceedings or arXiv preprint are
+publicly available. Until then, please cite this repository directly via the
+"Cite this repository" button on GitHub.
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE).
 
 ## Acknowledgements
 
