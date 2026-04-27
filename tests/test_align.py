@@ -1,6 +1,10 @@
 """Tests for the sandhi-aware alignment engine."""
 
-from scribe import align_arrays, domain_aware_tokenizer
+import math
+
+import pytest
+
+from scribe import DomainConfig, align_arrays, domain_aware_tokenizer
 
 
 def _tok(text, domain=None):
@@ -77,3 +81,43 @@ def test_sandhi_merge_reduces_alignment_count():
     # picks up at least one slot containing the merged word.
     hyp_real = [t for t, tag in aligned_hyp if tag != "GAP"]
     assert any("ഇന്നല്ലെങ്കിൽ" in tok for tok in hyp_real)
+
+
+# Multilingual smoke cases — mirror examples/text_alignment.py DEFAULT_EXAMPLES.
+# These guard against regressions in alignment over real-world Indic and
+# English inputs with mixed error patterns.
+MULTILINGUAL_PAIRS = [
+    pytest.param(
+        "ആദ്യഗഡുവായി 180000 രൂപയായി നൽകിയത്.",
+        "ആദ്യ ഗഡുവായി 180000 രൂപയായി നൽകിയത്:",
+        id="malayalam-sandhi",
+    ),
+    pytest.param(
+        "നിർദ്ദിഷ്ട ഭേദഗതി ഇരുസഭകളും 2011-ൽ തന്നെ പാസാക്കി.",
+        "നിർദ്ദിഷ്ട ട ഭേദഗതി ഇരുസഭകളും 201-ൽ തന്നെ പാസാക്കി.",
+        id="malayalam-insertion-and-numeral-truncation",
+    ),
+    pytest.param(
+        "10 ವರ್ಷವಾದ ಮಕ್ಕಳಿಗೆ ಅದರ ಒಂದು ಸ್ವಲ್ಪ ಜ್ಞಾನ ಮನವರಿಕೆ ಒಂದು ಪ್ರಾರಂಭ ಆಗುತ್ತದೆ।",
+        "ಹತ್ತು ವರ್ಷವಾದ ಮಕ್ಕಳಿಗೆ ಅದರ ಒಂದು ಸ್ವಲ್ಪ ಜ್ಞಾನ ಮನವರಿಕೆ ಒಂದು ಪ್ರಾರಂಭ ಆಗುತ್ತದೆ.",
+        id="kannada-numeral-spelled-out",
+    ),
+    pytest.param(
+        "The brown quick fox jumps over the lazy dogs.",
+        "The bron fox jumps over a lazy, dog",
+        id="english-reorder-and-punct",
+    ),
+]
+
+
+@pytest.mark.parametrize("ref,hyp", MULTILINGUAL_PAIRS)
+def test_alignment_runs_cleanly_on_multilingual_pairs(ref, hyp):
+    """For each demo pair, alignment must produce two equal-length lists,
+    a finite numeric score, and at least one position of either side."""
+    domain = DomainConfig.legal()
+    ref_toks, ref_tags = _tok(ref, domain)
+    hyp_toks, hyp_tags = _tok(hyp, domain)
+    aligned_ref, aligned_hyp, score = align_arrays(ref_toks, ref_tags, hyp_toks, hyp_tags)
+    assert len(aligned_ref) == len(aligned_hyp)
+    assert len(aligned_ref) > 0
+    assert isinstance(score, float) and math.isfinite(score)
