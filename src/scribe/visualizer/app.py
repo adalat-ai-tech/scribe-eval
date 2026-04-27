@@ -458,7 +458,10 @@ with tab_json:
     ref_col = hyp_col = src_col = None
 
     base_dir = Path(__file__).parent
-    default_path = base_dir / "examples" / "dictation-eval" / "predictions.jsonl"
+    # Repo-checkout layout: src/scribe/visualizer/app.py → ../../../examples/.
+    # Falls back gracefully (warning shown below) when running from an
+    # installed wheel where examples/ is not packaged.
+    default_path = Path(__file__).resolve().parents[3] / "examples" / "predictions.jsonl"
 
     with col_config:
         st.markdown("### 📂 Load Data")
@@ -474,7 +477,7 @@ with tab_json:
                 with open(default_path, "r", encoding="utf-8") as f:
                     data_content = f.readlines()
             else:
-                st.warning(f"Default file not found at: `{default_path.relative_to(base_dir)}`")
+                st.warning(f"Default file not found at: `{default_path}`")
 
         if data_content:
             records = parse_data(data_content)
