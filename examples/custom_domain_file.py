@@ -8,7 +8,11 @@ Shows three approaches:
 3. Inline custom domains
 """
 
+from pathlib import Path
+
 from scribe import DomainConfig, text_error_rates
+
+SAMPLE_LEGAL_FILE = Path(__file__).parent / "sample_legal.txt"
 
 # Sample texts
 ref = "charged u/s 302 IPC on 22.05.2023 for Rs. 10,500"
@@ -38,16 +42,16 @@ print("\n" + "=" * 80)
 print("APPROACH 2: Custom File-Based Config")
 print("=" * 80)
 
-# Load from a user-supplied custom file using DomainConfig.from_file()
-# Example: custom_domain = DomainConfig.from_file("path/to/my_legal_terms.txt")
-# For now, demonstrate with the bundled legal config used as a custom variant
-custom_domain = DomainConfig.legal()
+# Load from a real config file shipped alongside this script.
+# Open examples/sample_legal.txt to see the file format.
+custom_domain = DomainConfig.from_file(str(SAMPLE_LEGAL_FILE))
 report_custom = text_error_rates(ref, hyp, custom_domain)
+print(f"\nLoaded from: {SAMPLE_LEGAL_FILE.name}")
+print(f"  {custom_domain.label}: {report_custom[custom_domain.category]['error_rate']:.2%}")
 print(
-    f"\nCustom Legal Domain (via factory) - {custom_domain.label}: {report_custom[custom_domain.category]['error_rate']:.2%}"
+    f"  Configuration: name={custom_domain.name}, "
+    f"category={custom_domain.category}, label={custom_domain.label}"
 )
-print(f"  Configuration: category={custom_domain.category}, label={custom_domain.label}")
-print("  (To use a custom file: DomainConfig.from_file('path/to/my_legal_terms.txt'))")
 
 print("\n" + "=" * 80)
 print("APPROACH 3: Inline Custom Domain")

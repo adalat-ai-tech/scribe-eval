@@ -46,56 +46,16 @@ def main():
         # Using bundled legal domain. For custom domains, see custom_domain_file.py
         domain = DomainConfig.legal()
 
-        # Malayalam example
+        # Malayalam example — demonstrates Sandhi-aware alignment:
+        # text1 has "ആദ്യഗഡുവായി" (sandhi-merged), text2 has "ആദ്യ ഗഡുവായി" (split).
         text1 = "ആദ്യഗഡുവായി 180000 രൂപയായി നൽകിയത്."
         text2 = "ആദ്യ ഗഡുവായി 180000 രൂപയായി നൽകിയത്:"
 
-        print("\n=== MALAYALAM EXAMPLE 1 ===")
+        print("\n=== MALAYALAM EXAMPLE ===")
         t1, g1 = domain_aware_tokenizer(text1, domain)
         t2, g2 = domain_aware_tokenizer(text2, domain)
         aligned1, aligned2, score = align_arrays(t1, g1, t2, g2)
         print_alignment(text1, text2, aligned1, aligned2, score)
-
-        # # Malayalam example
-        # text1 = "നിർദ്ദിഷ്ട ഭേദഗതി ഇരുസഭകളും 2011-ൽ തന്നെ പാസാക്കി."
-        # text2 = "നിർദ്ദിഷ്ട ട ഭേദഗതി ഇരുസഭകളും 201-ൽ തന്നെ പാസാക്കി."
-        #
-        # print("\n=== MALAYALAM EXAMPLE 2 ===")
-        # t1, g1 = domain_aware_tokenizer(text1)
-        # t2, g2 = domain_aware_tokenizer(text2)
-        # aligned1, aligned2, score = align_arrays(t1, g1, t2, g2)
-        # print_alignment(text1, text2, aligned1, aligned2, score)
-
-        # # Kannada example
-        # text1 = "10 ವರ್ಷವಾದ ಮಕ್ಕಳಿಗೆ ಅದರ ಒಂದು ಸ್ವಲ್ಪ ಜ್ಞಾನ ಮನವರಿಕೆ ಒಂದು ಪ್ರಾರಂಭ ಆಗುತ್ತದೆ।"
-        # text2 = "ಹತ್ತು ವರ್ಷವಾದ ಮಕ್ಕಳಿಗೆ ಅದರ ಒಂದು ಸ್ವಲ್ಪ ಜ್ಞಾನ ಮನವರಿಕೆ ಒಂದು ಪ್ರಾರಂಭ ಆಗುತ್ತದೆ."
-        #
-        # print("\n=== KANNADA EXAMPLE ===")
-        # t1, g1 = domain_aware_tokenizer(text1)
-        # t2, g2 = domain_aware_tokenizer(text2)
-        # aligned1, aligned2, score = align_arrays(t1, g1, t2, g2)
-        # print_alignment(text1, text2, aligned1, aligned2, score)
-
-        # # English example
-        # text1 = "The brown quick fox jumps over the lazy dogs."
-        # text2 = "The bron fox jumps over a lazy, dog"
-        #
-        # print("\n=== ENGLISH EXAMPLE ===")
-        # t1, g1 = domain_aware_tokenizer(text1)
-        # t2, g2 = domain_aware_tokenizer(text2)
-        # aligned1, aligned2, score = align_arrays(t1, g1, t2, g2)
-        # print_alignment(text1, text2, aligned1, aligned2, score)
-
-        #         # English example
-        # text1 = "The quick brown fox jumps over the lazy dog."
-        # text2 = "The bron fox jumps over a lazy dog"
-        #
-        # print("\n=== ENGLISH EXAMPLE ===")
-        # t1, g1 = domain_aware_tokenizer(text1)
-        # t2, g2 = domain_aware_tokenizer(text2)
-        # aligned1, aligned2, score = align_arrays(t1, g1, t2, g2)
-        # print_alignment(text1, text2, aligned1, aligned2, score)
-
         return
 
     # Align the texts

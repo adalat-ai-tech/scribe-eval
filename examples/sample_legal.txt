@@ -1,0 +1,24 @@
+# Sample legal-domain config — demonstrates the file format used by
+# DomainConfig.from_file(). See docs/domain-configuration.md for the
+# full specification.
+
+# --- Metadata (all fields optional; sensible defaults apply) ---
+@name: legal
+@category: LEGAL
+@label: LER
+@case_sensitive: false
+
+# --- Literal terms (auto-escaped for regex safety) ---
+u/s
+r/w
+sec.
+art.
+v.
+vs.
+IPC
+CrPC
+
+# --- Regex patterns (prefix with REGEX:; used directly, no escaping) ---
+REGEX: PW[-\s]*\d+        # prosecution-witness designations: PW1, PW 1, PW-1
+REGEX: CW[-\s]*\d+        # court-witness designations: CW1, CW 1, CW-1
+REGEX: Ext\.[-\s]*[A-Z]\d*  # exhibit references: Ext.A, Ext. A1, Ext-B2
