@@ -55,7 +55,7 @@ print(f"NER: {report['NUMERAL']['error_rate']:.2%}")
 | PUNCT | base | PER | Punctuation marks |
 | LEGAL | domain | LER | Indian legal terminology (u/s, r/w, PW1, Ext.A) |
 | MEDICAL | domain | MER | Medical units and dosages (mg, ml, 500mg) |
-| TECH | domain | TER | Technical abbreviations (API, SDK, v1.0) |
+| TECH | domain | TchER | Technical abbreviations (API, SDK, v1.0) |
 | Custom | domain | configurable | Define your own with lists or regex patterns |
 
 ## Domain Configuration

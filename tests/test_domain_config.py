@@ -568,7 +568,7 @@ class TestBundledConfigFiles:
         config = DomainConfig.technical()
         assert config.name == "technical"
         assert config.category == "TECH"
-        assert config.label == "TER"
+        assert config.label == "TchER"
         assert config.case_sensitive is True
 
 

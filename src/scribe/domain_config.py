@@ -272,7 +272,7 @@ class DomainConfig:
         JSON, HTTP, version patterns like v1.0, v2.3.4.
 
         Returns:
-            DomainConfig instance for technical terminology with category='TECH', label='TER'
+            DomainConfig instance for technical terminology with category='TECH', label='TchER'
 
         Examples:
             >>> from scribe import DomainConfig, text_error_rates

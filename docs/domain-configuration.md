@@ -20,7 +20,7 @@ report = text_error_rates(ref, hyp, domain)
 |---|---|---|---|
 | `DomainConfig.legal()` | LEGAL | LER | u/s, r/w, sec., art., v., vs., PW1/PW-1, CW1, Ext.A |
 | `DomainConfig.medical()` | MEDICAL | MER | mg, ml, cc, mcg, IU, 500mg, 10ml |
-| `DomainConfig.technical()` | TECH | TER | API, SDK, CLI, JSON, HTTP, v1.0 |
+| `DomainConfig.technical()` | TECH | TchER | API, SDK, CLI, JSON, HTTP, v1.0 |
 
 ## File-Based Configuration
 
@@ -94,7 +94,7 @@ from scribe import DomainConfig
 custom = DomainConfig("custom", ["u/s", "r/w"], category="CUSTOM", label="CuER")
 
 # Regex pattern (used directly)
-technical = DomainConfig("tech", r'API|SDK|CLI|v\d+\.\d+', category="TECH", label="TER")
+technical = DomainConfig("tech", r'API|SDK|CLI|v\d+\.\d+', category="TECH", label="TchER")
 
 # Use in evaluation
 report = text_error_rates(ref, hyp, custom)
