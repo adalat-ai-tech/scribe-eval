@@ -93,6 +93,25 @@ Core: `jiwer>=4.0.0`, `levenshtein>=0.27.1`, `tabulate>=0.9.0`
 
 Optional extras: `matplotlib` (for `[charts]`), `streamlit` and `pandas` (for `[visualizer]`).
 
+## Development
+
+```bash
+git clone https://github.com/adalat-ai-tech/scribe-eval.git
+cd scribe-eval
+uv sync --all-extras --dev    # core + [charts] + [visualizer] + [dev]
+
+uv run pytest                 # full test suite (tests/)
+uv run pytest --cov=scribe    # with coverage
+uv run ruff check src tests examples    # lint
+uv run ruff format src tests examples   # auto-format
+```
+
+Tests are organised one file per library module under [`tests/`](tests/), plus
+[`tests/test_paper_cases.py`](tests/test_paper_cases.py) for end-to-end golden
+cases from the SCRIBE paper. See [`docs/architecture.md`](docs/architecture.md)
+for the module map and a glossary of project-specific terminology
+(sandhi, combined denominator, TER, Accuracy, ...).
+
 ## Citation
 
 The SCRIBE paper is currently under anonymous review at Interspeech 2026. A

@@ -172,4 +172,4 @@ Each line in the detailed output contains:
 }
 ```
 
-All error rates use the combined denominator (total tokens across all categories). See [Normalized Error Rates](../README.md#normalized-error-rates) for details.
+All error rates use the combined denominator (total tokens across all categories). See [Combined denominator](architecture.md#glossary) in the architecture glossary for details.
