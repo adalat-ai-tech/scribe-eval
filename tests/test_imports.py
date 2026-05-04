@@ -30,6 +30,8 @@ PUBLIC_API = {
     "compute_error_type_distribution": "callable",
     "compute_frequent_deletions": "callable",
     "compute_frequent_insertions": "callable",
+    "compute_frequent_sandhi_merges": "callable",
+    "compute_frequent_sandhi_splits": "callable",
     "compute_frequent_substitutions": "callable",
     "compute_total_error_rate": "callable",
     # constants

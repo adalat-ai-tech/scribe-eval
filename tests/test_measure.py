@@ -107,3 +107,19 @@ def test_category_with_zero_ref_tokens_has_zero_error_rate():
     assert report["WORD"]["combined_total"] == 2
     assert report["PUNCT"]["combined_total"] == 2
     assert report["NUMERAL"]["combined_total"] == 2
+
+
+def test_pure_sandhi_event_does_not_affect_error_rate_or_counts():
+    """Sandhi merge corrections are tracked separately from sub/ins/del
+    and contribute zero to the error rate. Regression for the change
+    that added sandhi_merge / sandhi_split records to token_error_details.
+    """
+    ref = "ഇന്ന് അല്ലെങ്കിൽ"
+    hyp = "ഇന്നല്ലെങ്കിൽ"
+    report = text_error_rates(ref, hyp, None)
+
+    assert report["WORD"]["error_rate"] == 0.0
+    assert report["WORD"]["substitutions"] == 0
+    assert report["WORD"]["insertions"] == 0
+    assert report["WORD"]["deletions"] == 0
+    assert report["WORD"]["sandhi_hits"] == 1
