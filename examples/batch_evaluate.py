@@ -87,6 +87,20 @@ def print_analysis(summary, domain_config, top_n):
         print(f"\n--- Top {min(top_n, len(ins_rows))} Frequent Insertions ---")
         print(tabulate(ins_rows, headers="keys", tablefmt="simple"))
 
+    # 7. Frequent Sandhi Merges
+    freq_merges = summary["frequent_sandhi_merges"]
+    merge_rows = format_frequent_errors_table(freq_merges, "sandhi_merge", top_n)
+    if merge_rows:
+        print(f"\n--- Top {min(top_n, len(merge_rows))} Frequent Sandhi Merges ---")
+        print(tabulate(merge_rows, headers="keys", tablefmt="simple"))
+
+    # 8. Frequent Sandhi Splits
+    freq_splits = summary["frequent_sandhi_splits"]
+    split_rows = format_frequent_errors_table(freq_splits, "sandhi_split", top_n)
+    if split_rows:
+        print(f"\n--- Top {min(top_n, len(split_rows))} Frequent Sandhi Splits ---")
+        print(tabulate(split_rows, headers="keys", tablefmt="simple"))
+
     print("\n" + "=" * 85)
 
 
@@ -121,6 +135,18 @@ def save_analysis_to_file(summary, output_path, domain_config, top_n):
         if ins_rows:
             f.write(f"\n--- Top {min(top_n, len(ins_rows))} Frequent Insertions ---\n")
             f.write(tabulate(ins_rows, headers="keys", tablefmt="simple") + "\n")
+
+        freq_merges = summary["frequent_sandhi_merges"]
+        merge_rows = format_frequent_errors_table(freq_merges, "sandhi_merge", top_n)
+        if merge_rows:
+            f.write(f"\n--- Top {min(top_n, len(merge_rows))} Frequent Sandhi Merges ---\n")
+            f.write(tabulate(merge_rows, headers="keys", tablefmt="simple") + "\n")
+
+        freq_splits = summary["frequent_sandhi_splits"]
+        split_rows = format_frequent_errors_table(freq_splits, "sandhi_split", top_n)
+        if split_rows:
+            f.write(f"\n--- Top {min(top_n, len(split_rows))} Frequent Sandhi Splits ---\n")
+            f.write(tabulate(split_rows, headers="keys", tablefmt="simple") + "\n")
 
         f.write("\n" + "=" * 85 + "\n")
 

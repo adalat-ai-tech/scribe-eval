@@ -34,6 +34,12 @@ from .analysis import (
     compute_frequent_insertions as compute_frequent_insertions,
 )
 from .analysis import (
+    compute_frequent_sandhi_merges as compute_frequent_sandhi_merges,
+)
+from .analysis import (
+    compute_frequent_sandhi_splits as compute_frequent_sandhi_splits,
+)
+from .analysis import (
     compute_frequent_substitutions as compute_frequent_substitutions,
 )
 from .analysis import (

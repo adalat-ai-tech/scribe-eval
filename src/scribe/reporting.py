@@ -257,15 +257,21 @@ def format_frequent_errors_table(
     Format frequent error data as table rows.
 
     Args:
-        freq_data: From compute_frequent_substitutions/deletions/insertions.
-            Uses the "_all" key for overall ranking.
-        error_type: "substitution", "deletion", or "insertion"
+        freq_data: From compute_frequent_substitutions/deletions/insertions/
+            sandhi_merges/sandhi_splits. Uses the "_all" key for overall ranking.
+        error_type: "substitution", "deletion", "insertion",
+            "sandhi_merge", or "sandhi_split"
         top_n: Max rows to return
 
     Returns:
-        For substitutions: [{Rank, Category, Reference, Hypothesis, Count}]
-        For deletions/insertions: [{Rank, Category, Token, Count}]
+        For substitutions/sandhi_merge/sandhi_split:
+            [{Rank, Category, Reference, Hypothesis, Count}]
+        For deletions/insertions:
+            [{Rank, Category, Token, Count}]
     """
+    pair_types = {"substitution", "sandhi_merge", "sandhi_split"}
+    is_pair = error_type in pair_types
+
     # Use "_all" for the overall flat ranking
     items = freq_data.get("_all", [])[:top_n]
 
@@ -275,14 +281,14 @@ def format_frequent_errors_table(
         if cat == "_all":
             continue
         for item in cat_items:
-            if error_type == "substitution":
+            if is_pair:
                 token_to_cat[(item[0], item[1])] = cat
             else:
                 token_to_cat[item[0]] = cat
 
     rows = []
     for rank, item in enumerate(items, 1):
-        if error_type == "substitution":
+        if is_pair:
             ref, hyp, count = item
             cat = token_to_cat.get((ref, hyp), "")
             rows.append(
