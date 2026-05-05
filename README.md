@@ -99,18 +99,33 @@ Optional extras: `matplotlib` (for `[charts]`), `streamlit` and `pandas` (for `[
 git clone https://github.com/adalat-ai-tech/scribe-eval.git
 cd scribe-eval
 uv sync --all-extras --dev    # core + [charts] + [visualizer] + [dev]
+```
 
-uv run pytest                 # full test suite (tests/)
-uv run pytest --cov=scribe    # with coverage
-uv run ruff check src tests examples    # lint
-uv run ruff format src tests examples   # auto-format
+### Running tests
+
+```bash
+uv run pytest                              # full suite
+uv run pytest tests/test_analysis.py       # one file
+uv run pytest -k sandhi                    # name pattern (-k matches by substring)
+uv run pytest -v                           # verbose, with each test name
+uv run pytest --cov=scribe                 # with coverage
 ```
 
 Tests are organised one file per library module under [`tests/`](tests/), plus
 [`tests/test_paper_cases.py`](tests/test_paper_cases.py) for end-to-end golden
-cases from the SCRIBE paper. See [`docs/architecture.md`](docs/architecture.md)
-for the module map and a glossary of project-specific terminology
-(sandhi, combined denominator, TER, Accuracy, ...).
+cases from the SCRIBE paper. `pytest` itself ships with the `[dev]` extra, so
+`uv sync --all-extras --dev` (above) is required first.
+
+### Lint and format
+
+```bash
+uv run ruff check src tests examples       # lint
+uv run ruff format src tests examples      # auto-format
+```
+
+See [`docs/architecture.md`](docs/architecture.md) for the module map and a
+glossary of project-specific terminology (sandhi, combined denominator, TER,
+Accuracy, ...).
 
 ## Citation
 
