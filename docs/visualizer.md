@@ -29,7 +29,7 @@ Enter reference and hypothesis text directly. The view updates automatically on 
 - **Error Analysis** expander:
   - Category contributions table (Ref Tokens, Exact Match, Accuracy, Sub, Del, Ins, Error Rate, Impact on Total)
   - Category breakdown chart (stacked bar: token matches left, TER contribution right)
-- **Frequent Errors** expander: top-N substitutions, deletions, insertions in sub-tabs
+- **Frequent Errors** expander: top-N substitutions, deletions, insertions, sandhi merges, sandhi splits across five sub-tabs (the two sandhi tabs are populated only when sandhi detection is enabled and the language has agglutinative compounds)
 
 ### Batch Dataset Analysis
 

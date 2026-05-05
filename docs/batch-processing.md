@@ -69,10 +69,16 @@ print(f"Accuracy: {summary['total_correct_pct']:.1f}%")
 
 # Formatted tables for display
 contrib_rows = format_contribution_table(summary["contributions"], domain)
-sub_rows = format_frequent_errors_table(summary["frequent_substitutions"], "substitution", top_n=10)
-del_rows = format_frequent_errors_table(summary["frequent_deletions"], "deletion", top_n=10)
-ins_rows = format_frequent_errors_table(summary["frequent_insertions"], "insertion", top_n=10)
+sub_rows   = format_frequent_errors_table(summary["frequent_substitutions"],   "substitution",  top_n=10)
+del_rows   = format_frequent_errors_table(summary["frequent_deletions"],       "deletion",      top_n=10)
+ins_rows   = format_frequent_errors_table(summary["frequent_insertions"],      "insertion",     top_n=10)
+merge_rows = format_frequent_errors_table(summary["frequent_sandhi_merges"],   "sandhi_merge",  top_n=10)
+split_rows = format_frequent_errors_table(summary["frequent_sandhi_splits"],   "sandhi_split",  top_n=10)
 ```
+
+Sandhi merges / splits surface only when `use_sandhi=True` (the default)
+and the language has agglutinative compounds. For non-agglutinative
+languages (English, Hindi, etc.) the two tables will be empty.
 
 ## CLI (`batch_evaluate.py`)
 
@@ -122,7 +128,7 @@ Always produced:
 - `evaluation-detailed.jsonl` — per-sample breakdown (see below)
 
 With `--analysis`:
-- `analysis_report.txt` — TER, accuracy, category breakdown table, top-N frequent substitutions/deletions/insertions
+- `analysis_report.txt` — TER, accuracy, category breakdown table, top-N frequent substitutions / deletions / insertions / sandhi merges / sandhi splits (the last two are only populated for agglutinative languages with sandhi events detected)
 
 With `--analysis --chart`:
 - `category_breakdown.png` — 2-panel stacked bar chart: token matches per category (left panel) and each category's contribution to the overall TER (right panel)

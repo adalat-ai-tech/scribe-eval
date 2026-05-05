@@ -19,6 +19,50 @@ raw text  ──▶  tokenize  ──▶  align  ──▶  measure  ──▶  
 | measure → aggregate | per-sample report `{WORD: {...}, NUMERAL: {...}, ...}` |
 | aggregate → report | `{"overall": ..., "by_dataset": {...}}` |
 
+## Quick example
+
+End-to-end, with the high-level API:
+
+```python
+from scribe import text_error_rates, DomainConfig
+
+ref = "charged u/s 302 IPC on 22.05.2023"
+hyp = "charged u/s 303 IPC on 22/05/2023"
+
+report = text_error_rates(ref, hyp, DomainConfig.legal())
+print(f"WER:   {report['WORD']['error_rate']:.2%}")    # 0.00% — words match
+print(f"LER:   {report['LEGAL']['error_rate']:.2%}")   # 0.00% — u/s, IPC shielded
+print(f"NER:   {report['NUMERAL']['error_rate']:.2%}") # 16.67% — 302 → 303
+                                                       # (date is normalized away)
+```
+
+The same flow, stage by stage, when you need finer control:
+
+```python
+from scribe import (
+    DomainConfig, domain_aware_tokenizer, align_arrays,
+    token_error_rates, token_error_details,
+)
+
+domain = DomainConfig.legal()
+
+# 1. tokenize each side
+t1, g1 = domain_aware_tokenizer(ref, domain)   # tokens, tags
+t2, g2 = domain_aware_tokenizer(hyp, domain)
+
+# 2. align (Needleman-Wunsch with sandhi/category-aware scoring)
+aligned_ref, aligned_hyp, _ = align_arrays(t1, g1, t2, g2)
+
+# 3. measure (rates and per-token error records)
+rates   = token_error_rates(aligned_ref, aligned_hyp, domain)
+details = token_error_details(aligned_ref, aligned_hyp, domain)
+# details: [{"error_type": "substitution", "category": "NUMERAL",
+#            "ref_token": "302", "hyp_token": "303"}, ...]
+```
+
+For batch evaluation across a JSONL dataset, see
+[batch-processing.md](batch-processing.md).
+
 ## Module map
 
 | Module | Owns | Key callables |
@@ -29,11 +73,119 @@ raw text  ──▶  tokenize  ──▶  align  ──▶  measure  ──▶  
 | `align.py` | Modified Needleman–Wunsch with token-type-aware scoring; sandhi merge / split detection | `align_arrays`, `DEFAULT_WEIGHTS` |
 | `measure.py` | Per-sample error rates and per-token error records | `text_error_rates`, `token_error_rates`, `text_error_details` |
 | `measure_batch.py` | JSONL ingestion, per-sample running, per-dataset & overall aggregation | `compute_sample_errors`, `compute_aggregate_metrics`, `aggregate_error_details` |
-| `analysis.py` | Category contributions, frequent substitutions / deletions / insertions, Token Error Rate (TER) | `compute_error_summary`, `compute_category_contributions` |
+| `analysis.py` | Category contributions, frequent substitutions / deletions / insertions / sandhi merges / sandhi splits, Token Error Rate (TER) | `compute_error_summary`, `compute_category_contributions`, `compute_frequent_sandhi_merges`, `compute_frequent_sandhi_splits` |
 | `reporting.py` | Formatters shared by the CLI and Streamlit UI | `format_metrics_dict`, `format_contribution_table`, `format_alignment_table` |
 | `charts.py` | matplotlib chart generation (optional `[charts]` extra) | `category_breakdown_chart` |
 | `visualizer/` | Streamlit app and `scribe-visualizer` console script (optional `[visualizer]` extra) | `app.py`, `__main__.py` |
 | `constants.py` | Category names and helpers | `CAT_WORD`, `CAT_NUMERAL`, `get_categories(domain_config)` |
+
+## Stage-by-stage examples
+
+Small, runnable snippets for the parts of the pipeline you most often
+reach into directly.
+
+### Tokenize
+
+```python
+from scribe import domain_aware_tokenizer, DomainConfig
+
+tokens, tags = domain_aware_tokenizer("filed u/s 302 IPC", DomainConfig.legal())
+# tokens: ['filed', 'u/s',  '302',     'IPC']
+# tags:   ['WORD',  'LEGAL', 'NUMERAL', 'LEGAL']
+```
+
+Both `u/s` and `IPC` are LEGAL — they're tracked under LER, not WER, so
+a misrecognised legal abbreviation doesn't inflate your general word
+error rate. `u/s` also stays atomic instead of being split on `/`.
+
+### Normalize
+
+```python
+from scribe.normalize import normalize_token
+
+normalize_token("22.05.2023", "NUMERAL")  # '22-05-2023'  (canonical date)
+normalize_token("10,500",     "NUMERAL")  # '10500'        (commas stripped)
+normalize_token("೧೫.೦೫.೨೦೨೩", "NUMERAL") # '15-05-2023'  (Kannada → Arabic)
+```
+
+Normalization runs *post-alignment* on each surviving substitution pair:
+if both sides normalize to the same string, the pair is reclassified
+from "sub" to "correct". Enabled by default; opt out with
+`text_error_rates(..., normalize=False)`.
+
+### Align (sandhi-aware)
+
+```python
+from scribe import align_arrays, domain_aware_tokenizer
+
+t1, g1 = domain_aware_tokenizer("ഇന്ന് അല്ലെങ്കിൽ", None)
+t2, g2 = domain_aware_tokenizer("ഇന്നല്ലെങ്കിൽ",     None)
+ref, hyp, _ = align_arrays(t1, g1, t2, g2)
+# ref: [('MERGE:ഇന്ന് അല്ലെങ്കിൽ', 'WORD')]
+# hyp: [('ഇന്നല്ലെങ്കിൽ',          'WORD')]
+```
+
+The aligner tags merge / split events with `MERGE:` / `SPLIT:` prefixes
+on the affected side. Downstream, `measure.py` reads those prefixes and
+records the event as a *sandhi correction* — not an error.
+
+### Measure — rates and per-token records
+
+```python
+from scribe import text_error_rates, text_error_details
+
+rates = text_error_rates("alpha beta gamma", "alpha delta epsilon", None)
+# rates['WORD']: {'error_rate': 0.667, 'substitutions': 2, 'correct': 1,
+#                 'total_ref': 3, 'sandhi_hits': 0, ...}
+
+details = text_error_details("alpha beta gamma", "alpha delta epsilon", None)
+# [{'error_type': 'substitution', 'category': 'WORD',
+#   'ref_token': 'beta',  'hyp_token': 'delta'},
+#  {'error_type': 'substitution', 'category': 'WORD',
+#   'ref_token': 'gamma', 'hyp_token': 'epsilon'}]
+```
+
+`text_error_details` is the input to the frequent-error analysis below.
+For a sandhi event it emits `{"error_type": "sandhi_merge"|"sandhi_split", ...}`
+records (no contribution to sub / ins / del counters).
+
+### Analyse — frequent errors and sandhi events
+
+```python
+from scribe import (
+    text_error_details, text_error_rates,
+    compute_error_summary, compute_aggregate_metrics,
+    format_frequent_errors_table,
+)
+
+pairs = [
+    ("ഇന്ന് അല്ലെങ്കിൽ നാളെ", "ഇന്നല്ലെങ്കിൽ നാളെ"),  # merge
+    ("ഇന്ന് അല്ലെങ്കിൽ പിന്നെ", "ഇന്നല്ലെങ്കിൽ പിന്നെ"), # merge (repeat)
+    ("നാളെ വരാം",            "നാളെ പോകാം"),            # plain sub
+]
+details = []
+samples = []
+for r, h in pairs:
+    details.extend(text_error_details(r, h, None))
+    samples.append({"detailed_report": text_error_rates(r, h, None),
+                    "source_dataset": "demo"})
+
+agg = compute_aggregate_metrics(samples)
+summary = compute_error_summary(agg["overall"], details, top_n=5)
+
+merge_rows = format_frequent_errors_table(
+    summary["frequent_sandhi_merges"], "sandhi_merge", 5
+)
+# [{'Rank': 1, 'Category': 'WORD', 'Reference': 'ഇന്ന് അല്ലെങ്കിൽ',
+#   'Hypothesis': 'ഇന്നല്ലെങ്കിൽ', 'Count': 2}]
+```
+
+`compute_error_summary` returns a single dict with all per-category
+contributions, top-N substitutions / deletions / insertions, and the
+two new top-N sandhi tables (`frequent_sandhi_merges`,
+`frequent_sandhi_splits`). The CLI (`examples/batch_evaluate.py
+--analysis`) and the Streamlit visualizer both render straight from
+this dict.
 
 ## Where to make a change
 
@@ -58,7 +210,7 @@ paper. When you change a module, run its corresponding test file first.
 
 - **Combined denominator** — error rates are `(category errors) / (total tokens across all categories)`, not `(category errors) / (category tokens)`. Stops sparse categories (e.g. 1 LEGAL error in 1 LEGAL token) reading as 100%. Implemented in `measure.py::token_error_rates`.
 - **Domain shielding** — domain entities (`u/s`, `r/w`, `PW1`) are extracted *before* general tokenization so they stay atomic and are tracked under their own category. Implemented across `tokenize.py` + `domain_config.py`.
-- **Sandhi awareness** — the alignment step detects when ASR has merged or split adjacent words (common in agglutinative Indic languages) and counts those separately from substitutions. Implemented in `align.py`. Disable with `use_sandhi=False` for non-agglutinative languages.
+- **Sandhi awareness** — the alignment step detects when ASR has merged or split adjacent words (common in agglutinative Indic languages) and counts those separately from substitutions. The detected pairs are also surfaced as their own frequent-event tables (`frequent_sandhi_merges`, `frequent_sandhi_splits`) alongside the substitution / deletion / insertion tables, so recurring sandhi patterns are diagnosable at a dataset level. Implemented in `align.py` (detection) + `analysis.py` (aggregation). Disable with `use_sandhi=False` for non-agglutinative languages.
 - **Two error-rate views per category** — `error_rate` (errors / category_ref) for in-isolation accuracy, `combined_total` (errors / total_ref) for contribution to overall TER. The Streamlit UI shows both side-by-side.
 
 ## Glossary
