@@ -216,13 +216,17 @@ def render_category_analysis(summary, domain_config):
 
 
 def render_frequent_errors(summary, top_n):
-    """Three sub-tabs (Subs / Dels / Ins) with table each."""
-    sub_tab, del_tab, ins_tab = st.tabs(["Substitutions", "Deletions", "Insertions"])
+    """Five sub-tabs (Subs / Dels / Ins / Sandhi Merges / Sandhi Splits)."""
+    sub_tab, del_tab, ins_tab, merge_tab, split_tab = st.tabs(
+        ["Substitutions", "Deletions", "Insertions", "Sandhi Merges", "Sandhi Splits"]
+    )
 
-    for tab, error_type, freq_key in [
-        (sub_tab, "substitution", "frequent_substitutions"),
-        (del_tab, "deletion", "frequent_deletions"),
-        (ins_tab, "insertion", "frequent_insertions"),
+    for tab, error_type, freq_key, label in [
+        (sub_tab, "substitution", "frequent_substitutions", "substitutions"),
+        (del_tab, "deletion", "frequent_deletions", "deletions"),
+        (ins_tab, "insertion", "frequent_insertions", "insertions"),
+        (merge_tab, "sandhi_merge", "frequent_sandhi_merges", "sandhi merges"),
+        (split_tab, "sandhi_split", "frequent_sandhi_splits", "sandhi splits"),
     ]:
         with tab:
             freq_data = summary[freq_key]
@@ -230,7 +234,7 @@ def render_frequent_errors(summary, top_n):
             if rows:
                 st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
             else:
-                st.info(f"No {error_type}s found in this batch.")
+                st.info(f"No {label} found in this batch.")
 
 
 def render_analysis(ref_text, hyp_text, weights, domain_config, normalize=True, use_sandhi=True):
