@@ -1,121 +1,71 @@
 #!/usr/bin/env python3
 """
-Example script demonstrating detailed error reporting using dicterrors package.
+Single-sample error report — the analog of `batch_evaluate.py --analysis`
+for a single (reference, hypothesis) pair.
 
-This example shows how to:
-1. Import the necessary functions from the dicterrors package
-2. Tokenize and align two input texts
-3. Generate a comprehensive error report with various error metrics
-4. Visualize the alignment with error details
+Shows the same "Token Breakdown by Category" table that the batch CLI
+produces, with overall accuracy and Token Error Rate (TER) on top.
 
 Usage:
-    python error_report.py "First text to compare" "Second text to compare"
+    python error_report.py "First text" "Second text"
 
-If no arguments are provided, the script uses default example texts.
+If no arguments are provided, uses a default Malayalam example.
 """
 
 import sys
+
 from tabulate import tabulate
-from dicterrors import (
-    domain_aware_tokenizer,
+
+# Reuse the alignment-printing helper from the alignment example.
+from text_alignment import print_alignment
+
+from scribe import (
+    DomainConfig,
     align_arrays,
-    token_error_rates,
-    CAT_WORD, CAT_PUNCT, CAT_NUMERAL,
-    DomainConfig
+    compute_error_summary,
+    domain_aware_tokenizer,
+    text_error_rates,
 )
-from dicterrors.reporting import (
-    format_metrics_dict,
-    format_error_counts_table,
-    format_alignment_table
-)
+from scribe.reporting import format_contribution_table
 
 
-def generate_error_report(text1, text2):
-    """Generate a detailed error report for two texts."""
+def generate_error_report(text1, text2, domain=None):
+    """Print alignment + per-category breakdown for one (ref, hyp) pair."""
+    domain = domain or DomainConfig.legal()
 
-    # Using bundled legal domain. For custom domains, see custom_domain_file.py
-    domain_config = DomainConfig.legal()
+    # Run the full pipeline (tokenize → align → measure) in one call.
+    report = text_error_rates(text1, text2, domain)
+    summary = compute_error_summary(report, error_details=[])
 
-    # Header
-    print("=" * 50)
+    print("=" * 60)
     print("TEXT COMPARISON REPORT")
-    print("=" * 50)
-    print(f"Reference text: {text1}")
-    print(f"Hypothesis text: {text2}")
+    print("=" * 60)
 
-    # Step 1: Tokenize
-    t1, g1 = domain_aware_tokenizer(text1, domain_config)
-    t2, g2 = domain_aware_tokenizer(text2, domain_config)
+    # Token-by-token alignment (helper imported from text_alignment.py).
+    t1, g1 = domain_aware_tokenizer(text1, domain)
+    t2, g2 = domain_aware_tokenizer(text2, domain)
+    aligned_ref, aligned_hyp, score = align_arrays(t1, g1, t2, g2)
+    print_alignment(text1, text2, aligned_ref, aligned_hyp, score)
 
-    # Step 2: Align
-    aligned_ref, aligned_hyp, align_score = align_arrays(t1, g1, t2, g2)
+    # Headline metrics — same shape as `batch_evaluate.py --analysis`.
+    print(
+        f"Overall: {summary['total_correct_pct']:.1f}% correct "
+        f"| {summary['total_error_rate']:.2%} TER\n"
+    )
 
-    # Step 3: Calculate error rates
-    report = token_error_rates(aligned_ref, aligned_hyp, domain_config)
-
-    # Step 4: Format using shared functions
-    metrics = format_metrics_dict(report, domain_config)
-    error_counts = format_error_counts_table(report, domain_config)
-    alignment_vis = format_alignment_table(aligned_ref, aligned_hyp)
-
-    # Display metrics table
-    print("\n" + "=" * 50)
-    print("ERROR METRICS:")
-    print("=" * 50)
-    metrics_table = [
-        ["Word Error Rate (WER)", metrics["WER"]],
-        [f"{domain_config.name.title()} Error Rate ({domain_config.label})", metrics[domain_config.label]],
-        ["Numeral Error Rate (NER)", metrics["NER"]],
-        ["Punctuation Error Rate (PER)", metrics["PER"]],
-        ["Word Correct", report[CAT_WORD]['correct']],
-        [f"{domain_config.name.title()} Correct", report[domain_config.category]['correct']],
-        ["Numeral Correct", report[CAT_NUMERAL]['correct']],
-        ["Punctuation Correct", report[CAT_PUNCT]['correct']],
-        ["Combined Total Tokens", report[CAT_WORD]['combined_total']],
-        ["Sandhi Corrections", metrics["Sandhi"]]
-    ]
-    print(tabulate(metrics_table, headers=["Metric", "Value"], tablefmt="grid"))
-
-    # Display error counts
-    print("\n" + "=" * 50)
-    print("ERROR COUNTS BY CATEGORY:")
-    print("=" * 50)
-    print(tabulate(error_counts, headers="keys", tablefmt="grid"))
-
-    # Display alignment visualization
-    print("\n" + "=" * 50)
-    print("ALIGNMENT VISUALIZATION:")
-    print("=" * 50)
-    print(tabulate(alignment_vis, headers="keys", tablefmt="grid"))
-
-    # Summary
-    print("\n" + "=" * 50)
-    print("SUMMARY:")
-    print("=" * 50)
-    print(f"Alignment Score: {align_score}")
-    print(f"Overall WER: {metrics['WER']}")
-    print(f"Overall {domain_config.label}: {metrics[domain_config.label]}")
-    print(f"Overall NER: {metrics['NER']}")
-    print(f"Overall PER: {metrics['PER']}")
-    print(f"Sandhi corrections: {metrics['Sandhi']}")
-
-    return report
+    print("--- Token Breakdown by Category ---")
+    rows = format_contribution_table(summary["contributions"], domain)
+    print(tabulate(rows, headers="keys", tablefmt="simple"))
 
 
 def main():
-    # Use command line arguments if provided, otherwise use default examples
     if len(sys.argv) >= 3:
-        text1 = sys.argv[1]
-        text2 = sys.argv[2]
+        text1, text2 = sys.argv[1], sys.argv[2]
     else:
-        # Default examples in multiple languages
-        print("No text arguments provided. Using default example...")
-
-        # Malayalam example
+        print("No text arguments provided. Using default example...\n")
         text1 = "പണം അക്കൗണ്ടിൽ എത്തിയപ്പോൾ ആദ്യ, ഗഡുവായി 180000 രൂപയായി നൽകിയത്."
         text2 = "പണം അക്കൗണ്ടിൽ എത്തിയപ്പോൾ, ആദ്യ ഘടുവായി 180000 രൂപയാണ് നൽകിയത്:"
 
-    # Generate the error report
     generate_error_report(text1, text2)
 
 

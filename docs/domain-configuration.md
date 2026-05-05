@@ -1,13 +1,13 @@
 # Domain Configuration
 
-DictErrors supports flexible domain-aware tokenization via the `DomainConfig` class. Domain entities are extracted before general tokenization to prevent incorrect splitting (e.g., `u/s` stays as one token) and are tracked separately in error metrics.
+scribe-eval supports flexible domain-aware tokenization via the `DomainConfig` class. Domain entities are extracted before general tokenization to prevent incorrect splitting (e.g., `u/s` stays as one token) and are tracked separately in error metrics.
 
 ## Factory Methods (Bundled Domains)
 
 Three pre-configured domains are bundled with the package:
 
 ```python
-from dicterrors import DomainConfig, text_error_rates
+from scribe import DomainConfig, text_error_rates
 
 domain = DomainConfig.legal()      # Indian legal terminology
 domain = DomainConfig.medical()    # Medical units and dosages
@@ -20,7 +20,7 @@ report = text_error_rates(ref, hyp, domain)
 |---|---|---|---|
 | `DomainConfig.legal()` | LEGAL | LER | u/s, r/w, sec., art., v., vs., PW1/PW-1, CW1, Ext.A |
 | `DomainConfig.medical()` | MEDICAL | MER | mg, ml, cc, mcg, IU, 500mg, 10ml |
-| `DomainConfig.technical()` | TECH | TER | API, SDK, CLI, JSON, HTTP, v1.0 |
+| `DomainConfig.technical()` | TECH | TchER | API, SDK, CLI, JSON, HTTP, v1.0 |
 
 ## File-Based Configuration
 
@@ -67,7 +67,7 @@ REGEX: Ext\.[-\s]*[A-Z]\d*  # Matches Ext.A, Ext. B2
 
 ### Bundled Config Files
 
-Sample config files are included in `src/dicterrors/config/`:
+Sample config files are included in `src/scribe/config/`:
 - `legal_terms.txt` — Indian legal terminology
 - `medical_terms.txt` — Medical units and dosages
 - `technical_terms.txt` — Technical abbreviations (case-sensitive)
@@ -88,13 +88,13 @@ custom = DomainConfig.from_file(
 ## Inline Custom Domains
 
 ```python
-from dicterrors import DomainConfig
+from scribe import DomainConfig
 
 # List-based patterns (automatically escaped)
 custom = DomainConfig("custom", ["u/s", "r/w"], category="CUSTOM", label="CuER")
 
 # Regex pattern (used directly)
-technical = DomainConfig("tech", r'API|SDK|CLI|v\d+\.\d+', category="TECH", label="TER")
+technical = DomainConfig("tech", r'API|SDK|CLI|v\d+\.\d+', category="TECH", label="TchER")
 
 # Use in evaluation
 report = text_error_rates(ref, hyp, custom)
@@ -111,7 +111,7 @@ report = text_error_rates(ref, hyp, None)
 ## File Location Conventions
 
 - **Project configs**: `config/` directory at the repository root
-- **Personal configs**: `~/.config/dicterrors/`
+- **Personal configs**: `~/.config/scribe-eval/`
 - **Dataset-specific configs**: Alongside the dataset in the data directory
 
 ```

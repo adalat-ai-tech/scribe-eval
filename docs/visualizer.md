@@ -1,12 +1,17 @@
 # Interactive Visualizer
 
-DictErrors includes a Streamlit-based web UI for exploring alignment and error metrics interactively.
+scribe-eval ships a Streamlit-based web UI for exploring alignment and error metrics interactively.
 
 ## Launching
 
+Install the `visualizer` extra and run the bundled command:
+
 ```bash
-streamlit run visualizer.py
+pip install 'scribe-eval[visualizer]'
+scribe-visualizer
 ```
+
+Any extra arguments are forwarded to `streamlit run` (e.g. `scribe-visualizer --server.port 8502`).
 
 ## Tabs
 
@@ -24,7 +29,7 @@ Enter reference and hypothesis text directly. The view updates automatically on 
 - **Error Analysis** expander:
   - Category contributions table (Ref Tokens, Exact Match, Accuracy, Sub, Del, Ins, Error Rate, Impact on Total)
   - Category breakdown chart (stacked bar: token matches left, TER contribution right)
-- **Frequent Errors** expander: top-N substitutions, deletions, insertions in sub-tabs
+- **Frequent Errors** expander: top-N substitutions, deletions, insertions, sandhi merges, sandhi splits across five sub-tabs (the two sandhi tabs are populated only when sandhi detection is enabled and the language has agglutinative compounds)
 
 ### Batch Dataset Analysis
 

@@ -5,7 +5,7 @@ Batch evaluation script with CLI arguments and proper error handling.
 Processes JSONL files containing reference and hypothesis pairs, computes
 error metrics (WER/LER/NER/PER), and outputs detailed per-sample reports
 and aggregate summaries. With --analysis, provides additional insights:
-total error rate, category contributions, and frequent error patterns.
+Token Error Rate (TER), category contributions, and frequent error patterns.
 """
 
 import argparse
@@ -15,7 +15,7 @@ from pathlib import Path
 
 from tabulate import tabulate
 
-from dicterrors import (
+from scribe import (
     DomainConfig,
     aggregate_error_details,
     compute_aggregate_metrics,
@@ -87,6 +87,20 @@ def print_analysis(summary, domain_config, top_n):
         print(f"\n--- Top {min(top_n, len(ins_rows))} Frequent Insertions ---")
         print(tabulate(ins_rows, headers="keys", tablefmt="simple"))
 
+    # 7. Frequent Sandhi Merges
+    freq_merges = summary["frequent_sandhi_merges"]
+    merge_rows = format_frequent_errors_table(freq_merges, "sandhi_merge", top_n)
+    if merge_rows:
+        print(f"\n--- Top {min(top_n, len(merge_rows))} Frequent Sandhi Merges ---")
+        print(tabulate(merge_rows, headers="keys", tablefmt="simple"))
+
+    # 8. Frequent Sandhi Splits
+    freq_splits = summary["frequent_sandhi_splits"]
+    split_rows = format_frequent_errors_table(freq_splits, "sandhi_split", top_n)
+    if split_rows:
+        print(f"\n--- Top {min(top_n, len(split_rows))} Frequent Sandhi Splits ---")
+        print(tabulate(split_rows, headers="keys", tablefmt="simple"))
+
     print("\n" + "=" * 85)
 
 
@@ -122,17 +136,36 @@ def save_analysis_to_file(summary, output_path, domain_config, top_n):
             f.write(f"\n--- Top {min(top_n, len(ins_rows))} Frequent Insertions ---\n")
             f.write(tabulate(ins_rows, headers="keys", tablefmt="simple") + "\n")
 
+        freq_merges = summary["frequent_sandhi_merges"]
+        merge_rows = format_frequent_errors_table(freq_merges, "sandhi_merge", top_n)
+        if merge_rows:
+            f.write(f"\n--- Top {min(top_n, len(merge_rows))} Frequent Sandhi Merges ---\n")
+            f.write(tabulate(merge_rows, headers="keys", tablefmt="simple") + "\n")
+
+        freq_splits = summary["frequent_sandhi_splits"]
+        split_rows = format_frequent_errors_table(freq_splits, "sandhi_split", top_n)
+        if split_rows:
+            f.write(f"\n--- Top {min(top_n, len(split_rows))} Frequent Sandhi Splits ---\n")
+            f.write(tabulate(split_rows, headers="keys", tablefmt="simple") + "\n")
+
         f.write("\n" + "=" * 85 + "\n")
 
 
 def main():
     """Main entry point with CLI argument parsing."""
+    # Default input and output sit alongside the script; resolve relative
+    # to __file__ so the demo runs from any cwd (`uv run examples/batch_evaluate.py`
+    # from the repo root works the same as `cd examples && uv run ...`).
+    script_dir = Path(__file__).parent
+    default_input = str(script_dir / "predictions.jsonl")
+    default_output = str(script_dir / "output")
+
     parser = argparse.ArgumentParser(
         description="Batch evaluation of ASR predictions with detailed error analysis",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Use defaults (expects ./dictation-eval/predictions.jsonl)
+  # Use defaults (bundled sample data, writes to ./output/)
   python batch_evaluate.py
 
   # Custom input file and output directory
@@ -149,14 +182,14 @@ Examples:
     parser.add_argument(
         "-i",
         "--input",
-        default="./nemo-adalat/in_22.jsonl",
-        help="Input JSONL file with predictions (default: ./dictation-eval/predictions.jsonl)",
+        default=default_input,
+        help="Input JSONL file with predictions (default: bundled sample alongside this script)",
     )
     parser.add_argument(
         "-o",
         "--output-dir",
-        default="./nemo-adalat",
-        help="Output directory for results (default: ./dictation-eval)",
+        default=default_output,
+        help="Output directory for results (default: examples/output/ alongside this script)",
     )
     parser.add_argument(
         "--ref-field",
@@ -288,7 +321,7 @@ Examples:
             # Save charts if requested
             if args.chart:
                 try:
-                    from dicterrors.charts import category_breakdown_chart
+                    from scribe.charts import category_breakdown_chart
 
                     breakdown_path = str(output_dir / "category_breakdown.png")
                     category_breakdown_chart(summary["contributions"], output_path=breakdown_path)

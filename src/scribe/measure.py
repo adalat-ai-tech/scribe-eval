@@ -110,8 +110,8 @@ def token_error_details(
     Extract individual token-level error records from aligned tokens.
 
     Walks the same aligned pairs as token_error_rates() but records each
-    error as a structured dict instead of just counting. Correct matches
-    and sandhi matches are excluded.
+    error or sandhi correction as a structured dict instead of just counting.
+    Correct matches are excluded.
 
     Args:
         aligned_ref: list of (text, tag) tuples
@@ -122,9 +122,12 @@ def token_error_details(
     Returns:
         List of error record dicts. Each dict has:
             - "error_type": "substitution" | "insertion" | "deletion"
+                            | "sandhi_merge" | "sandhi_split"
             - "category": the token category (WORD, PUNCT, NUMERAL, etc.)
-            - "ref_token": the reference token text (None for insertions)
-            - "hyp_token": the hypothesis token text (None for deletions)
+            - "ref_token": the reference token text (None for insertions;
+                           "word1 word2" for sandhi_merge)
+            - "hyp_token": the hypothesis token text (None for deletions;
+                           "word1 word2" for sandhi_split)
     """
     categories = set(get_categories(domain_config))
     errors = []
@@ -147,8 +150,27 @@ def token_error_details(
         if r_tag not in categories:
             continue
 
-        # 2. Handle Sandhi (Corrected Matches) — not errors, skip
-        if "MERGE:" in r_text or "SPLIT:" in h_text:
+        # 2. Handle Sandhi (Corrected Matches) — record them as their own type
+        if "MERGE:" in r_text:
+            errors.append(
+                {
+                    "error_type": "sandhi_merge",
+                    "category": r_tag,
+                    "ref_token": r_text[len("MERGE:") :],
+                    "hyp_token": h_text,
+                }
+            )
+            continue
+
+        if "SPLIT:" in h_text:
+            errors.append(
+                {
+                    "error_type": "sandhi_split",
+                    "category": r_tag,
+                    "ref_token": r_text,
+                    "hyp_token": h_text[len("SPLIT:") :],
+                }
+            )
             continue
 
         # 3. Standard Logic

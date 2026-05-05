@@ -1,6 +1,6 @@
 # Batch Processing
 
-DictErrors supports processing multiple samples from a JSONL file and aggregating metrics across datasets.
+scribe-eval supports processing multiple samples from a JSONL file and aggregating metrics across datasets.
 
 ## Input Format
 
@@ -17,7 +17,7 @@ Each line in the JSONL file must have:
 ### Basic batch evaluation
 
 ```python
-from dicterrors import compute_sample_errors, compute_aggregate_metrics, DomainConfig
+from scribe import compute_sample_errors, compute_aggregate_metrics, DomainConfig
 
 domain = DomainConfig.legal()
 
@@ -43,7 +43,7 @@ for dataset, data in metrics['by_dataset'].items():
 ### Error analysis (contributions + frequent errors)
 
 ```python
-from dicterrors import (
+from scribe import (
     aggregate_error_details,
     compute_error_summary,
     format_contribution_table,
@@ -69,33 +69,37 @@ print(f"Accuracy: {summary['total_correct_pct']:.1f}%")
 
 # Formatted tables for display
 contrib_rows = format_contribution_table(summary["contributions"], domain)
-sub_rows = format_frequent_errors_table(summary["frequent_substitutions"], "substitution", top_n=10)
-del_rows = format_frequent_errors_table(summary["frequent_deletions"], "deletion", top_n=10)
-ins_rows = format_frequent_errors_table(summary["frequent_insertions"], "insertion", top_n=10)
+sub_rows   = format_frequent_errors_table(summary["frequent_substitutions"],   "substitution",  top_n=10)
+del_rows   = format_frequent_errors_table(summary["frequent_deletions"],       "deletion",      top_n=10)
+ins_rows   = format_frequent_errors_table(summary["frequent_insertions"],      "insertion",     top_n=10)
+merge_rows = format_frequent_errors_table(summary["frequent_sandhi_merges"],   "sandhi_merge",  top_n=10)
+split_rows = format_frequent_errors_table(summary["frequent_sandhi_splits"],   "sandhi_split",  top_n=10)
 ```
+
+Sandhi merges / splits surface only when `use_sandhi=True` (the default)
+and the language has agglutinative compounds. For non-agglutinative
+languages (English, Hindi, etc.) the two tables will be empty.
 
 ## CLI (`batch_evaluate.py`)
 
 ```bash
-cd examples/
-
-# Default run
-uv run batch_evaluate.py
+# Default run (uses the bundled examples/predictions.jsonl sample)
+uv run examples/batch_evaluate.py
 
 # Custom input/output
-uv run batch_evaluate.py \
+uv run examples/batch_evaluate.py \
     --input ./my-data/predictions.jsonl \
     --output-dir ./results \
     --ref-field reference \
     --hyp-field hypothesis
 
 # With domain config file
-uv run batch_evaluate.py \
+uv run examples/batch_evaluate.py \
     --input data/predictions.jsonl \
     --domain-config config/legal_terms.txt
 
 # With detailed error analysis and category breakdown chart
-uv run batch_evaluate.py \
+uv run examples/batch_evaluate.py \
     --input data/predictions.jsonl \
     --analysis \
     --top-n 15 \
@@ -106,8 +110,8 @@ uv run batch_evaluate.py \
 
 | Argument | Default | Description |
 |---|---|---|
-| `-i`, `--input` | `./dictation-eval/predictions.jsonl` | Input JSONL file |
-| `-o`, `--output-dir` | `./dictation-eval` | Output directory |
+| `-i`, `--input` | bundled `examples/predictions.jsonl` | Input JSONL file |
+| `-o`, `--output-dir` | `examples/output/` | Output directory (defaults alongside the script) |
 | `--ref-field` | `transcript_cleaned` | Reference field name |
 | `--hyp-field` | `prediction` | Hypothesis field name |
 | `--dataset-field` | `source_dataset` | Dataset identifier field |
@@ -124,7 +128,7 @@ Always produced:
 - `evaluation-detailed.jsonl` — per-sample breakdown (see below)
 
 With `--analysis`:
-- `analysis_report.txt` — TER, accuracy, category breakdown table, top-N frequent substitutions/deletions/insertions
+- `analysis_report.txt` — TER, accuracy, category breakdown table, top-N frequent substitutions / deletions / insertions / sandhi merges / sandhi splits (the last two are only populated for agglutinative languages with sandhi events detected)
 
 With `--analysis --chart`:
 - `category_breakdown.png` — 2-panel stacked bar chart: token matches per category (left panel) and each category's contribution to the overall TER (right panel)
@@ -174,4 +178,4 @@ Each line in the detailed output contains:
 }
 ```
 
-All error rates use the combined denominator (total tokens across all categories). See [Normalized Error Rates](../README.md#normalized-error-rates) for details.
+All error rates use the combined denominator (total tokens across all categories). See [Combined denominator](architecture.md#glossary) in the architecture glossary for details.

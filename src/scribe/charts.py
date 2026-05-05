@@ -106,8 +106,10 @@ def category_breakdown_chart(
 
     # --- Figure layout: left panel (wide) + right panel (contribution) ---
     fig_h = max(4, n * 1.0)
-    fig = plt.figure(figsize=(18, fig_h))
-    gs = GridSpec(1, 2, width_ratios=[3, 1], wspace=0.35)
+    # constrained layout handles GridSpec + suptitle + custom artists
+    # cleanly; avoids the tight_layout "axes not compatible" warning.
+    fig = plt.figure(figsize=(18, fig_h), layout="constrained")
+    gs = GridSpec(1, 2, width_ratios=[3, 1], figure=fig)
 
     ax1 = fig.add_subplot(gs[0, 0])  # Left: stacked bar
     ax3 = fig.add_subplot(gs[0, 1])  # Right: contribution
@@ -232,8 +234,10 @@ def category_breakdown_chart(
     # Separator between TOTAL and category rows
     ax3.axhline(y=0.5, color="gray", linewidth=0.8, linestyle="--")
 
-    fig.suptitle(title, fontsize=15, fontweight="bold", y=1.02)
-    fig.tight_layout()
+    # Constrained layout (set on the figure above) handles suptitle
+    # placement automatically; let it position the title inside the
+    # reserved top region rather than at y=1.02.
+    fig.suptitle(title, fontsize=15, fontweight="bold")
 
     if output_path:
         fig.savefig(output_path, bbox_inches="tight", dpi=150)

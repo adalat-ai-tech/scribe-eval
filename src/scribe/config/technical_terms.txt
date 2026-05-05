@@ -4,7 +4,7 @@
 # Metadata
 @name: technical
 @category: TECH
-@label: TER
+@label: TchER
 @case_sensitive: true
 
 # Literal terms - common technical abbreviations

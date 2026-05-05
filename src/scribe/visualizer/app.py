@@ -1,3 +1,12 @@
+try:
+    import streamlit as st
+except ImportError as exc:
+    raise SystemExit(
+        "The Streamlit visualizer requires the 'visualizer' extra.\n"
+        "Install it with:\n"
+        "    pip install 'scribe-eval[visualizer]'"
+    ) from exc
+
 import json
 import os
 import tempfile
@@ -5,9 +14,8 @@ from pathlib import Path
 
 import jiwer
 import pandas as pd
-import streamlit as st
 
-from dicterrors import (
+from scribe import (
     DEFAULT_WEIGHTS,
     DomainConfig,
     aggregate_error_details,
@@ -20,7 +28,7 @@ from dicterrors import (
     text_error_details,
     token_error_rates,
 )
-from dicterrors.reporting import (
+from scribe.reporting import (
     extract_error_rates,
     format_alignment_dict,
     format_contribution_table,
@@ -29,7 +37,7 @@ from dicterrors.reporting import (
 )
 
 try:
-    from dicterrors.charts import category_breakdown_chart
+    from scribe.charts import category_breakdown_chart
 
     HAS_CHARTS = True
 except ImportError:
@@ -208,13 +216,17 @@ def render_category_analysis(summary, domain_config):
 
 
 def render_frequent_errors(summary, top_n):
-    """Three sub-tabs (Subs / Dels / Ins) with table each."""
-    sub_tab, del_tab, ins_tab = st.tabs(["Substitutions", "Deletions", "Insertions"])
+    """Five sub-tabs (Subs / Dels / Ins / Sandhi Merges / Sandhi Splits)."""
+    sub_tab, del_tab, ins_tab, merge_tab, split_tab = st.tabs(
+        ["Substitutions", "Deletions", "Insertions", "Sandhi Merges", "Sandhi Splits"]
+    )
 
-    for tab, error_type, freq_key in [
-        (sub_tab, "substitution", "frequent_substitutions"),
-        (del_tab, "deletion", "frequent_deletions"),
-        (ins_tab, "insertion", "frequent_insertions"),
+    for tab, error_type, freq_key, label in [
+        (sub_tab, "substitution", "frequent_substitutions", "substitutions"),
+        (del_tab, "deletion", "frequent_deletions", "deletions"),
+        (ins_tab, "insertion", "frequent_insertions", "insertions"),
+        (merge_tab, "sandhi_merge", "frequent_sandhi_merges", "sandhi merges"),
+        (split_tab, "sandhi_split", "frequent_sandhi_splits", "sandhi splits"),
     ]:
         with tab:
             freq_data = summary[freq_key]
@@ -222,7 +234,7 @@ def render_frequent_errors(summary, top_n):
             if rows:
                 st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
             else:
-                st.info(f"No {error_type}s found in this batch.")
+                st.info(f"No {label} found in this batch.")
 
 
 def render_analysis(ref_text, hyp_text, weights, domain_config, normalize=True, use_sandhi=True):
@@ -450,7 +462,10 @@ with tab_json:
     ref_col = hyp_col = src_col = None
 
     base_dir = Path(__file__).parent
-    default_path = base_dir / "examples" / "dictation-eval" / "predictions.jsonl"
+    # Repo-checkout layout: src/scribe/visualizer/app.py → ../../../examples/.
+    # Falls back gracefully (warning shown below) when running from an
+    # installed wheel where examples/ is not packaged.
+    default_path = Path(__file__).resolve().parents[3] / "examples" / "predictions.jsonl"
 
     with col_config:
         st.markdown("### 📂 Load Data")
@@ -466,7 +481,7 @@ with tab_json:
                 with open(default_path, "r", encoding="utf-8") as f:
                     data_content = f.readlines()
             else:
-                st.warning(f"Default file not found at: `{default_path.relative_to(base_dir)}`")
+                st.warning(f"Default file not found at: `{default_path}`")
 
         if data_content:
             records = parse_data(data_content)

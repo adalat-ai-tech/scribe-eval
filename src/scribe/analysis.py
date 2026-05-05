@@ -2,8 +2,8 @@
 Analytical computations for ASR error insights.
 
 This module transforms measured error data into actionable insights:
-total error rates, category contributions, error type distributions,
-and frequency analysis of specific token errors.
+Token Error Rate (TER), category contributions, error type
+distributions, and frequency analysis of specific token errors.
 """
 
 from collections import Counter
@@ -11,7 +11,7 @@ from collections import Counter
 
 def compute_total_error_rate(metrics: dict[str, dict]) -> float:
     """
-    Compute composite Total Error Rate from category metrics.
+    Compute the composite Token Error Rate (TER) from category metrics.
 
     Since each category's error_rate uses combined_total as denominator,
     the sum naturally equals total_errors / combined_total.
@@ -21,7 +21,8 @@ def compute_total_error_rate(metrics: dict[str, dict]) -> float:
                  maps category name -> dict with 'error_rate' key
 
     Returns:
-        Total error rate as a float (0.0 to 1.0)
+        Token Error Rate as a float (0.0 to 1.0+; can exceed 1.0 when
+        insertions outnumber matched reference tokens).
     """
     return sum(cat_data["error_rate"] for cat_data in metrics.values())
 
@@ -213,6 +214,68 @@ def compute_frequent_insertions(
     return result
 
 
+def _compute_frequent_sandhi(
+    error_details: list[dict],
+    error_type: str,
+    top_n: int,
+) -> dict[str, list[tuple[str, str, int]]]:
+    """Shared helper for frequent sandhi merges/splits."""
+    records = [e for e in error_details if e["error_type"] == error_type]
+
+    overall_counter = Counter((e["ref_token"], e["hyp_token"]) for e in records)
+    result = {
+        "_all": [(ref, hyp, count) for (ref, hyp), count in overall_counter.most_common(top_n)]
+    }
+
+    by_cat: dict[str, list[dict]] = {}
+    for e in records:
+        by_cat.setdefault(e["category"], []).append(e)
+
+    for cat, cat_records in by_cat.items():
+        counter = Counter((e["ref_token"], e["hyp_token"]) for e in cat_records)
+        result[cat] = [(ref, hyp, count) for (ref, hyp), count in counter.most_common(top_n)]
+
+    return result
+
+
+def compute_frequent_sandhi_merges(
+    error_details: list[dict],
+    top_n: int = 20,
+) -> dict[str, list[tuple[str, str, int]]]:
+    """
+    Find the most frequent sandhi merges (two ref words → one hyp word).
+
+    Args:
+        error_details: from token_error_details()
+        top_n: number of top merges per category
+
+    Returns:
+        Dict mapping category -> list of (ref_token, hyp_token, count) where
+        ref_token is the two-word source ("word1 word2") and hyp_token is the
+        merged form. Key "_all" for the overall list.
+    """
+    return _compute_frequent_sandhi(error_details, "sandhi_merge", top_n)
+
+
+def compute_frequent_sandhi_splits(
+    error_details: list[dict],
+    top_n: int = 20,
+) -> dict[str, list[tuple[str, str, int]]]:
+    """
+    Find the most frequent sandhi splits (one ref word → two hyp words).
+
+    Args:
+        error_details: from token_error_details()
+        top_n: number of top splits per category
+
+    Returns:
+        Dict mapping category -> list of (ref_token, hyp_token, count) where
+        ref_token is the single source word and hyp_token is the split form
+        ("word1 word2"). Key "_all" for the overall list.
+    """
+    return _compute_frequent_sandhi(error_details, "sandhi_split", top_n)
+
+
 def compute_error_summary(
     metrics: dict[str, dict],
     error_details: list[dict],
@@ -234,6 +297,8 @@ def compute_error_summary(
             "frequent_substitutions": dict from compute_frequent_substitutions,
             "frequent_deletions": dict from compute_frequent_deletions,
             "frequent_insertions": dict from compute_frequent_insertions,
+            "frequent_sandhi_merges": dict from compute_frequent_sandhi_merges,
+            "frequent_sandhi_splits": dict from compute_frequent_sandhi_splits,
         }
     """
     contributions = compute_category_contributions(metrics)
@@ -251,4 +316,6 @@ def compute_error_summary(
         "frequent_substitutions": compute_frequent_substitutions(error_details, top_n),
         "frequent_deletions": compute_frequent_deletions(error_details, top_n),
         "frequent_insertions": compute_frequent_insertions(error_details, top_n),
+        "frequent_sandhi_merges": compute_frequent_sandhi_merges(error_details, top_n),
+        "frequent_sandhi_splits": compute_frequent_sandhi_splits(error_details, top_n),
     }
