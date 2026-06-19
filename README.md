@@ -1,7 +1,6 @@
 # SCRIBE — Diagnostic Evaluation for Indic & Domain-Specific ASR
 
-[![PyPI](https://img.shields.io/pypi/v/scribe-eval.svg)](https://pypi.org/project/scribe-eval/)
-[![Python](https://img.shields.io/pypi/pyversions/scribe-eval.svg)](https://pypi.org/project/scribe-eval/)
+[![Python](https://img.shields.io/badge/python-%3E%3D3.10-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 `scribe-eval` is the open-source evaluation framework introduced in the SCRIBE
@@ -17,10 +16,14 @@ single misrecognized legal term doesn't inflate your general WER.
 
 ## Installation
 
+`scribe-eval` is not yet on PyPI — install from source for now (`pip install scribe-eval` will work once published):
+
 ```bash
-pip install scribe-eval                # core library
-pip install 'scribe-eval[visualizer]'  # adds Streamlit UI
-pip install 'scribe-eval[charts]'      # adds matplotlib charts
+git clone https://github.com/adalat-ai-tech/scribe-eval.git
+cd scribe-eval
+pip install -e .                 # core library
+pip install -e '.[visualizer]'   # adds Streamlit UI
+pip install -e '.[charts]'       # adds matplotlib charts
 ```
 
 ## Quick Start
@@ -81,7 +84,7 @@ See [docs/batch-processing.md](docs/batch-processing.md) for the Python API, CLI
 ## Interactive Visualizer
 
 ```bash
-pip install 'scribe-eval[visualizer]'
+pip install -e '.[visualizer]'
 scribe-visualizer
 ```
 
