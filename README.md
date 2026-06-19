@@ -84,8 +84,7 @@ See [docs/batch-processing.md](docs/batch-processing.md) for the Python API, CLI
 ## Interactive Visualizer
 
 ```bash
-pip install -e '.[visualizer]'
-scribe-visualizer
+scribe-visualizer    # requires the [visualizer] extra (see Installation)
 ```
 
 See [docs/visualizer.md](docs/visualizer.md).
