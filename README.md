@@ -1,12 +1,11 @@
 # SCRIBE — Diagnostic Evaluation for Indic & Domain-Specific ASR
 
-[![PyPI](https://img.shields.io/pypi/v/scribe-eval.svg)](https://pypi.org/project/scribe-eval/)
-[![Python](https://img.shields.io/pypi/pyversions/scribe-eval.svg)](https://pypi.org/project/scribe-eval/)
+[![Python](https://img.shields.io/badge/python-%3E%3D3.10-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 `scribe-eval` is the open-source evaluation framework introduced in the SCRIBE
 paper (*Diagnostic Evaluation and Rich Transcription Models for Indic ASR*,
-under review at Interspeech 2026). It provides fine-grained error metrics for
+accepted at Interspeech 2026). It provides fine-grained error metrics for
 ASR systems on Indic languages (Malayalam, Kannada, Hindi, ...) and on
 domain-specific transcription (legal, medical, technical).
 
@@ -17,10 +16,14 @@ single misrecognized legal term doesn't inflate your general WER.
 
 ## Installation
 
+`scribe-eval` is not yet on PyPI — install from source for now (`pip install scribe-eval` will work once published):
+
 ```bash
-pip install scribe-eval                # core library
-pip install 'scribe-eval[visualizer]'  # adds Streamlit UI
-pip install 'scribe-eval[charts]'      # adds matplotlib charts
+git clone https://github.com/adalat-ai-tech/scribe-eval.git
+cd scribe-eval
+pip install -e .                 # core library
+pip install -e '.[visualizer]'   # adds Streamlit UI
+pip install -e '.[charts]'       # adds matplotlib charts
 ```
 
 ## Quick Start
@@ -81,8 +84,7 @@ See [docs/batch-processing.md](docs/batch-processing.md) for the Python API, CLI
 ## Interactive Visualizer
 
 ```bash
-pip install 'scribe-eval[visualizer]'
-scribe-visualizer
+scribe-visualizer    # requires the [visualizer] extra (see Installation)
 ```
 
 See [docs/visualizer.md](docs/visualizer.md).
@@ -129,10 +131,20 @@ Accuracy, ...).
 
 ## Citation
 
-The SCRIBE paper is currently under anonymous review at Interspeech 2026. A
-BibTeX entry will be added here once the proceedings or arXiv preprint are
-publicly available. Until then, please cite this repository directly via the
-"Cite this repository" button on GitHub.
+The SCRIBE paper is accepted at Interspeech 2026. A preprint is available on
+arXiv: <https://arxiv.org/abs/2605.20712>
+
+```bibtex
+@article{manohar2026scribe,
+  title={SCRIBE: Diagnostic Evaluation and Rich Transcription Models for Indic ASR},
+  author={Manohar, Kavya and Bhattacharya, Arghya and Juvekar, Kush and Nethil, Kumarmanas},
+  journal={arXiv preprint arXiv:2605.20712},
+  year={2026}
+}
+```
+
+To cite the software itself, use the "Cite this repository" button on GitHub
+(see [CITATION.cff](CITATION.cff)) or the Zenodo DOI once released.
 
 ## License
 

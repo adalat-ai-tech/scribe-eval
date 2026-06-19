@@ -1,0 +1,26 @@
+{
+  "upload_type": "software",
+  "title": "scribe-eval: Diagnostic Evaluation for Indic and Domain-Specific ASR",
+  "description": "Diagnostic ASR evaluation with sandhi-tolerant alignment and categorical error decomposition for Indic and domain-specific speech recognition. Accompanies the SCRIBE paper (under review at Interspeech 2026).",
+  "license": "Apache-2.0",
+  "access_right": "open",
+  "creators": [
+    {
+      "name": "Manohar, Kavya",
+      "orcid": "0000-0003-2402-5272"
+    },
+    {
+      "name": "Nethil, Kumarmanas",
+      "orcid": "0009-0003-0730-6897"
+    }
+  ],
+  "keywords": [
+    "asr",
+    "speech-recognition",
+    "evaluation",
+    "wer",
+    "sandhi",
+    "error-analysis",
+    "rich-transcription"
+  ]
+}
