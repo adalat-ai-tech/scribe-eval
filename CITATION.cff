@@ -21,35 +21,8 @@ authors:
   - given-names: Kavya
     family-names: Manohar
     orcid: "https://orcid.org/0000-0003-2402-5272"
-  - given-names: Arghya
-    family-names: Bhattacharya
-    orcid: "https://orcid.org/0009-0007-3192-4563"
-  - given-names: Kush
-    family-names: Juvekar
-    orcid: "https://orcid.org/0009-0000-8240-0099"
   - given-names: Kumarmanas
     family-names: Nethil
     orcid: "https://orcid.org/0009-0003-0730-6897"
 # DOI minted by Zenodo on first GitHub Release; fill in once available:
 # doi: "10.5281/zenodo.XXXXXXX"
-#
-# The software accompanies the SCRIBE paper (under review at Interspeech 2026).
-# Complete and uncomment once the proceedings or arXiv preprint are public:
-# preferred-citation:
-#   type: conference-paper
-#   title: "SCRIBE: Diagnostic Evaluation and Rich Transcription Models for Indic ASR"
-#   collection-title: "Proceedings of Interspeech 2026"
-#   year: 2026
-#   authors:
-#     - given-names: Kavya
-#       family-names: Manohar
-#       orcid: "https://orcid.org/0000-0003-2402-5272"
-#     - given-names: Arghya
-#       family-names: Bhattacharya
-#       orcid: "https://orcid.org/0009-0007-3192-4563"
-#     - given-names: Kush
-#       family-names: Juvekar
-#       orcid: "https://orcid.org/0009-0000-8240-0099"
-#     - given-names: Kumarmanas
-#       family-names: Nethil
-#       orcid: "https://orcid.org/0009-0003-0730-6897"
