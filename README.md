@@ -2,6 +2,7 @@
 
 [![Python](https://img.shields.io/badge/python-%3E%3D3.10-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20765419.svg)](https://doi.org/10.5281/zenodo.20765419)
 
 `scribe-eval` is the open-source evaluation framework introduced in the SCRIBE
 paper (*Diagnostic Evaluation and Rich Transcription Models for Indic ASR*,
@@ -144,7 +145,8 @@ arXiv: <https://arxiv.org/abs/2605.20712>
 ```
 
 To cite the software itself, use the "Cite this repository" button on GitHub
-(see [CITATION.cff](CITATION.cff)) or the Zenodo DOI once released.
+(see [CITATION.cff](CITATION.cff)) or the Zenodo DOI:
+[10.5281/zenodo.20765419](https://doi.org/10.5281/zenodo.20765419).
 
 ## License
 

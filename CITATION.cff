@@ -24,5 +24,4 @@ authors:
   - given-names: Kumarmanas
     family-names: Nethil
     orcid: "https://orcid.org/0009-0003-0730-6897"
-# DOI minted by Zenodo on first GitHub Release; fill in once available:
-# doi: "10.5281/zenodo.XXXXXXX"
+doi: "10.5281/zenodo.20765419"
