@@ -11,10 +11,14 @@ def token_error_rates(
     aligned_hyp,
     domain_config: Optional[DomainConfig] = None,
     normalize: bool = True,
-    use_sandhi: bool = True,
 ) -> dict[str, dict[str, float | int]]:
     """
     Calculate error rates from aligned tokens.
+
+    Sandhi handling is decided at alignment time: this function counts
+    whatever MERGE:/SPLIT: markers align_arrays() emitted. To disable
+    sandhi detection, pass use_sandhi=False to align_arrays() (or to the
+    text_error_rates() end-to-end pipeline).
 
     Args:
         aligned_ref: list of (text, tag) tuples

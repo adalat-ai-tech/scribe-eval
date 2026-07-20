@@ -123,3 +123,13 @@ def test_pure_sandhi_event_does_not_affect_error_rate_or_counts():
     assert report["WORD"]["insertions"] == 0
     assert report["WORD"]["deletions"] == 0
     assert report["WORD"]["sandhi_hits"] == 1
+
+
+def test_token_error_rates_has_no_sandhi_parameter():
+    """Sandhi is decided at alignment time; token_error_rates counts the
+    MERGE:/SPLIT: markers it receives. It must not advertise a use_sandhi
+    flag it cannot honor (regression: dead parameter)."""
+    import inspect
+
+    params = inspect.signature(token_error_rates).parameters
+    assert "use_sandhi" not in params

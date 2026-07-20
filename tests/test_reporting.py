@@ -40,6 +40,32 @@ def test_format_metrics_dict_returns_expected_keys(legal_domain):
     assert "Total" in formatted
 
 
+def test_format_metrics_dict_without_domain_config():
+    """Without a domain config there is no domain-label key, but Sandhi
+    and Total are still reported (they do not depend on any domain)."""
+    report = text_error_rates("the case is closed", "the case was closed", None)
+    formatted = format_metrics_dict(report, None)
+    for key in ("WER", "NER", "PER", "Sandhi", "Total"):
+        assert key in formatted
+    assert "DER" not in formatted
+    assert "LER" not in formatted
+
+
+def test_write_summary_to_file_without_domain_config(tmp_path):
+    """write_summary_to_file must produce a complete table when called
+    with domain_config=None (regression: it raised KeyError 'DER')."""
+    report = text_error_rates("the case is closed", "the case was closed", None)
+    agg = {"overall": report, "by_dataset": {"test-set": report}}
+    out = tmp_path / "summary.txt"
+    write_summary_to_file(agg, str(out), None)
+    content = out.read_text(encoding="utf-8")
+    assert "OVERALL" in content
+    assert "test-set" in content
+    # The DER column is present in the header but has no value.
+    assert "DER" in content
+    assert "N/A" in content
+
+
 def test_extract_error_rates_returns_floats_and_sandhi_count(legal_domain):
     """extract_error_rates returns the raw numeric rates (floats) plus
     sandhi count (int)."""

@@ -171,3 +171,11 @@ def test_alignment_counts_extra_word_as_indel_not_sandhi(combined, single):
     joined = [tok for tok, _tag in aligned_ref + aligned_hyp]
     assert not any(tok.startswith(("MERGE:", "SPLIT:")) for tok in joined)
     assert any(tag == "GAP" for _tok, tag in aligned_ref)
+
+
+def test_default_weights_use_correct_tolerance_spelling():
+    """The sandhi tolerance key is public API surface (DEFAULT_WEIGHTS is
+    exported); pin the correct spelling so the pre-release typo
+    'sandhi_char_tolerence' cannot return."""
+    assert "sandhi_char_tolerance" in DEFAULT_WEIGHTS
+    assert "sandhi_char_tolerence" not in DEFAULT_WEIGHTS

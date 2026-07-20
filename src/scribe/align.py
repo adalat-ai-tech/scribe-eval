@@ -20,7 +20,7 @@ DEFAULT_WEIGHTS = {
     "mismatch_default_penalty": -1.5,
     "mismatch_cross_punct_penalty": -3.0,  # High penalty for cross-category align (e.g. Law/Punct)
     "split_merge_penalty": -0.5,  # Small penalty for Sandhi logic
-    "sandhi_char_tolerence": 2,  # Max character diff for Sandhi
+    "sandhi_char_tolerance": 2,  # Max character diff for Sandhi
 }
 
 
@@ -86,7 +86,7 @@ def check_sandhi_match(combined_words, single_text, weights) -> float:
     split_boundary = s2 + s3
 
     dist = levenshtein_distance(split_boundary, boundary_region)
-    if dist <= weights.get("sandhi_char_tolerence", 2):
+    if dist <= weights.get("sandhi_char_tolerance", 2):
         score = weights["match_reward"] + weights["split_merge_penalty"]
         return score - (dist / len(single_text))
 

@@ -59,7 +59,7 @@ uv run pytest --cov=scribe                 # with coverage
 
 Tests live under `tests/`, one file per library module, plus
 `tests/test_paper_cases.py` for end-to-end golden cases from the SCRIBE paper.
-`pytest` ships with the `[dev]` extra.
+`pytest` is part of the `dev` dependency group, which `uv sync` installs by default.
 
 Note: some legacy `test_*.py` scripts remain untracked at the repository root
 from earlier development. They are not part of the suite.
@@ -103,7 +103,7 @@ The visualizer provides:
    - Configurable weights via DEFAULT_WEIGHTS dict
 
 3. **Measurement** (`src/scribe/measure.py`)
-   - `token_error_rates(aligned_ref, aligned_hyp, domain_config=None, normalize=True, use_sandhi=True)`: Computes category-specific error rates from aligned tokens
+   - `token_error_rates(aligned_ref, aligned_hyp, domain_config=None, normalize=True)`: Computes category-specific error rates from aligned tokens; sandhi handling is decided at alignment time (it counts the MERGE:/SPLIT: markers align_arrays emitted)
    - `text_error_rates(ref_text, hyp_text, domain_config=None, normalize=True, use_sandhi=True)`: End-to-end pipeline from raw text to error metrics
    - `token_error_details(aligned_ref, aligned_hyp, domain_config=None, normalize=True)`: Returns flat list of individual error records (substitution/insertion/deletion) per aligned token pair — used for frequent-error analysis
    - `text_error_details(ref_text, hyp_text, domain_config=None, normalize=True, use_sandhi=True)`: End-to-end pipeline from raw text to error detail records
@@ -429,10 +429,12 @@ When using `batch_evaluate.py` with the `output_file` parameter, detailed per-sa
 
 This project uses `uv` for dependency management. Core dependencies:
 - `levenshtein>=0.27.1`: Character-level edit distance
-- `jiwer>=4.0.0`: Baseline WER comparison
-- `streamlit>=1.53.0`: Interactive visualization
 - `tabulate>=0.9.0`: Formatted table output
-- `matplotlib>=3.7.0`: Chart generation (optional; only needed for `--chart` flag)
+
+Optional extras:
+- `jiwer>=4.0.0`: Baseline WER/CER comparison tile (`[visualizer]` extra; core computes its own metrics — native CER planned)
+- `streamlit>=1.53.0`, `pandas>=2.0.0`: Interactive visualization (`[visualizer]` extra)
+- `matplotlib>=3.7.0`: Chart generation (`[charts]` and `[visualizer]` extras; needed for `--chart` flag)
 
 ## Visualizer Implementation Details
 

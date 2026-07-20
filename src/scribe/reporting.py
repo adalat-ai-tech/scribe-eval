@@ -39,10 +39,12 @@ def format_metrics_dict(
 
     if domain_config:
         result[domain_config.label] = f"{metrics[domain_config.category]['error_rate']:.2%}"
-        # Sum sandhi_hits across all categories (Sandhi can occur in WORD, LEGAL, MEDICAL, etc.)
-        total_sandhi = sum(metrics[cat]["sandhi_hits"] for cat in metrics.keys())
-        result["Sandhi"] = total_sandhi
-        result["Total"] = metrics[CAT_WORD].get("combined_total", 0)
+
+    # Sandhi corrections and the combined token count do not depend on a
+    # domain config; report them always. Sandhi can occur in any category
+    # (WORD, LEGAL, MEDICAL, etc.).
+    result["Sandhi"] = sum(metrics[cat]["sandhi_hits"] for cat in metrics.keys())
+    result["Total"] = metrics[CAT_WORD].get("combined_total", 0)
 
     return result
 
@@ -159,11 +161,12 @@ def write_summary_to_file(
                 # Add separator line before OVERALL row if it's not first
                 f.write("-" * TABLE_WIDTH + "\n")
 
-            # Dynamic column access
+            # Dynamic column access; without a domain config there is no
+            # domain rate, so the column shows N/A.
             f.write(
                 f"{row['Dataset']:<25} | "
                 f"{row['WER']:>8} | "
-                f"{row[domain_label]:>8} | "
+                f"{row.get(domain_label, 'N/A'):>8} | "
                 f"{row['NER']:>8} | "
                 f"{row['PER']:>8} | "
                 f"{row['Sandhi']:>6}\n"
