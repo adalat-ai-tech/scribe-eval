@@ -399,8 +399,8 @@ with st.sidebar.expander("Agglutination & Sandhi", expanded=False):
     weights["split_merge_penalty"] = st.slider(
         "Split/Merge Penalty", -2.0, 0.0, DEFAULT_WEIGHTS["split_merge_penalty"], 0.1
     )
-    weights["sandhi_char_tolerence"] = st.slider(
-        "Sandhi Char Tolerance", 0, 5, DEFAULT_WEIGHTS["sandhi_char_tolerence"], 1
+    weights["sandhi_char_tolerance"] = st.slider(
+        "Sandhi Char Tolerance", 0, 5, DEFAULT_WEIGHTS["sandhi_char_tolerance"], 1
     )
 
 st.sidebar.divider()
