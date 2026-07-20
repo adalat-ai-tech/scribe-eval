@@ -55,8 +55,15 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# Bundled config files are enumerated explicitly: a glob would also package
+# untracked files present in a developer's working tree (e.g. gitignored
+# config/custom_*.txt wordlists).
 [tool.setuptools.package-data]
-scribe = ["config/*.txt"]
+scribe = [
+    "config/legal_terms.txt",
+    "config/medical_terms.txt",
+    "config/technical_terms.txt",
+]
 
 [tool.ruff]
 line-length = 100
