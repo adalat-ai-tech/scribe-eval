@@ -174,8 +174,9 @@ def print_evaluation_summary(agg_results, domain_config: Optional[DomainConfig] 
 
     for row in table_data:
         is_overall = row["Dataset"] == "OVERALL"
+        # Without a domain config there is no domain rate; show N/A.
         print(
-            f"{row['Dataset']:<25} | {row['WER']:>8} | {row[domain_label]:>8}"
+            f"{row['Dataset']:<25} | {row['WER']:>8} | {row.get(domain_label, 'N/A'):>8}"
             f" | {row['NER']:>8} | {row['PER']:>8} | {row['Sandhi']:>6}"
         )
         if is_overall:
