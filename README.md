@@ -92,9 +92,9 @@ See [docs/visualizer.md](docs/visualizer.md).
 
 ## Dependencies
 
-Core: `jiwer>=4.0.0`, `levenshtein>=0.27.1`, `tabulate>=0.9.0`
+Core: `levenshtein>=0.27.1`, `tabulate>=0.9.0`
 
-Optional extras: `matplotlib` (for `[charts]`), `streamlit` and `pandas` (for `[visualizer]`).
+Optional extras: `matplotlib` (for `[charts]`), `streamlit`, `pandas`, `matplotlib`, and `jiwer` (for `[visualizer]` — jiwer powers the baseline WER/CER comparison tile).
 
 ## Development
 

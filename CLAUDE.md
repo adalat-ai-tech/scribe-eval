@@ -429,10 +429,12 @@ When using `batch_evaluate.py` with the `output_file` parameter, detailed per-sa
 
 This project uses `uv` for dependency management. Core dependencies:
 - `levenshtein>=0.27.1`: Character-level edit distance
-- `jiwer>=4.0.0`: Baseline WER comparison
-- `streamlit>=1.53.0`: Interactive visualization
 - `tabulate>=0.9.0`: Formatted table output
-- `matplotlib>=3.7.0`: Chart generation (optional; only needed for `--chart` flag)
+
+Optional extras:
+- `jiwer>=4.0.0`: Baseline WER/CER comparison tile (`[visualizer]` extra; core computes its own metrics — native CER planned)
+- `streamlit>=1.53.0`, `pandas>=2.0.0`: Interactive visualization (`[visualizer]` extra)
+- `matplotlib>=3.7.0`: Chart generation (`[charts]` and `[visualizer]` extras; needed for `--chart` flag)
 
 ## Visualizer Implementation Details
 
