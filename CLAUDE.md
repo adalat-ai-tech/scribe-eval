@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-DictErrors is a specialized ASR (Automatic Speech Recognition) error analysis tool for Indic languages (Malayalam, Kannada) with domain-aware tokenization. It provides fine-grained error metrics by categorizing tokens into base categories (WORD, NUMERAL, PUNCT) plus optional domain-specific categories (LEGAL, MEDICAL, or custom domains). Domain-critical terminology is protected from incorrect splitting and tracked separately for error analysis.
+SCRIBE is a specialized ASR (Automatic Speech Recognition) error analysis tool for Indic languages (Malayalam, Kannada) with domain-aware tokenization. It provides fine-grained error metrics by categorizing tokens into base categories (WORD, NUMERAL, PUNCT) plus optional domain-specific categories (LEGAL, MEDICAL, or custom domains). Domain-critical terminology is protected from incorrect splitting and tracked separately for error analysis.
 
 ## Commands
 
@@ -51,28 +51,22 @@ uv run batch_evaluate.py \
 
 ### Testing
 ```bash
-# Note: Test files (test_*.py) are kept locally for development
-# but are not tracked in git. Run tests from the repository root:
-
-# Run basic functionality test
-python test_combined_denominator.py
-
-# Test edge cases
-python test_edge_cases.py
-
-# Test batch aggregation
-python test_batch_aggregation.py
-
-# Test reporting functions
-python test_reporting.py
-
-# Test file-based domain configuration
-python test_domain_config_file.py
+uv run pytest                              # full suite
+uv run pytest tests/test_analysis.py       # one file
+uv run pytest -k sandhi                    # name pattern (-k matches by substring)
+uv run pytest --cov=scribe                 # with coverage
 ```
+
+Tests live under `tests/`, one file per library module, plus
+`tests/test_paper_cases.py` for end-to-end golden cases from the SCRIBE paper.
+`pytest` ships with the `[dev]` extra.
+
+Note: some legacy `test_*.py` scripts remain untracked at the repository root
+from earlier development. They are not part of the suite.
 
 ### Interactive Visualization
 ```bash
-streamlit run visualizer.py
+uv run scribe-visualizer
 ```
 
 The visualizer provides:
@@ -91,7 +85,7 @@ The visualizer provides:
 
 ### Core Pipeline Flow
 
-1. **Tokenization** (`src/dicterrors/tokenize.py`, `src/dicterrors/domain_config.py`)
+1. **Tokenization** (`src/scribe/tokenize.py`, `src/scribe/domain_config.py`)
    - `domain_aware_tokenizer(text, domain_config=None)`: Main tokenization function
    - Base categories: WORD, NUMERAL, PUNCT (always present)
    - Optional domain categories via `DomainConfig` class
@@ -101,14 +95,14 @@ The visualizer provides:
    - Domain entities are protected from punctuation splitting and tracked separately
    - Numeral patterns: dates (DD-MM-YYYY), times (HH:MM), currency with commas
 
-2. **Alignment** (`src/dicterrors/align.py`)
+2. **Alignment** (`src/scribe/align.py`)
    - Modified Needleman-Wunsch algorithm with token-type-aware scoring
    - Cross-category substitution penalties (high penalty for punct ↔ word swaps)
    - Character-aware edit distance using Levenshtein for within-category errors
    - Sandhi correction detection (merged/split words in Indic text); toggled via `use_sandhi: bool = True`
    - Configurable weights via DEFAULT_WEIGHTS dict
 
-3. **Measurement** (`src/dicterrors/measure.py`)
+3. **Measurement** (`src/scribe/measure.py`)
    - `token_error_rates(aligned_ref, aligned_hyp, domain_config=None, normalize=True, use_sandhi=True)`: Computes category-specific error rates from aligned tokens
    - `text_error_rates(ref_text, hyp_text, domain_config=None, normalize=True, use_sandhi=True)`: End-to-end pipeline from raw text to error metrics
    - `token_error_details(aligned_ref, aligned_hyp, domain_config=None, normalize=True)`: Returns flat list of individual error records (substitution/insertion/deletion) per aligned token pair — used for frequent-error analysis
@@ -118,7 +112,7 @@ The visualizer provides:
    - **Domain-aware metrics**: WER (Word Error Rate), NER (Numeral Error Rate), PER (Punctuation Error Rate), plus domain-specific rates (e.g., LER for legal, MER for medical)
    - Tracks substitutions, insertions, deletions, and Sandhi corrections per category
 
-4. **Batch Processing** (`src/dicterrors/measure_batch.py`)
+4. **Batch Processing** (`src/scribe/measure_batch.py`)
    - `compute_sample_errors(input_file, output_file=None, domain_config=None, normalize=True, use_sandhi=True, collect_error_details=False, ...)`: Process JSONL files with multiple samples
    - `collect_error_details=True` stores per-token error records in memory (needed for `--analysis`; excluded from JSONL output)
    - Optional `domain_config` parameter enables domain-specific error tracking
@@ -128,7 +122,7 @@ The visualizer provides:
    - `aggregate_error_details(sample_results)`: Flatten per-sample error detail records into a single list for frequency analysis
    - `print_evaluation_summary()`: Formatted output table with WER/NER/PER plus domain-specific rates (e.g., LER, MER)
 
-5. **Analysis** (`src/dicterrors/analysis.py`)
+5. **Analysis** (`src/scribe/analysis.py`)
    - `compute_category_contributions(metrics)`: Full breakdown per category — correct/sub/del/ins counts, ref_tokens, correct_pct, error_count, contribution_pct
    - `compute_total_error_rate(metrics)`: Composite TER as a float (sum of all category error_rates using combined denominator)
    - `compute_error_type_distribution(metrics)`: Sub/ins/del percentage split per category
@@ -137,14 +131,14 @@ The visualizer provides:
    - `compute_frequent_insertions(error_details, top_n)`: Most frequently inserted hypothesis tokens
    - `compute_error_summary(metrics, error_details, top_n)`: All of the above in one call; also includes `total_correct_pct`
 
-6. **Charts** (`src/dicterrors/charts.py`)
+6. **Charts** (`src/scribe/charts.py`)
    - Requires `matplotlib` (optional dependency; raises ImportError with install instructions if missing)
    - `category_breakdown_chart(contributions, output_path=None, title=...)`: 2-panel figure
      - **Left panel** (wide): Stacked horizontal bar — Exact Match (green) / Substitutions (red) / Deletions (amber) / Insertions (blue) per category + TOTAL row. Accuracy % annotated inside bar (or outside for small bars).
      - **Right panel**: Category contribution to total TER — same stacked colors showing (S+I+D)/total_ref_tokens per category + TOTAL. Dynamic title: "Category Contribution to X.X% Token Error Rate"
      - Category order: Word Tokens → Domain Tokens → Numeral Tokens → Punctuation Tokens, TOTAL at bottom
 
-7. **Reporting** (`src/dicterrors/reporting.py`)
+7. **Reporting** (`src/scribe/reporting.py`)
    - Shared formatting functions used across CLI and web UI
    - `format_metrics_dict()`: Convert error metrics to formatted dictionary (returns formatted strings)
    - `extract_error_rates()`: Extract raw numeric error rates (WER/LER/NER/PER/Sandhi) for UI components
@@ -180,7 +174,7 @@ The visualizer provides:
 
 ## File Organization
 
-- `src/dicterrors/`: Core library modules
+- `src/scribe/`: Core library modules
   - `__init__.py`: Public API exports
   - `config/`: Bundled domain configuration files (distributed with package)
     - `__init__.py`
@@ -204,8 +198,10 @@ The visualizer provides:
   - `error_report.py`: Single-sample error report generation
   - `custom_domain_file.py`: Demonstrates factory methods, file-based, and inline domain configs
   - `batch_evaluate.py`: Batch evaluation with detailed JSONL output
-- `test_*.py`: Test suites (root level, not tracked in git)
-- `visualizer.py`: Streamlit interactive UI (root level)
+  - `visualizer/`: Streamlit interactive UI, exposed as the `scribe-visualizer` console script
+    - `app.py`: The Streamlit application
+    - `__main__.py`: CLI entry point (`scribe-visualizer`)
+- `tests/`: Test suite, one file per library module (run with `uv run pytest`)
 - `pyproject.toml`: Package configuration with uv
 
 ## Token Categories
@@ -223,7 +219,7 @@ The visualizer provides:
 
 **Usage:**
 ```python
-from dicterrors import domain_aware_tokenizer, DomainConfig
+from scribe import domain_aware_tokenizer, DomainConfig
 
 # Use factory method for bundled domain
 legal_domain = DomainConfig.legal()
@@ -280,7 +276,7 @@ REGEX: CW[-\s]*\d+     # Matches CW1, CW 1, CW-1
 ### Loading from Python
 
 ```python
-from dicterrors import DomainConfig, text_error_rates
+from scribe import DomainConfig, text_error_rates
 
 # Load from file (uses all metadata from file)
 legal_config = DomainConfig.from_file("config/legal_terms.txt")
@@ -334,7 +330,7 @@ The `config/` directory contains pre-made configuration files:
 The file format enables flexible pattern matching that handles spacing and formatting variations:
 
 ```python
-from dicterrors import DomainConfig, domain_aware_tokenizer
+from scribe import DomainConfig, domain_aware_tokenizer
 
 # Load legal config with witness patterns
 legal = DomainConfig.from_file("config/legal_terms.txt")
@@ -353,7 +349,7 @@ assert "LEGAL" in tags3
 ### File Location Conventions
 
 - **Project configs**: Store in `config/` directory at repository root
-- **User configs**: Store in `~/.config/dicterrors/` for personal configurations
+- **User configs**: Store in `~/.config/scribe/` for personal configurations
 - **Dataset-specific configs**: Store alongside dataset in data directory
 
 Example directory structure:
@@ -442,7 +438,7 @@ This project uses `uv` for dependency management. Core dependencies:
 
 ### Session State Management
 
-The Streamlit visualizer (`visualizer.py`) uses session state to preserve results across script re-runs. Key implementation details:
+The Streamlit visualizer (`src/scribe/visualizer/app.py`) uses session state to preserve results across script re-runs. Key implementation details:
 
 **Stored in session state:**
 - `detailed_results`: List of per-sample error dictionaries (limited to 100 most recent)

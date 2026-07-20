@@ -131,7 +131,7 @@ def inject_custom_css():
 
 
 def generate_alignment_html(aligned_ref, aligned_hyp, normalize=True):
-    """Render DictErrors alignment as HTML."""
+    """Render SCRIBE alignment as HTML."""
     alignment_data = format_alignment_dict(aligned_ref, aligned_hyp, normalize)
     status_map = {
         "correct": "s-correct",
@@ -261,7 +261,7 @@ def render_analysis(ref_text, hyp_text, weights, domain_config, normalize=True, 
 
     category_chips = build_category_chips(contributions, domain_config)
 
-    st.markdown("**DictErrors Alignment** (Domain-Aware)")
+    st.markdown("**SCRIBE Alignment** (Domain-Aware)")
     mc1, mc2, _ = st.columns([1, 1, 2])
     mc1.metric("Token Error Rate", f"{ter_frac:.2%}")
     mc2.metric(
@@ -352,8 +352,8 @@ def clear_session_keys():
 
 
 # --- UI CONFIG ---
-st.set_page_config(layout="wide", page_title="DictErrors: ASR Error Analysis")
-st.title("🔍 DictErrors: ASR Error Analysis")
+st.set_page_config(layout="wide", page_title="SCRIBE: ASR Error Analysis")
+st.title("🔍 SCRIBE: ASR Error Analysis")
 inject_custom_css()
 
 # --- SIDEBAR ---
@@ -588,7 +588,7 @@ with tab_json:
         overall_chips = build_category_chips(summary["contributions"], domain_config)
         overall_ter = summary["total_error_rate"]
 
-        st.markdown("**DictErrors** (Domain-Aware)")
+        st.markdown("**SCRIBE** (Domain-Aware)")
         mc1, mc2, _ = st.columns([1, 1, 2])
         mc1.metric("Token Error Rate", f"{overall_ter:.2%}")
         mc2.metric(
