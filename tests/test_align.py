@@ -5,6 +5,7 @@ import math
 import pytest
 
 from scribe import DomainConfig, align_arrays, domain_aware_tokenizer
+from scribe.align import DEFAULT_WEIGHTS, check_sandhi_match
 
 
 def _tok(text, domain=None):
@@ -121,3 +122,52 @@ def test_alignment_runs_cleanly_on_multilingual_pairs(ref, hyp):
     assert len(aligned_ref) == len(aligned_hyp)
     assert len(aligned_ref) > 0
     assert isinstance(score, float) and math.isfinite(score)
+
+
+# Regression tests for issue #23: an extra dropped/inserted word must not be
+# validated as a Sandhi split/merge. When single_text is identical to one of
+# the pair, the other word contributed nothing, yet the boundary region
+# collapses to empty and the Levenshtein distance (== len(split_boundary)
+# == 2) lands exactly on the default tolerance, producing a false positive.
+SANDHI_FALSE_POSITIVES = [
+    pytest.param(["सी", "सेंटर"], "सेंटर", id="hindi-extra-word-before"),
+    pytest.param(["പരിചയം", "യം"], "പരിചയം", id="malayalam-echoed-suffix"),
+]
+
+SANDHI_GENUINE = [
+    pytest.param(["വന്നു", "ഇല്ല"], "വന്നില്ല", id="malayalam-vowel-elision"),
+    pytest.param(["മരം", "ഇല്ല"], "മരമില്ല", id="malayalam-anusvara-assimilation"),
+    pytest.param(["ചെയ്തു", "എന്ന്"], "ചെയ്തുവെന്ന്", id="malayalam-v-glide"),
+    pytest.param(["താമര", "ഇല"], "താമരയില", id="malayalam-y-glide"),
+    # Empty boundary region but single != either word: the chandrakkala and
+    # അ both vanish at the junction, yet both words contribute content.
+    pytest.param(["ഇന്ന്", "അല്ലെങ്കിൽ"], "ഇന്നല്ലെങ്കിൽ", id="malayalam-empty-boundary-genuine"),
+]
+
+
+@pytest.mark.parametrize("combined,single", SANDHI_FALSE_POSITIVES)
+def test_check_sandhi_match_rejects_dropped_word(combined, single):
+    """A pair where single_text equals one component word means the other
+    word was dropped/inserted, never a Sandhi junction."""
+    assert check_sandhi_match(combined, single, DEFAULT_WEIGHTS) == -float("inf")
+
+
+@pytest.mark.parametrize("combined,single", SANDHI_GENUINE)
+def test_check_sandhi_match_accepts_genuine_junctions(combined, single):
+    """Real Sandhi junctions — including ones whose junction characters fully
+    assimilate (empty boundary region) — must keep scoring positively."""
+    assert check_sandhi_match(combined, single, DEFAULT_WEIGHTS) > 0
+
+
+@pytest.mark.parametrize("combined,single", SANDHI_FALSE_POSITIVES)
+def test_alignment_counts_extra_word_as_indel_not_sandhi(combined, single):
+    """End to end: the extra word must surface as a gap (insertion) in the
+    alignment rather than being absorbed into a MERGE/SPLIT slot."""
+    ref_toks, ref_tags = [single], ["WORD"]
+    hyp_toks, hyp_tags = list(combined), ["WORD"] * len(combined)
+    aligned_ref, aligned_hyp, _ = align_arrays(
+        ref_toks, ref_tags, hyp_toks, hyp_tags, use_sandhi=True
+    )
+    joined = [tok for tok, _tag in aligned_ref + aligned_hyp]
+    assert not any(tok.startswith(("MERGE:", "SPLIT:")) for tok in joined)
+    assert any(tag == "GAP" for _tok, tag in aligned_ref)

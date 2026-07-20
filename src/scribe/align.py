@@ -70,6 +70,18 @@ def check_sandhi_match(combined_words, single_text, weights) -> float:
     if not single_text.startswith(s1) or not single_text.endswith(s4):
         return -float("inf")
 
+    # If single_text is identical to one of the pair, the other word
+    # contributed nothing — it was dropped/inserted, not merged/split.
+    # Without this guard the boundary region collapses to empty and the
+    # distance (== len(split_boundary) == 2) lands within tolerance.
+    if single_text == w1 or single_text == w2:
+        return -float("inf")
+
+    # The prefix and suffix must not claim the same characters: overlap
+    # makes the boundary slice silently return "" instead of failing.
+    if len(s1) + len(s4) > len(single_text):
+        return -float("inf")
+
     boundary_region = single_text[len(s1) : len(single_text) - len(s4)]
     split_boundary = s2 + s3
 
