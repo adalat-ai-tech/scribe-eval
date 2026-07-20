@@ -101,7 +101,7 @@ Optional extras: `matplotlib` (for `[charts]`), `streamlit`, `pandas`, `matplotl
 ```bash
 git clone https://github.com/adalat-ai-tech/scribe-eval.git
 cd scribe-eval
-uv sync --all-extras --dev    # core + [charts] + [visualizer] + [dev]
+uv sync --all-extras    # core + [charts] + [visualizer] + dev tooling
 ```
 
 ### Running tests
@@ -116,8 +116,8 @@ uv run pytest --cov=scribe                 # with coverage
 
 Tests are organised one file per library module under [`tests/`](tests/), plus
 [`tests/test_paper_cases.py`](tests/test_paper_cases.py) for end-to-end golden
-cases from the SCRIBE paper. `pytest` itself ships with the `[dev]` extra, so
-`uv sync --all-extras --dev` (above) is required first.
+cases from the SCRIBE paper. `pytest` itself is part of the `dev` dependency
+group, which `uv sync` installs by default.
 
 ### Lint and format
 

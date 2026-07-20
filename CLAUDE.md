@@ -59,7 +59,7 @@ uv run pytest --cov=scribe                 # with coverage
 
 Tests live under `tests/`, one file per library module, plus
 `tests/test_paper_cases.py` for end-to-end golden cases from the SCRIBE paper.
-`pytest` ships with the `[dev]` extra.
+`pytest` is part of the `dev` dependency group, which `uv sync` installs by default.
 
 Note: some legacy `test_*.py` scripts remain untracked at the repository root
 from earlier development. They are not part of the suite.

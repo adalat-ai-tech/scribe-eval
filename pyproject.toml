@@ -40,6 +40,11 @@ charts = ["matplotlib>=3.7.0"]
 # core library computes its own metrics (native CER planned) and does
 # not import it.
 visualizer = ["streamlit>=1.53.0", "pandas>=2.0.0", "matplotlib>=3.7.0", "jiwer>=4.0.0"]
+
+# Dev tooling is a PEP 735 dependency group, not a published extra:
+# `uv sync` installs it by default, and it never appears as a
+# pip-installable extra of the released package.
+[dependency-groups]
 dev = ["pytest>=8.0", "pytest-cov", "ruff>=0.6", "mypy", "build", "twine"]
 
 [project.scripts]
