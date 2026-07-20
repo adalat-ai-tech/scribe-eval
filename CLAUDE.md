@@ -103,7 +103,7 @@ The visualizer provides:
    - Configurable weights via DEFAULT_WEIGHTS dict
 
 3. **Measurement** (`src/scribe/measure.py`)
-   - `token_error_rates(aligned_ref, aligned_hyp, domain_config=None, normalize=True, use_sandhi=True)`: Computes category-specific error rates from aligned tokens
+   - `token_error_rates(aligned_ref, aligned_hyp, domain_config=None, normalize=True)`: Computes category-specific error rates from aligned tokens; sandhi handling is decided at alignment time (it counts the MERGE:/SPLIT: markers align_arrays emitted)
    - `text_error_rates(ref_text, hyp_text, domain_config=None, normalize=True, use_sandhi=True)`: End-to-end pipeline from raw text to error metrics
    - `token_error_details(aligned_ref, aligned_hyp, domain_config=None, normalize=True)`: Returns flat list of individual error records (substitution/insertion/deletion) per aligned token pair — used for frequent-error analysis
    - `text_error_details(ref_text, hyp_text, domain_config=None, normalize=True, use_sandhi=True)`: End-to-end pipeline from raw text to error detail records
