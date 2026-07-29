@@ -48,8 +48,11 @@ def compute_sample_errors(
             data = json.loads(line)
             # Canonicalize the dataset id under "source_dataset" so
             # downstream aggregation works regardless of which field
-            # name the caller configured.
-            data["source_dataset"] = data.get(source_dataset_field) or "unknown"
+            # name the caller configured. Non-string ids (numbers, JSON
+            # arrays/objects) are stringified — aggregation uses the
+            # value as a grouping key.
+            ds_value = data.get(source_dataset_field) or "unknown"
+            data["source_dataset"] = ds_value if isinstance(ds_value, str) else str(ds_value)
 
             ref = data[ref_field]
             hyp = data[hyp_field]

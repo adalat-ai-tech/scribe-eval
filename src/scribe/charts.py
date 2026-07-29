@@ -69,6 +69,13 @@ def category_breakdown_chart(
     base_cats = {"WORD", "NUMERAL", "PUNCT"}
     domain_cats = [c for c in contributions if c not in base_cats]
 
+    # A single domain category displays as "Domain Tokens"; with several
+    # (mixed aggregates), each keeps its category name so distinct
+    # counts remain distinguishable.
+    if len(domain_cats) > 1:
+        for c in domain_cats:
+            category_display[c] = f"{c} Tokens"
+
     ordered_cats = ["WORD"] + domain_cats + ["NUMERAL", "PUNCT"]
     # Only include categories that exist in contributions
     ordered_cats = [c for c in ordered_cats if c in contributions]

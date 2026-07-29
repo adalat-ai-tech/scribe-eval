@@ -8,6 +8,7 @@ from scribe import (
     extract_error_rates,
     format_alignment_dict,
     format_alignment_table,
+    format_contribution_table,
     format_dataset_table,
     format_error_counts_table,
     format_metrics_dict,
@@ -206,3 +207,61 @@ def test_format_alignment_dict_classifies_each_position(legal_domain):
     # The u/s -> us substitution should land as a substitution row.
     error_types = [row["error_type"] for row in rows]
     assert "substitution" in error_types
+
+
+def test_contribution_table_distinguishes_multiple_domain_categories(legal_domain, medical_domain):
+    """With several domain categories in one aggregate (mixed batches),
+    each keeps its identity in the category table instead of all rows
+    collapsing into 'Domain Tokens' (PR review issue)."""
+    from scribe import compute_category_contributions
+
+    legal_report = text_error_rates("charged u/s 302", "charged us 302", legal_domain)
+    medical_report = text_error_rates("dose 500mg daily", "dose 500 daily", medical_domain)
+    agg = compute_aggregate_metrics(
+        [
+            {"detailed_report": legal_report, "source_dataset": "x"},
+            {"detailed_report": medical_report, "source_dataset": "x"},
+        ]
+    )
+    rows = format_contribution_table(compute_category_contributions(agg["overall"]))
+    names = {row["Category"] for row in rows}
+    assert "LEGAL Tokens" in names
+    assert "MEDICAL Tokens" in names
+    assert "Domain Tokens" not in names
+
+
+def test_contribution_table_single_domain_shows_domain_tokens(legal_domain):
+    """A single domain category keeps the canonical 'Domain Tokens' name."""
+    from scribe import compute_category_contributions
+
+    report = text_error_rates("charged u/s 302", "charged us 302", legal_domain)
+    rows = format_contribution_table(compute_category_contributions(report))
+    names = {row["Category"] for row in rows}
+    assert "Domain Tokens" in names
+    assert "LEGAL Tokens" not in names
+
+
+def test_mixed_aggregate_summary_shows_per_dataset_domain_rates(legal_domain, medical_domain):
+    """In a mixed aggregate, a dataset row must show its own domain
+    rate under the matching category column; N/A appears only where the
+    dataset genuinely has no tokens of that category."""
+    from scribe.reporting import format_summary_lines
+
+    legal_report = text_error_rates("charged u/s 302", "charged us 302", legal_domain)
+    medical_report = text_error_rates("administer 500mg now", "administer 500 now", medical_domain)
+    agg = compute_aggregate_metrics(
+        [
+            {"detailed_report": legal_report, "source_dataset": "court"},
+            {"detailed_report": medical_report, "source_dataset": "clinic"},
+        ]
+    )
+    lines = format_summary_lines(agg)
+    court_row = next(line for line in lines if line.startswith("court"))
+    clinic_row = next(line for line in lines if line.startswith("clinic"))
+
+    # court has 1 LEGAL sub in 3 tokens -> 33.33% under LEGAL, N/A under MEDICAL
+    assert "33.33%" in court_row
+    assert court_row.count("N/A") == 1
+    # clinic has 1 MEDICAL sub in 3 tokens -> 33.33% under MEDICAL, N/A under LEGAL
+    assert "33.33%" in clinic_row
+    assert clinic_row.count("N/A") == 1

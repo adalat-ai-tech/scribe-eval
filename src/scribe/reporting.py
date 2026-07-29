@@ -165,8 +165,12 @@ def format_summary_lines(agg_results: Dict) -> List[str]:
     Returns:
         List of lines (no trailing newlines)
     """
+    # Domain columns are fixed by the overall metrics; each row's value
+    # is read by CATEGORY from that row's own metrics, not by label —
+    # in a mixed aggregate a single-domain dataset row resolves its own
+    # label differently than the table header, and a label lookup would
+    # show N/A over a real number.
     labels = resolve_domain_labels(agg_results["overall"])
-    table_data = format_dataset_table(agg_results)
 
     header = format_table_header(list(labels.values()))
     width = len(header.split("\n")[0])
@@ -174,18 +178,24 @@ def format_summary_lines(agg_results: Dict) -> List[str]:
     mw = COLUMN_WIDTHS["metric"]
     sw = COLUMN_WIDTHS["sandhi"]
 
+    named_metrics = [("OVERALL", agg_results["overall"])]
+    named_metrics += list(agg_results["by_dataset"].items())
+
     lines = ["=" * width, *header.split("\n")]
-    for row in table_data:
-        cells = [f"{row['Dataset']:<{dw}}", f"{row['WER']:>{mw}}"]
-        for label in labels.values():
-            # A dataset can lack a domain category others have (mixed
-            # batches); show N/A rather than fail.
-            cells.append(f"{row.get(label, 'N/A'):>{mw}}")
+    for ds_name, metrics in named_metrics:
+        row = format_metrics_dict(metrics)
+        cells = [f"{ds_name:<{dw}}", f"{row['WER']:>{mw}}"]
+        for cat in labels:
+            if cat in metrics:
+                cells.append(f"{metrics[cat]['error_rate']:>{mw}.2%}")
+            else:
+                # Genuinely absent from this dataset's data.
+                cells.append(f"{'N/A':>{mw}}")
         cells.append(f"{row['NER']:>{mw}}")
         cells.append(f"{row['PER']:>{mw}}")
         cells.append(f"{row['Sandhi']:>{sw}}")
         lines.append(" | ".join(cells))
-        if row["Dataset"] == "OVERALL":
+        if ds_name == "OVERALL":
             lines.append("-" * width)
     lines.append("=" * width)
     return lines
@@ -231,6 +241,14 @@ def format_contribution_table(contributions: Dict) -> List[Dict]:
     total_dels = 0
     total_ins = 0
     total_ref = 0
+
+    # A single domain category displays as "Domain Tokens"; with several
+    # (mixed aggregates), each keeps its category name so distinct
+    # counts remain distinguishable.
+    domain_cats = [c for c in contributions if c not in category_display]
+    if len(domain_cats) > 1:
+        for c in domain_cats:
+            category_display[c] = f"{c} Tokens"
 
     # First pass: compute total_ref for the "Impact on Total" column
     for data in contributions.values():

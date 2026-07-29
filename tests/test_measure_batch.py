@@ -201,3 +201,25 @@ def test_sandhi_hits_summed_across_samples_and_datasets(tmp_path):
     assert agg["overall"]["WORD"]["sandhi_hits"] == 6
     assert agg["by_dataset"]["d1"]["WORD"]["sandhi_hits"] == 4
     assert agg["by_dataset"]["d2"]["WORD"]["sandhi_hits"] == 2
+
+
+def test_non_string_dataset_ids_do_not_break_aggregation(tmp_path):
+    """A numeric or JSON-array dataset id must not crash aggregation
+    with an unhashable-type TypeError (PR review issue); non-string ids
+    are stringified for grouping."""
+    records = [
+        {"transcript_cleaned": "one two", "prediction": "one two", "ds": 7},
+        {"transcript_cleaned": "three four", "prediction": "three four", "ds": ["a", "b"]},
+        {"transcript_cleaned": "five six", "prediction": "five six", "ds": {"k": "v"}},
+    ]
+    path = tmp_path / "odd_ids.jsonl"
+    with path.open("w", encoding="utf-8") as f:
+        for rec in records:
+            f.write(json.dumps(rec) + "\n")
+
+    results = compute_sample_errors(str(path), source_dataset_field="ds")
+    agg = compute_aggregate_metrics(results)
+    keys = agg["by_dataset"].keys()
+    assert all(isinstance(k, str) for k in keys)
+    assert "7" in keys
+    assert len(keys) == 3
