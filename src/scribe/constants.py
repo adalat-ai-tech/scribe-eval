@@ -104,32 +104,32 @@ def init_stat_dict(categories=None) -> dict:
     }
 
 
-def format_table_header(domain_label="DER") -> str:
+def format_table_header(domain_labels=None) -> str:
     """
     Generate formatted table header for evaluation results.
 
     Args:
-        domain_label: Label for domain error rate (default: "DER")
+        domain_labels: Labels for domain error-rate columns, one per
+            domain category present in the data (empty/None for none)
 
     Returns:
         Multi-line string with header row and separator line
 
     Example:
-        >>> print(format_table_header("LER"))
+        >>> print(format_table_header(["LER"]))
         DATASET                   |      WER |      LER |      NER |      PER | SANDHI
         -------------------------------------------------------------------------------------
 
-        >>> print(format_table_header("MER"))
-        DATASET                   |      WER |      MER |      NER |      PER | SANDHI
-        -------------------------------------------------------------------------------------
+        >>> print(format_table_header())
+        DATASET                   |      WER |      NER |      PER | SANDHI
+        --------------------------------------------------------------------------
     """
     dw = COLUMN_WIDTHS["dataset"]
     mw = COLUMN_WIDTHS["metric"]
     sw = COLUMN_WIDTHS["sandhi"]
 
-    header = (
-        f"{'DATASET':<{dw}} | {'WER':>{mw}} | {domain_label:>{mw}}"
-        f" | {'NER':>{mw}} | {'PER':>{mw}} | {'SANDHI':>{sw}}"
-    )
-    separator = "-" * TABLE_WIDTH
+    columns = ["WER"] + list(domain_labels or []) + ["NER", "PER"]
+    header = f"{'DATASET':<{dw}} | " + " | ".join(f"{c:>{mw}}" for c in columns)
+    header += f" | {'SANDHI':>{sw}}"
+    separator = "-" * len(header)
     return f"{header}\n{separator}"

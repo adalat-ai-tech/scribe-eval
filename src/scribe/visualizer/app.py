@@ -204,7 +204,7 @@ def build_category_chips(contributions, domain_config):
 
 def render_category_analysis(summary, domain_config):
     """Contributions table + breakdown chart."""
-    rows = format_contribution_table(summary["contributions"], domain_config)
+    rows = format_contribution_table(summary["contributions"])
     st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
     if HAS_CHARTS:
@@ -252,7 +252,7 @@ def render_analysis(ref_text, hyp_text, weights, domain_config, normalize=True, 
     j_dels = j_output.deletions
 
     st.subheader("Alignment Visualizations")
-    rates = extract_error_rates(report, domain_config)
+    rates = extract_error_rates(report)
     contributions = compute_category_contributions(report)
     ter_frac = sum(c["error_rate"] for c in contributions.values())
     total_correct = sum(c["correct"] for c in contributions.values())
@@ -287,7 +287,7 @@ def render_analysis(ref_text, hyp_text, weights, domain_config, normalize=True, 
 
     st.markdown("---")
     with st.expander("🔬 Error Analysis (single sample)", expanded=False):
-        rows = format_contribution_table(contributions, domain_config)
+        rows = format_contribution_table(contributions)
         st.markdown("**Category breakdown**")
         st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
@@ -584,7 +584,7 @@ with tab_json:
 
         st.divider()
         st.markdown("## 📈 Overall Metrics")
-        overall_rates = extract_error_rates(agg["overall"], domain_config)
+        overall_rates = extract_error_rates(agg["overall"])
         overall_chips = build_category_chips(summary["contributions"], domain_config)
         overall_ter = summary["total_error_rate"]
 
@@ -615,7 +615,7 @@ with tab_json:
 
         st.divider()
         st.markdown("## 📊 Per-Dataset Breakdown")
-        table_data = format_dataset_table(agg, domain_config)
+        table_data = format_dataset_table(agg)
         table_data = [row for row in table_data if row["Dataset"] != "OVERALL"]
         if table_data:
             st.dataframe(pd.DataFrame(table_data), hide_index=True, width="stretch")

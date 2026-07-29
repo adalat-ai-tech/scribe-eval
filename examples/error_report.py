@@ -54,7 +54,7 @@ def generate_error_report(text1, text2, domain=None):
     )
 
     print("--- Token Breakdown by Category ---")
-    rows = format_contribution_table(summary["contributions"], domain)
+    rows = format_contribution_table(summary["contributions"])
     print(tabulate(rows, headers="keys", tablefmt="simple"))
 
 

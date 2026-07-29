@@ -3,14 +3,12 @@ from collections import defaultdict
 from typing import Optional
 
 from .constants import (
-    TABLE_WIDTH,
     calculate_combined_total,
-    format_table_header,
     init_stat_dict,
 )
 from .domain_config import DomainConfig
 from .measure import text_error_details, text_error_rates
-from .reporting import format_dataset_table
+from .reporting import format_summary_lines
 
 
 def compute_sample_errors(
@@ -158,28 +156,17 @@ def compute_aggregate_metrics(
     }
 
 
-def print_evaluation_summary(agg_results, domain_config: Optional[DomainConfig] = None) -> None:
+def print_evaluation_summary(agg_results) -> None:
     """
     Print evaluation summary table.
 
+    Columns are derived from the categories present in the aggregated
+    data; the domain category (if any) is shown as DER.
+
     Args:
         agg_results: Aggregated results from compute_aggregate_metrics
-        domain_config: Domain configuration for label formatting
     """
-    table_data = format_dataset_table(agg_results, domain_config)
-
-    domain_label = domain_config.label if domain_config else "DER"
-    print("\n" + "=" * TABLE_WIDTH)
-    print(format_table_header(domain_label))
-
-    for row in table_data:
-        is_overall = row["Dataset"] == "OVERALL"
-        # Without a domain config there is no domain rate; show N/A.
-        print(
-            f"{row['Dataset']:<25} | {row['WER']:>8} | {row.get(domain_label, 'N/A'):>8}"
-            f" | {row['NER']:>8} | {row['PER']:>8} | {row['Sandhi']:>6}"
-        )
-        if is_overall:
-            print("-" * TABLE_WIDTH)
-
-    print("=" * TABLE_WIDTH + "\n")
+    print()
+    for line in format_summary_lines(agg_results):
+        print(line)
+    print()

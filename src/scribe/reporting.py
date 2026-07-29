@@ -5,28 +5,50 @@ This module provides shared functions for formatting error metrics
 and alignment results for both CLI and web UI presentations.
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 from .constants import (
     CAT_NUMERAL,
     CAT_PUNCT,
     CAT_WORD,
-    TABLE_WIDTH,
+    CATEGORIES,
+    COLUMN_WIDTHS,
     format_table_header,
-    get_categories,
 )
-from .domain_config import DomainConfig
 
 
-def format_metrics_dict(
-    metrics: Dict, domain_config: Optional[DomainConfig] = None
-) -> Dict[str, str]:
+def resolve_domain_labels(metrics: Dict) -> Dict[str, str]:
     """
-    Extract WER/DER/NER/PER from aggregate metrics.
+    Map the domain category present in the metrics to its display label.
+
+    SCRIBE supports a single active domain, and its error-rate column is
+    always labelled "DER" (Domain Error Rate) — the label is fixed by
+    the toolkit, not by the domain configuration. If the data ever
+    contains several domain categories (e.g. samples measured with
+    different configs aggregated together), each falls back to its
+    category name so none is hidden.
 
     Args:
         metrics: Dictionary containing error metrics for each category
-        domain_config: Domain configuration (None to skip domain metrics)
+
+    Returns:
+        Ordered dict of {category: display_label} for domain categories
+    """
+    domain_cats = sorted(cat for cat in metrics.keys() if cat not in CATEGORIES)
+    if len(domain_cats) == 1:
+        return {domain_cats[0]: "DER"}
+    return {cat: cat for cat in domain_cats}
+
+
+def format_metrics_dict(metrics: Dict) -> Dict[str, str]:
+    """
+    Extract WER/DER/NER/PER from aggregate metrics.
+
+    Columns are derived from the categories present in the data; the
+    domain category (if any) is reported as DER.
+
+    Args:
+        metrics: Dictionary containing error metrics for each category
 
     Returns:
         Dictionary with formatted metric strings ready for table display
@@ -37,25 +59,25 @@ def format_metrics_dict(
         "PER": f"{metrics[CAT_PUNCT]['error_rate']:.2%}",
     }
 
-    if domain_config:
-        result[domain_config.label] = f"{metrics[domain_config.category]['error_rate']:.2%}"
+    for cat, label in resolve_domain_labels(metrics).items():
+        result[label] = f"{metrics[cat]['error_rate']:.2%}"
 
-    # Sandhi corrections and the combined token count do not depend on a
-    # domain config; report them always. Sandhi can occur in any category
-    # (WORD, LEGAL, MEDICAL, etc.).
+    # Sandhi can occur in any category (WORD, LEGAL, MEDICAL, etc.).
     result["Sandhi"] = sum(metrics[cat]["sandhi_hits"] for cat in metrics.keys())
     result["Total"] = metrics[CAT_WORD].get("combined_total", 0)
 
     return result
 
 
-def extract_error_rates(report: Dict, domain_config: Optional[DomainConfig] = None) -> Dict:
+def extract_error_rates(report: Dict) -> Dict:
     """
     Extract error rates from report for display.
 
+    The domain category's rate (if present in the data) is reported
+    under the fixed "der" key.
+
     Args:
         report: Dictionary containing error metrics for each category
-        domain_config: Domain configuration (None to skip domain metrics)
 
     Returns:
         Dictionary with raw numeric error rates
@@ -70,22 +92,18 @@ def extract_error_rates(report: Dict, domain_config: Optional[DomainConfig] = No
         "sandhi": total_sandhi,
     }
 
-    if domain_config:
-        # Use lowercase label for consistency
-        result[domain_config.label.lower()] = report[domain_config.category]["error_rate"]
+    for cat, label in resolve_domain_labels(report).items():
+        result[label.lower()] = report[cat]["error_rate"]
 
     return result
 
 
-def format_dataset_table(
-    agg_results: Dict, domain_config: Optional[DomainConfig] = None
-) -> List[Dict]:
+def format_dataset_table(agg_results: Dict) -> List[Dict]:
     """
     Format aggregate results as list of dicts for table display.
 
     Args:
         agg_results: Dictionary with 'overall' and 'by_dataset' keys
-        domain_config: Domain configuration for metric formatting
 
     Returns:
         List of dictionaries, each containing Dataset name and error metrics
@@ -93,38 +111,34 @@ def format_dataset_table(
     table_data = []
 
     # Overall row
-    overall = format_metrics_dict(agg_results["overall"], domain_config)
+    overall = format_metrics_dict(agg_results["overall"])
     overall["Dataset"] = "OVERALL"
     table_data.append(overall)
 
     # Per-dataset rows
     for ds, metrics in agg_results["by_dataset"].items():
-        row = format_metrics_dict(metrics, domain_config)
+        row = format_metrics_dict(metrics)
         row["Dataset"] = ds
         table_data.append(row)
 
     return table_data
 
 
-def format_error_counts_table(
-    report: Dict, domain_config: Optional[DomainConfig] = None
-) -> List[Dict]:
+def format_error_counts_table(report: Dict) -> List[Dict]:
     """
     Format error counts by category for detailed inspection.
 
+    Every category present in the report is shown — nothing in the
+    data is hidden.
+
     Args:
         report: Token error rates report from token_error_rates()
-        domain_config: Domain configuration (None to use base categories)
 
     Returns:
         List of dictionaries with Category, Type, and Count
     """
-    categories = get_categories(domain_config)
-
     counts = []
-    for cat in categories:
-        if cat not in report:
-            continue
+    for cat in report:
         counts.extend(
             [
                 {"Category": cat, "Type": "Substitutions", "Count": report[cat]["substitutions"]},
@@ -136,54 +150,67 @@ def format_error_counts_table(
     return counts
 
 
-def write_summary_to_file(
-    agg_results: Dict, output_path: str, domain_config: Optional[DomainConfig] = None
-) -> None:
+def format_summary_lines(agg_results: Dict) -> List[str]:
+    """
+    Render the evaluation summary table as a list of text lines.
+
+    Single renderer shared by print_evaluation_summary (console) and
+    write_summary_to_file (file) so the two outputs cannot drift.
+    Columns are derived from the categories present in the data; the
+    domain category (if any) is shown as DER.
+
+    Args:
+        agg_results: Dictionary with 'overall' and 'by_dataset' keys
+
+    Returns:
+        List of lines (no trailing newlines)
+    """
+    labels = resolve_domain_labels(agg_results["overall"])
+    table_data = format_dataset_table(agg_results)
+
+    header = format_table_header(list(labels.values()))
+    width = len(header.split("\n")[0])
+    dw = COLUMN_WIDTHS["dataset"]
+    mw = COLUMN_WIDTHS["metric"]
+    sw = COLUMN_WIDTHS["sandhi"]
+
+    lines = ["=" * width, *header.split("\n")]
+    for row in table_data:
+        cells = [f"{row['Dataset']:<{dw}}", f"{row['WER']:>{mw}}"]
+        for label in labels.values():
+            # A dataset can lack a domain category others have (mixed
+            # batches); show N/A rather than fail.
+            cells.append(f"{row.get(label, 'N/A'):>{mw}}")
+        cells.append(f"{row['NER']:>{mw}}")
+        cells.append(f"{row['PER']:>{mw}}")
+        cells.append(f"{row['Sandhi']:>{sw}}")
+        lines.append(" | ".join(cells))
+        if row["Dataset"] == "OVERALL":
+            lines.append("-" * width)
+    lines.append("=" * width)
+    return lines
+
+
+def write_summary_to_file(agg_results: Dict, output_path: str) -> None:
     """
     Write evaluation summary to file safely.
 
     Args:
         agg_results: Dictionary with 'overall' and 'by_dataset' keys
         output_path: Path to output file
-        domain_config: Domain configuration for label formatting
     """
     with open(output_path, "w", encoding="utf-8") as f:
-        table_data = format_dataset_table(agg_results, domain_config)
-
-        # Write formatted table with proper headers
-        domain_label = domain_config.label if domain_config else "DER"
-        f.write("\n" + "=" * TABLE_WIDTH + "\n")
-        f.write(format_table_header(domain_label) + "\n")
-
-        for row in table_data:
-            is_overall = row["Dataset"] == "OVERALL"
-            if is_overall and table_data.index(row) > 0:
-                # Add separator line before OVERALL row if it's not first
-                f.write("-" * TABLE_WIDTH + "\n")
-
-            # Dynamic column access; without a domain config there is no
-            # domain rate, so the column shows N/A.
-            f.write(
-                f"{row['Dataset']:<25} | "
-                f"{row['WER']:>8} | "
-                f"{row.get(domain_label, 'N/A'):>8} | "
-                f"{row['NER']:>8} | "
-                f"{row['PER']:>8} | "
-                f"{row['Sandhi']:>6}\n"
-            )
-
-        f.write("=" * TABLE_WIDTH + "\n")
+        f.write("\n")
+        for line in format_summary_lines(agg_results):
+            f.write(line + "\n")
 
 
-def format_contribution_table(
-    contributions: Dict, domain_config: Optional[DomainConfig] = None
-) -> List[Dict]:
+def format_contribution_table(contributions: Dict) -> List[Dict]:
     """
     Format category breakdown as table rows with correct/error counts.
 
     Args:
         contributions: From compute_category_contributions()
-        domain_config: For category label mapping
 
     Returns:
         List of dicts sorted by ref_tokens descending, plus a TOTAL row.

@@ -68,7 +68,7 @@ print(f"TER:      {summary['total_error_rate']:.2%}")
 print(f"Accuracy: {summary['total_correct_pct']:.1f}%")
 
 # Formatted tables for display
-contrib_rows = format_contribution_table(summary["contributions"], domain)
+contrib_rows = format_contribution_table(summary["contributions"])
 sub_rows   = format_frequent_errors_table(summary["frequent_substitutions"],   "substitution",  top_n=10)
 del_rows   = format_frequent_errors_table(summary["frequent_deletions"],       "deletion",      top_n=10)
 ins_rows   = format_frequent_errors_table(summary["frequent_insertions"],      "insertion",     top_n=10)

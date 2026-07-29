@@ -88,20 +88,21 @@ def test_per_dataset_totals_reflect_per_dataset_records(sample_jsonl, legal_doma
 
 
 def test_print_evaluation_summary_without_domain_config(sample_jsonl, capsys):
-    """print_evaluation_summary must work with its documented default
-    domain_config=None (regression: it raised KeyError 'DER')."""
+    """print_evaluation_summary must work on a batch measured without
+    any domain (regression: it raised KeyError 'DER'). No domain
+    category in the data means no domain column at all."""
     from scribe import print_evaluation_summary
 
     results = compute_sample_errors(str(sample_jsonl), domain_config=None)
     agg = compute_aggregate_metrics(results)
-    print_evaluation_summary(agg, None)
+    print_evaluation_summary(agg)
     out = capsys.readouterr().out
     assert "OVERALL" in out
     assert "dataset-a" in out
     assert "dataset-b" in out
-    # The domain column falls back to the DER header with N/A values.
-    assert "DER" in out
-    assert "N/A" in out
+    # No domain category in the data -> no domain column at all.
+    assert "DER" not in out
+    assert "N/A" not in out
 
 
 def test_field_name_overrides(tmp_path, legal_domain):
