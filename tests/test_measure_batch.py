@@ -115,3 +115,20 @@ def test_field_name_overrides(tmp_path, legal_domain):
         str(path), ref_field="reference", hyp_field="hypothesis", domain_config=legal_domain
     )
     assert len(results) == 1
+
+
+def test_custom_dataset_field_propagates_to_by_dataset(tmp_path):
+    """A custom source_dataset_field must still group by_dataset
+    (regression: all datasets collapsed into 'unknown')."""
+    records = [
+        {"transcript_cleaned": "one two", "prediction": "one two", "ds": "set-a"},
+        {"transcript_cleaned": "three four", "prediction": "three four", "ds": "set-b"},
+    ]
+    path = tmp_path / "custom_ds.jsonl"
+    with path.open("w", encoding="utf-8") as f:
+        for rec in records:
+            f.write(json.dumps(rec) + "\n")
+
+    results = compute_sample_errors(str(path), source_dataset_field="ds")
+    agg = compute_aggregate_metrics(results)
+    assert set(agg["by_dataset"].keys()) == {"set-a", "set-b"}

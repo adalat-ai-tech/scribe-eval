@@ -33,7 +33,10 @@ def compute_sample_errors(
         output_file: Optional path to save detailed results
         ref_field: Field name for reference text
         hyp_field: Field name for hypothesis text
-        source_dataset_field: Field name for dataset identifier
+        source_dataset_field: Field name for dataset identifier; its value
+            is copied to the canonical "source_dataset" key on each result
+            ("unknown" when missing) so aggregation can group by dataset
+            regardless of the configured field name
         domain_config: Domain configuration (None for no domain)
         normalize: If True, apply normalization for matching (default: True)
         collect_error_details: If True, also collect per-token error records
@@ -46,9 +49,10 @@ def compute_sample_errors(
     with open(input_file, "r", encoding="utf-8") as f:
         for line in f:
             data = json.loads(line)
-            # Ensure we have a source_dataset field
-            if source_dataset_field not in data or data[source_dataset_field] is None:
-                data[source_dataset_field] = "unknown"
+            # Canonicalize the dataset id under "source_dataset" so
+            # downstream aggregation works regardless of which field
+            # name the caller configured.
+            data["source_dataset"] = data.get(source_dataset_field) or "unknown"
 
             ref = data[ref_field]
             hyp = data[hyp_field]
