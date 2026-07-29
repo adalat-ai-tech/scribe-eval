@@ -29,7 +29,7 @@ results = compute_sample_errors(
 )
 
 # Aggregate across all samples
-metrics = compute_aggregate_metrics(results, domain_config=domain)
+metrics = compute_aggregate_metrics(results)
 
 # Overall metrics
 print(metrics['overall']['WORD']['error_rate'])
@@ -57,7 +57,7 @@ results = compute_sample_errors(
     collect_error_details=True,
 )
 
-metrics = compute_aggregate_metrics(results, domain_config=domain)
+metrics = compute_aggregate_metrics(results)
 
 # Flatten all token-level error records across samples
 all_error_details = aggregate_error_details(results)
@@ -68,7 +68,7 @@ print(f"TER:      {summary['total_error_rate']:.2%}")
 print(f"Accuracy: {summary['total_correct_pct']:.1f}%")
 
 # Formatted tables for display
-contrib_rows = format_contribution_table(summary["contributions"], domain)
+contrib_rows = format_contribution_table(summary["contributions"])
 sub_rows   = format_frequent_errors_table(summary["frequent_substitutions"],   "substitution",  top_n=10)
 del_rows   = format_frequent_errors_table(summary["frequent_deletions"],       "deletion",      top_n=10)
 ins_rows   = format_frequent_errors_table(summary["frequent_insertions"],      "insertion",     top_n=10)

@@ -3,15 +3,12 @@ from collections import defaultdict
 from typing import Optional
 
 from .constants import (
-    TABLE_WIDTH,
     calculate_combined_total,
-    format_table_header,
-    get_categories,
     init_stat_dict,
 )
 from .domain_config import DomainConfig
 from .measure import text_error_details, text_error_rates
-from .reporting import format_dataset_table
+from .reporting import format_summary_lines
 
 
 def compute_sample_errors(
@@ -33,7 +30,10 @@ def compute_sample_errors(
         output_file: Optional path to save detailed results
         ref_field: Field name for reference text
         hyp_field: Field name for hypothesis text
-        source_dataset_field: Field name for dataset identifier
+        source_dataset_field: Field name for dataset identifier; its value
+            is copied to the canonical "source_dataset" key on each result
+            ("unknown" when missing) so aggregation can group by dataset
+            regardless of the configured field name
         domain_config: Domain configuration (None for no domain)
         normalize: If True, apply normalization for matching (default: True)
         collect_error_details: If True, also collect per-token error records
@@ -46,9 +46,17 @@ def compute_sample_errors(
     with open(input_file, "r", encoding="utf-8") as f:
         for line in f:
             data = json.loads(line)
-            # Ensure we have a source_dataset field
-            if source_dataset_field not in data or data[source_dataset_field] is None:
-                data[source_dataset_field] = "unknown"
+            # Canonicalize the dataset id under "source_dataset" so
+            # downstream aggregation works regardless of which field
+            # name the caller configured. Non-string ids (numbers, JSON
+            # arrays/objects) are stringified — aggregation uses the
+            # value as a grouping key. Only a missing/null/empty field
+            # falls back to "unknown"; falsy scalars like 0 or false
+            # are real dataset ids.
+            ds_value = data.get(source_dataset_field)
+            if ds_value is None or ds_value == "":
+                ds_value = "unknown"
+            data["source_dataset"] = ds_value if isinstance(ds_value, str) else str(ds_value)
 
             ref = data[ref_field]
             hyp = data[hyp_field]
@@ -92,45 +100,42 @@ def aggregate_error_details(sample_results: list[dict]) -> list[dict]:
 
 
 def compute_aggregate_metrics(
-    sample_results, domain_config: Optional[DomainConfig] = None
+    sample_results,
 ) -> dict[str, dict[str, dict[str, dict[str, float | int]]]]:
     """
     Aggregate metrics across all samples.
 
+    Categories are derived entirely from the sample reports: whatever
+    compute_sample_errors measured (including domain categories) is
+    aggregated. No domain configuration is needed here — it was already
+    applied at measurement time.
+
     Args:
         sample_results: List of result dictionaries from compute_sample_errors
-        domain_config: Domain configuration (None for no domain)
 
     Returns:
         Dictionary with 'overall' and 'by_dataset' aggregated metrics
     """
-    categories = get_categories(domain_config)
-    overall_agg = init_stat_dict(categories)
-    dataset_aggs = defaultdict(lambda: init_stat_dict(categories))
+    overall_agg = init_stat_dict()
+    dataset_aggs = defaultdict(init_stat_dict)
 
     for res in sample_results:
         ds = res.get("source_dataset", "unknown")
         report = res["detailed_report"]
 
-        for cat in categories:
-            if cat not in report:
-                continue
-
-            # Update overall
-            overall_agg[cat]["substitutions"] += report[cat]["substitutions"]
-            overall_agg[cat]["insertions"] += report[cat]["insertions"]
-            overall_agg[cat]["deletions"] += report[cat]["deletions"]
-            overall_agg[cat]["correct"] += report[cat]["correct"]
-            overall_agg[cat]["total"] += report[cat]["total_ref"]
-            overall_agg[cat]["sandhi_hits"] += report[cat]["sandhi_hits"]
-
-            # Update per-dataset
-            dataset_aggs[ds][cat]["substitutions"] += report[cat]["substitutions"]
-            dataset_aggs[ds][cat]["insertions"] += report[cat]["insertions"]
-            dataset_aggs[ds][cat]["deletions"] += report[cat]["deletions"]
-            dataset_aggs[ds][cat]["correct"] += report[cat]["correct"]
-            dataset_aggs[ds][cat]["total"] += report[cat]["total_ref"]
-            dataset_aggs[ds][cat]["sandhi_hits"] += report[cat]["sandhi_hits"]
+        # Aggregate every category present in the data. Dropping an
+        # unexpected category would also shrink the combined denominator
+        # and silently deflate every other category's rate.
+        for cat, counts in report.items():
+            for agg in (overall_agg, dataset_aggs[ds]):
+                if cat not in agg:
+                    agg.update(init_stat_dict([cat]))
+                agg[cat]["substitutions"] += counts["substitutions"]
+                agg[cat]["insertions"] += counts["insertions"]
+                agg[cat]["deletions"] += counts["deletions"]
+                agg[cat]["correct"] += counts["correct"]
+                agg[cat]["total"] += counts["total_ref"]
+                agg[cat]["sandhi_hits"] += counts["sandhi_hits"]
 
     def calculate_rates(agg):
         # Calculate combined denominator across ALL categories
@@ -158,28 +163,17 @@ def compute_aggregate_metrics(
     }
 
 
-def print_evaluation_summary(agg_results, domain_config: Optional[DomainConfig] = None) -> None:
+def print_evaluation_summary(agg_results) -> None:
     """
     Print evaluation summary table.
 
+    Columns are derived from the categories present in the aggregated
+    data; the domain category (if any) is shown as DER.
+
     Args:
         agg_results: Aggregated results from compute_aggregate_metrics
-        domain_config: Domain configuration for label formatting
     """
-    table_data = format_dataset_table(agg_results, domain_config)
-
-    domain_label = domain_config.label if domain_config else "DER"
-    print("\n" + "=" * TABLE_WIDTH)
-    print(format_table_header(domain_label))
-
-    for row in table_data:
-        is_overall = row["Dataset"] == "OVERALL"
-        # Without a domain config there is no domain rate; show N/A.
-        print(
-            f"{row['Dataset']:<25} | {row['WER']:>8} | {row.get(domain_label, 'N/A'):>8}"
-            f" | {row['NER']:>8} | {row['PER']:>8} | {row['Sandhi']:>6}"
-        )
-        if is_overall:
-            print("-" * TABLE_WIDTH)
-
-    print("=" * TABLE_WIDTH + "\n")
+    print()
+    for line in format_summary_lines(agg_results):
+        print(line)
+    print()

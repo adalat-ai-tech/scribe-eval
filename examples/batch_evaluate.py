@@ -63,7 +63,7 @@ def print_analysis(summary, domain_config, top_n):
 
     # 2. Category Breakdown (correct/sub/del/ins per category)
     print("\n--- Token Breakdown by Category ---")
-    contrib_rows = format_contribution_table(summary["contributions"], domain_config)
+    contrib_rows = format_contribution_table(summary["contributions"])
     print(tabulate(contrib_rows, headers="keys", tablefmt="simple"))
 
     # 4. Frequent Substitutions
@@ -115,7 +115,7 @@ def save_analysis_to_file(summary, output_path, domain_config, top_n):
         f.write(f"\nOverall: {correct_pct:.1f}% correct | {ter:.2%} TER\n")
 
         f.write("\n--- Token Breakdown by Category ---\n")
-        contrib_rows = format_contribution_table(summary["contributions"], domain_config)
+        contrib_rows = format_contribution_table(summary["contributions"])
         f.write(tabulate(contrib_rows, headers="keys", tablefmt="simple") + "\n")
 
         freq_subs = summary["frequent_substitutions"]
@@ -249,7 +249,7 @@ Examples:
                 domain_config = DomainConfig.from_file(args.domain_config)
                 print(
                     f"Loaded domain config: {domain_config.name} "
-                    f"(category: {domain_config.category}, label: {domain_config.label})"
+                    f"(category: {domain_config.category})"
                 )
             except FileNotFoundError:
                 print(
@@ -291,17 +291,17 @@ Examples:
 
         # 6. Aggregate metrics with dataset splits
         print("Computing aggregate metrics...")
-        metrics = compute_aggregate_metrics(results, domain_config=domain_config)
+        metrics = compute_aggregate_metrics(results)
 
         # 7. Output to console
         print("\n" + "=" * 85)
         print("EVALUATION SUMMARY")
         print("=" * 85)
-        print_evaluation_summary(metrics, domain_config=domain_config)
+        print_evaluation_summary(metrics)
 
         # 8. Save summary to file
         print(f"\nSaving summary to: {summary_output}")
-        write_summary_to_file(metrics, str(summary_output), domain_config=domain_config)
+        write_summary_to_file(metrics, str(summary_output))
 
         print(f"Detailed results saved to: {detailed_output}")
 

@@ -38,7 +38,7 @@ hyp = "charged u/s 303 IPC on 22.05.2023"
 report = text_error_rates(ref, hyp, DomainConfig.legal())
 
 print(f"WER: {report['WORD']['error_rate']:.2%}")
-print(f"LER: {report['LEGAL']['error_rate']:.2%}")
+print(f"DER: {report['LEGAL']['error_rate']:.2%}")
 print(f"NER: {report['NUMERAL']['error_rate']:.2%}")
 ```
 
@@ -57,10 +57,10 @@ print(f"NER: {report['NUMERAL']['error_rate']:.2%}")
 | WORD | base | WER | General words (Indic and English) |
 | NUMERAL | base | NER | Numbers, dates, times (302, 22.05.2023, 10:30) |
 | PUNCT | base | PER | Punctuation marks |
-| LEGAL | domain | LER | Indian legal terminology (u/s, r/w, PW1, Ext.A) |
-| MEDICAL | domain | MER | Medical units and dosages (mg, ml, 500mg) |
-| TECH | domain | TchER | Technical abbreviations (API, SDK, v1.0) |
-| Custom | domain | configurable | Define your own with lists or regex patterns |
+| LEGAL | domain | DER | Indian legal terminology (u/s, r/w, PW1, Ext.A) |
+| MEDICAL | domain | DER | Medical units and dosages (mg, ml, 500mg) |
+| TECH | domain | DER | Technical abbreviations (API, SDK, v1.0) |
+| Custom | domain | DER | Define your own with lists or regex patterns |
 
 ## Domain Configuration
 

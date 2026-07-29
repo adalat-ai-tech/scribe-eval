@@ -18,17 +18,17 @@ class DomainConfig:
         name: str,
         patterns: Union[str, List[str]],
         category: Optional[str] = None,
-        label: Optional[str] = None,
         case_sensitive: bool = False,
     ):
         r"""
         Initialize domain configuration.
 
+        The domain category's error rate is always reported as DER.
+
         Args:
             name: Domain name (e.g., "legal", "medical", "technical")
             patterns: Either a regex pattern string or list of domain terms
             category: Category name for tokens (default: "DOMAIN_{NAME}")
-            label: Short label for error rate (default: "{NAME}ER")
             case_sensitive: Whether pattern matching is case-sensitive
 
         Examples:
@@ -38,8 +38,8 @@ class DomainConfig:
             >>> # Using regex
             >>> medical = DomainConfig("medical", r'mg|ml|cc|\d+mg')
 
-            >>> # Custom category and label
-            >>> custom = DomainConfig("custom", ["u/s", "r/w"], category="CUSTOM", label="CuER")
+            >>> # Custom category
+            >>> custom = DomainConfig("custom", ["u/s", "r/w"], category="CUSTOM")
         """
         self.name = name
         self.case_sensitive = case_sensitive
@@ -56,9 +56,8 @@ class DomainConfig:
         else:
             raise TypeError("patterns must be str (regex) or list (terms)")
 
-        # Set category and label with sensible defaults
+        # Set category with a sensible default
         self.category = category or f"DOMAIN_{name.upper()}"
-        self.label = label or f"{name.upper()}ER"
 
         # Compile regex for efficiency
         flags = 0 if case_sensitive else re.IGNORECASE
@@ -69,7 +68,7 @@ class DomainConfig:
         return bool(self.compiled_pattern.match(text))
 
     def __repr__(self):
-        return f"DomainConfig(name='{self.name}', category='{self.category}', label='{self.label}')"
+        return f"DomainConfig(name='{self.name}', category='{self.category}')"
 
     @classmethod
     def from_file(
@@ -77,7 +76,6 @@ class DomainConfig:
         file_path: str,
         name: Optional[str] = None,
         category: Optional[str] = None,
-        label: Optional[str] = None,
         case_sensitive: Optional[bool] = None,
     ) -> "DomainConfig":
         r"""
@@ -87,7 +85,6 @@ class DomainConfig:
             # Comments start with hash
             @name: legal
             @category: LEGAL
-            @label: LER
             @case_sensitive: false
 
             # Literal terms (one per line, will be regex-escaped)
@@ -101,7 +98,6 @@ class DomainConfig:
             file_path: Path to configuration file (absolute or relative)
             name: Override domain name from file
             category: Override category from file
-            label: Override label from file
             case_sensitive: Override case sensitivity from file
 
         Returns:
@@ -210,7 +206,6 @@ class DomainConfig:
         # Extract metadata with parameter overrides
         final_name = name or metadata.get("name", "domain")
         final_category = category or metadata.get("category")
-        final_label = label or metadata.get("label")
 
         # Parse case_sensitive from metadata
         if case_sensitive is not None:
@@ -224,7 +219,6 @@ class DomainConfig:
             name=final_name,
             patterns=combined_pattern,
             category=final_category,
-            label=final_label,
             case_sensitive=final_case_sensitive,
         )
 
@@ -236,7 +230,7 @@ class DomainConfig:
         PW1/PW-1/PW 1 patterns, CW1 patterns, Ext.A patterns.
 
         Returns:
-            DomainConfig instance for legal terminology with category='LEGAL', label='LER'
+            DomainConfig instance for legal terminology with category='LEGAL'
 
         Examples:
             >>> from scribe import DomainConfig, text_error_rates
@@ -254,7 +248,7 @@ class DomainConfig:
         numeric patterns like 500mg, 10ml.
 
         Returns:
-            DomainConfig instance for medical terminology with category='MEDICAL', label='MER'
+            DomainConfig instance for medical terminology with category='MEDICAL'
 
         Examples:
             >>> from scribe import DomainConfig, text_error_rates
@@ -272,7 +266,7 @@ class DomainConfig:
         JSON, HTTP, version patterns like v1.0, v2.3.4.
 
         Returns:
-            DomainConfig instance for technical terminology with category='TECH', label='TchER'
+            DomainConfig instance for technical terminology with category='TECH'
 
         Examples:
             >>> from scribe import DomainConfig, text_error_rates

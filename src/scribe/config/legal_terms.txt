@@ -4,7 +4,6 @@
 # Metadata
 @name: legal
 @category: LEGAL
-@label: LER
 @case_sensitive: false
 
 # Literal terms - common legal abbreviations

@@ -5,7 +5,6 @@
 # --- Metadata (all fields optional; sensible defaults apply) ---
 @name: legal
 @category: LEGAL
-@label: LER
 @case_sensitive: false
 
 # --- Literal terms (auto-escaped for regex safety) ---

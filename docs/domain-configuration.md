@@ -18,9 +18,9 @@ report = text_error_rates(ref, hyp, domain)
 
 | Factory Method | Category | Label | Includes |
 |---|---|---|---|
-| `DomainConfig.legal()` | LEGAL | LER | u/s, r/w, sec., art., v., vs., PW1/PW-1, CW1, Ext.A |
-| `DomainConfig.medical()` | MEDICAL | MER | mg, ml, cc, mcg, IU, 500mg, 10ml |
-| `DomainConfig.technical()` | TECH | TchER | API, SDK, CLI, JSON, HTTP, v1.0 |
+| `DomainConfig.legal()` | LEGAL | DER | u/s, r/w, sec., art., v., vs., PW1/PW-1, CW1, Ext.A |
+| `DomainConfig.medical()` | MEDICAL | DER | mg, ml, cc, mcg, IU, 500mg, 10ml |
+| `DomainConfig.technical()` | TECH | DER | API, SDK, CLI, JSON, HTTP, v1.0 |
 
 ## File-Based Configuration
 
@@ -37,7 +37,6 @@ report = text_error_rates(ref, hyp, domain)
 # Domain configuration file
 @name: legal
 @category: LEGAL
-@label: LER
 @case_sensitive: false
 
 # Literal terms (automatically escaped for regex safety)
@@ -57,7 +56,6 @@ REGEX: Ext\.[-\s]*[A-Z]\d*  # Matches Ext.A, Ext. B2
 |---|---|---|
 | `@name` | `"domain"` | Domain identifier |
 | `@category` | `"DOMAIN_{NAME}"` | Token category name |
-| `@label` | `"{NAME}ER"` | Short label for error rate metric |
 | `@case_sensitive` | `false` | Accepts `true`/`false`/`yes`/`no`/`1`/`0` |
 
 **Pattern types:**
@@ -91,10 +89,10 @@ custom = DomainConfig.from_file(
 from scribe import DomainConfig
 
 # List-based patterns (automatically escaped)
-custom = DomainConfig("custom", ["u/s", "r/w"], category="CUSTOM", label="CuER")
+custom = DomainConfig("custom", ["u/s", "r/w"], category="CUSTOM")
 
 # Regex pattern (used directly)
-technical = DomainConfig("tech", r'API|SDK|CLI|v\d+\.\d+', category="TECH", label="TchER")
+technical = DomainConfig("tech", r'API|SDK|CLI|v\d+\.\d+', category="TECH")
 
 # Use in evaluation
 report = text_error_rates(ref, hyp, custom)
