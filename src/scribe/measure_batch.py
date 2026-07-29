@@ -50,8 +50,12 @@ def compute_sample_errors(
             # downstream aggregation works regardless of which field
             # name the caller configured. Non-string ids (numbers, JSON
             # arrays/objects) are stringified — aggregation uses the
-            # value as a grouping key.
-            ds_value = data.get(source_dataset_field) or "unknown"
+            # value as a grouping key. Only a missing/null/empty field
+            # falls back to "unknown"; falsy scalars like 0 or false
+            # are real dataset ids.
+            ds_value = data.get(source_dataset_field)
+            if ds_value is None or ds_value == "":
+                ds_value = "unknown"
             data["source_dataset"] = ds_value if isinstance(ds_value, str) else str(ds_value)
 
             ref = data[ref_field]

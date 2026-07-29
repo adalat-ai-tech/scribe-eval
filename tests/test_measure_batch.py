@@ -223,3 +223,24 @@ def test_non_string_dataset_ids_do_not_break_aggregation(tmp_path):
     assert all(isinstance(k, str) for k in keys)
     assert "7" in keys
     assert len(keys) == 3
+
+
+def test_falsy_dataset_ids_are_real_values(tmp_path):
+    """Falsy scalars like 0 or false are legitimate dataset ids and must
+    not collapse into 'unknown' (PR review issue); only a missing, null,
+    or empty field falls back to 'unknown'."""
+    records = [
+        {"transcript_cleaned": "a b", "prediction": "a b", "ds": 0},
+        {"transcript_cleaned": "c d", "prediction": "c d", "ds": False},
+        {"transcript_cleaned": "e f", "prediction": "e f", "ds": ""},
+        {"transcript_cleaned": "g h", "prediction": "g h", "ds": None},
+        {"transcript_cleaned": "i j", "prediction": "i j"},
+    ]
+    path = tmp_path / "falsy_ids.jsonl"
+    with path.open("w", encoding="utf-8") as f:
+        for rec in records:
+            f.write(json.dumps(rec) + "\n")
+
+    results = compute_sample_errors(str(path), source_dataset_field="ds")
+    agg = compute_aggregate_metrics(results)
+    assert set(agg["by_dataset"].keys()) == {"0", "False", "unknown"}
