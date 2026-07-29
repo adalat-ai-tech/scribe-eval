@@ -6,7 +6,6 @@ from .constants import (
     TABLE_WIDTH,
     calculate_combined_total,
     format_table_header,
-    get_categories,
     init_stat_dict,
 )
 from .domain_config import DomainConfig
@@ -96,45 +95,42 @@ def aggregate_error_details(sample_results: list[dict]) -> list[dict]:
 
 
 def compute_aggregate_metrics(
-    sample_results, domain_config: Optional[DomainConfig] = None
+    sample_results,
 ) -> dict[str, dict[str, dict[str, dict[str, float | int]]]]:
     """
     Aggregate metrics across all samples.
 
+    Categories are derived entirely from the sample reports: whatever
+    compute_sample_errors measured (including domain categories) is
+    aggregated. No domain configuration is needed here — it was already
+    applied at measurement time.
+
     Args:
         sample_results: List of result dictionaries from compute_sample_errors
-        domain_config: Domain configuration (None for no domain)
 
     Returns:
         Dictionary with 'overall' and 'by_dataset' aggregated metrics
     """
-    categories = get_categories(domain_config)
-    overall_agg = init_stat_dict(categories)
-    dataset_aggs = defaultdict(lambda: init_stat_dict(categories))
+    overall_agg = init_stat_dict()
+    dataset_aggs = defaultdict(init_stat_dict)
 
     for res in sample_results:
         ds = res.get("source_dataset", "unknown")
         report = res["detailed_report"]
 
-        for cat in categories:
-            if cat not in report:
-                continue
-
-            # Update overall
-            overall_agg[cat]["substitutions"] += report[cat]["substitutions"]
-            overall_agg[cat]["insertions"] += report[cat]["insertions"]
-            overall_agg[cat]["deletions"] += report[cat]["deletions"]
-            overall_agg[cat]["correct"] += report[cat]["correct"]
-            overall_agg[cat]["total"] += report[cat]["total_ref"]
-            overall_agg[cat]["sandhi_hits"] += report[cat]["sandhi_hits"]
-
-            # Update per-dataset
-            dataset_aggs[ds][cat]["substitutions"] += report[cat]["substitutions"]
-            dataset_aggs[ds][cat]["insertions"] += report[cat]["insertions"]
-            dataset_aggs[ds][cat]["deletions"] += report[cat]["deletions"]
-            dataset_aggs[ds][cat]["correct"] += report[cat]["correct"]
-            dataset_aggs[ds][cat]["total"] += report[cat]["total_ref"]
-            dataset_aggs[ds][cat]["sandhi_hits"] += report[cat]["sandhi_hits"]
+        # Aggregate every category present in the data. Dropping an
+        # unexpected category would also shrink the combined denominator
+        # and silently deflate every other category's rate.
+        for cat, counts in report.items():
+            for agg in (overall_agg, dataset_aggs[ds]):
+                if cat not in agg:
+                    agg.update(init_stat_dict([cat]))
+                agg[cat]["substitutions"] += counts["substitutions"]
+                agg[cat]["insertions"] += counts["insertions"]
+                agg[cat]["deletions"] += counts["deletions"]
+                agg[cat]["correct"] += counts["correct"]
+                agg[cat]["total"] += counts["total_ref"]
+                agg[cat]["sandhi_hits"] += counts["sandhi_hits"]
 
     def calculate_rates(agg):
         # Calculate combined denominator across ALL categories

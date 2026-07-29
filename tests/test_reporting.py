@@ -118,7 +118,7 @@ def test_format_dataset_table_takes_aggregate_shape(tmp_path, legal_domain):
         encoding="utf-8",
     )
     results = compute_sample_errors(str(inp), domain_config=legal_domain)
-    agg = compute_aggregate_metrics(results, domain_config=legal_domain)
+    agg = compute_aggregate_metrics(results)
     rows = format_dataset_table(agg, legal_domain)
     assert isinstance(rows, list)
     assert rows, "Expected at least the OVERALL row"
@@ -140,7 +140,7 @@ def test_write_summary_to_file_creates_a_readable_file(tmp_path, legal_domain):
         encoding="utf-8",
     )
     results = compute_sample_errors(str(inp), domain_config=legal_domain)
-    agg = compute_aggregate_metrics(results, domain_config=legal_domain)
+    agg = compute_aggregate_metrics(results)
 
     target = tmp_path / "summary.txt"
     write_summary_to_file(agg, str(target), legal_domain)

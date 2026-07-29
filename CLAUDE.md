@@ -118,7 +118,7 @@ The visualizer provides:
    - Optional `domain_config` parameter enables domain-specific error tracking
    - Optional `output_file` parameter saves detailed per-sample error reports as JSONL
    - Each detailed report includes category-wise breakdown (base + domain categories) with error rates, substitutions, insertions, deletions, correct counts, and Sandhi hits
-   - `compute_aggregate_metrics(sample_results, domain_config=None)`: Dataset-level and overall aggregation
+   - `compute_aggregate_metrics(sample_results)`: Dataset-level and overall aggregation; categories are derived from the sample reports (domain config is applied at measurement time, not here)
    - `aggregate_error_details(sample_results)`: Flatten per-sample error detail records into a single list for frequency analysis
    - `print_evaluation_summary()`: Formatted output table with WER/NER/PER plus domain-specific rates (e.g., LER, MER)
 

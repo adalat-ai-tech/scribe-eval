@@ -533,7 +533,7 @@ with tab_json:
                             else "overall"
                         )
 
-                    agg = compute_aggregate_metrics(res_detailed, domain_config=domain_config)
+                    agg = compute_aggregate_metrics(res_detailed)
                     all_error_details = aggregate_error_details(res_detailed)
 
                     all_refs = [r.get(ref_col, "") for r in records]

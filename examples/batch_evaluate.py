@@ -291,7 +291,7 @@ Examples:
 
         # 6. Aggregate metrics with dataset splits
         print("Computing aggregate metrics...")
-        metrics = compute_aggregate_metrics(results, domain_config=domain_config)
+        metrics = compute_aggregate_metrics(results)
 
         # 7. Output to console
         print("\n" + "=" * 85)

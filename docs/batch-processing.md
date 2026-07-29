@@ -29,7 +29,7 @@ results = compute_sample_errors(
 )
 
 # Aggregate across all samples
-metrics = compute_aggregate_metrics(results, domain_config=domain)
+metrics = compute_aggregate_metrics(results)
 
 # Overall metrics
 print(metrics['overall']['WORD']['error_rate'])
@@ -57,7 +57,7 @@ results = compute_sample_errors(
     collect_error_details=True,
 )
 
-metrics = compute_aggregate_metrics(results, domain_config=domain)
+metrics = compute_aggregate_metrics(results)
 
 # Flatten all token-level error records across samples
 all_error_details = aggregate_error_details(results)
