@@ -25,7 +25,6 @@ class TestFileLoading:
         content = """
 @name: test
 @category: TEST
-@label: TER
 
 u/s
 r/w
@@ -39,7 +38,6 @@ sec.
             config = DomainConfig.from_file(temp_path)
             assert config.name == "test"
             assert config.category == "TEST"
-            assert config.label == "TER"
             assert not config.case_sensitive
 
             # Test that patterns match
@@ -160,7 +158,6 @@ class TestMetadataParsing:
         content = """
 @name: legal
 @category: LEGAL
-@label: LER
 @case_sensitive: true
 
 u/s
@@ -173,7 +170,6 @@ u/s
             config = DomainConfig.from_file(temp_path)
             assert config.name == "legal"
             assert config.category == "LEGAL"
-            assert config.label == "LER"
             assert config.case_sensitive is True
         finally:
             os.unlink(temp_path)
@@ -192,7 +188,6 @@ r/w
             config = DomainConfig.from_file(temp_path)
             assert config.name == "domain"  # Default name
             assert config.category == "DOMAIN_DOMAIN"  # Default from name
-            assert config.label == "DOMAINER"  # Default from name
             assert config.case_sensitive is False  # Default
         finally:
             os.unlink(temp_path)
@@ -474,7 +469,6 @@ REGEX: PW[-\\s]*\\d+
         content = """
 @name: legal
 @category: LEGAL
-@label: LER
 
 u/s
 REGEX: PW[-\\s]*\\d+
@@ -503,7 +497,6 @@ REGEX: PW[-\\s]*\\d+
         content = """
 @name: legal
 @category: LEGAL
-@label: LER
 
 u/s
 r/w
@@ -548,7 +541,6 @@ class TestBundledConfigFiles:
         config = DomainConfig.legal()
         assert config.name == "legal"
         assert config.category == "LEGAL"
-        assert config.label == "LER"
         assert not config.case_sensitive
 
     def test_legal_factory_witness_patterns(self):
@@ -562,13 +554,11 @@ class TestBundledConfigFiles:
         config = DomainConfig.medical()
         assert config.name == "medical"
         assert config.category == "MEDICAL"
-        assert config.label == "MER"
 
     def test_technical_factory_metadata(self):
         config = DomainConfig.technical()
         assert config.name == "technical"
         assert config.category == "TECH"
-        assert config.label == "TchER"
         assert config.case_sensitive is True
 
 

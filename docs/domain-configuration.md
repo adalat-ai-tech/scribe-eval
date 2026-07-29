@@ -37,7 +37,6 @@ report = text_error_rates(ref, hyp, domain)
 # Domain configuration file
 @name: legal
 @category: LEGAL
-@label: LER
 @case_sensitive: false
 
 # Literal terms (automatically escaped for regex safety)
@@ -57,7 +56,6 @@ REGEX: Ext\.[-\s]*[A-Z]\d*  # Matches Ext.A, Ext. B2
 |---|---|---|
 | `@name` | `"domain"` | Domain identifier |
 | `@category` | `"DOMAIN_{NAME}"` | Token category name |
-| `@label` | `"{NAME}ER"` | Accepted for compatibility; reports always label the domain column DER |
 | `@case_sensitive` | `false` | Accepts `true`/`false`/`yes`/`no`/`1`/`0` |
 
 **Pattern types:**
@@ -91,10 +89,10 @@ custom = DomainConfig.from_file(
 from scribe import DomainConfig
 
 # List-based patterns (automatically escaped)
-custom = DomainConfig("custom", ["u/s", "r/w"], category="CUSTOM", label="CuER")
+custom = DomainConfig("custom", ["u/s", "r/w"], category="CUSTOM")
 
 # Regex pattern (used directly)
-technical = DomainConfig("tech", r'API|SDK|CLI|v\d+\.\d+', category="TECH", label="TchER")
+technical = DomainConfig("tech", r'API|SDK|CLI|v\d+\.\d+', category="TECH")
 
 # Use in evaluation
 report = text_error_rates(ref, hyp, custom)

@@ -4,7 +4,6 @@
 # Metadata
 @name: medical
 @category: MEDICAL
-@label: MER
 @case_sensitive: false
 
 # Literal terms - common medical units

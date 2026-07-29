@@ -233,7 +233,7 @@ tokens, tags = domain_aware_tokenizer("my text", custom_domain)
 tokens, tags = domain_aware_tokenizer("regular text", None)
 
 # Custom domain
-custom = DomainConfig("custom", ["u/s", "r/w"], category="CUSTOM", label="CuER")
+custom = DomainConfig("custom", ["u/s", "r/w"], category="CUSTOM")
 tokens, tags = domain_aware_tokenizer("charged u/s 302", custom)
 ```
 
@@ -249,7 +249,6 @@ Configuration files use a simple line-based format:
 # Comments start with hash
 @name: legal
 @category: LEGAL
-@label: LER
 @case_sensitive: false
 
 # Literal terms (one per line, automatically escaped for regex safety)
@@ -266,7 +265,6 @@ REGEX: CW[-\s]*\d+     # Matches CW1, CW 1, CW-1
 - **Metadata lines**: `@key: value` format (optional, uses sensible defaults if missing)
   - `@name`: Domain name (default: "domain")
   - `@category`: Category name for tokens (default: "DOMAIN_{NAME}")
-  - `@label`: Accepted for compatibility but unused in reports — the domain error-rate column is always labelled DER
   - `@case_sensitive`: true/false (default: false)
 - **Literal terms**: Plain text, one per line (automatically escaped with `re.escape()`)
 - **Regex patterns**: Prefix with `REGEX:`, used directly without escaping
