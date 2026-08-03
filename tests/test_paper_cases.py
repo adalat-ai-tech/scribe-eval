@@ -28,7 +28,7 @@ PAPER_FIG2_HYP = "ഇന്നല്ലെങ്കിൽ നാളെ ആകട
 def test_paper_fig2_sandhi_resolves_to_zero_lexical_error():
     """With sandhi enabled, the Fig. 2 case reports ERlex = 0%."""
     report = text_error_rates(PAPER_FIG2_REF, PAPER_FIG2_HYP, None, use_sandhi=True)
-    word = report["WORD"]
+    word = report["LEXICAL"]
     assert word["error_rate"] == 0.0
     assert word["substitutions"] == 0
     assert word["insertions"] == 0
@@ -39,7 +39,7 @@ def test_paper_fig2_sandhi_resolves_to_zero_lexical_error():
 def test_paper_fig2_without_sandhi_inflates_to_100_percent():
     """With sandhi disabled (1:1 alignment), the same case reports ERlex = 100%."""
     report = text_error_rates(PAPER_FIG2_REF, PAPER_FIG2_HYP, None, use_sandhi=False)
-    word = report["WORD"]
+    word = report["LEXICAL"]
     assert word["error_rate"] == 1.0
     # Three reference word tokens, every one substituted by the 1:1 aligner.
     assert word["substitutions"] == 3

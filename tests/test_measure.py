@@ -13,7 +13,7 @@ from scribe import text_error_rates, token_error_rates
 def test_perfect_match_reports_zero_errors():
     ref = "the case is closed."
     report = text_error_rates(ref, ref, None)
-    for cat in ("WORD", "NUMERAL", "PUNCT"):
+    for cat in ("LEXICAL", "NUMERAL", "PUNCT"):
         assert report[cat]["error_rate"] == 0.0
         assert report[cat]["substitutions"] == 0
         assert report[cat]["insertions"] == 0
@@ -23,7 +23,7 @@ def test_perfect_match_reports_zero_errors():
 def test_base_categories_are_always_present():
     """Even when a category has zero tokens, its key must exist."""
     report = text_error_rates("just words here", "just words here", None)
-    assert "WORD" in report
+    assert "LEXICAL" in report
     assert "NUMERAL" in report
     assert "PUNCT" in report
 
@@ -40,9 +40,9 @@ def test_domain_category_absent_without_domain():
 
 def test_single_word_substitution_counted_once():
     report = text_error_rates("the case is closed", "the case is open", None)
-    assert report["WORD"]["substitutions"] == 1
-    assert report["WORD"]["insertions"] == 0
-    assert report["WORD"]["deletions"] == 0
+    assert report["LEXICAL"]["substitutions"] == 1
+    assert report["LEXICAL"]["insertions"] == 0
+    assert report["LEXICAL"]["deletions"] == 0
 
 
 def test_combined_denominator_yields_low_rate_for_sparse_category(legal_domain):
@@ -78,18 +78,18 @@ def test_token_error_rates_accepts_aligned_input():
     """token_error_rates is the lower-level entry that takes already-aligned
     token streams (as the alignment engine produces).
     """
-    aligned_ref = [("a", "WORD"), ("b", "WORD"), ("c", "WORD")]
-    aligned_hyp = [("a", "WORD"), ("b", "WORD"), ("c", "WORD")]
+    aligned_ref = [("a", "LEXICAL"), ("b", "LEXICAL"), ("c", "LEXICAL")]
+    aligned_hyp = [("a", "LEXICAL"), ("b", "LEXICAL"), ("c", "LEXICAL")]
     report = token_error_rates(aligned_ref, aligned_hyp)
-    assert report["WORD"]["error_rate"] == 0.0
-    assert report["WORD"]["substitutions"] == 0
+    assert report["LEXICAL"]["error_rate"] == 0.0
+    assert report["LEXICAL"]["substitutions"] == 0
 
 
 def test_token_error_rates_reports_substitution_count():
-    aligned_ref = [("a", "WORD"), ("b", "WORD"), ("c", "WORD")]
-    aligned_hyp = [("a", "WORD"), ("x", "WORD"), ("c", "WORD")]
+    aligned_ref = [("a", "LEXICAL"), ("b", "LEXICAL"), ("c", "LEXICAL")]
+    aligned_hyp = [("a", "LEXICAL"), ("x", "LEXICAL"), ("c", "LEXICAL")]
     report = token_error_rates(aligned_ref, aligned_hyp)
-    assert report["WORD"]["substitutions"] == 1
+    assert report["LEXICAL"]["substitutions"] == 1
 
 
 def test_category_with_zero_ref_tokens_has_zero_error_rate():
@@ -97,14 +97,14 @@ def test_category_with_zero_ref_tokens_has_zero_error_rate():
     division-by-zero) and combined_total reflects only populated
     categories.
     """
-    aligned_ref = [("hello", "WORD"), ("world", "WORD")]
-    aligned_hyp = [("hello", "WORD"), ("world", "WORD")]
+    aligned_ref = [("hello", "LEXICAL"), ("world", "LEXICAL")]
+    aligned_hyp = [("hello", "LEXICAL"), ("world", "LEXICAL")]
     report = token_error_rates(aligned_ref, aligned_hyp)
     assert report["PUNCT"]["total_ref"] == 0
     assert report["PUNCT"]["error_rate"] == 0.0
     assert report["NUMERAL"]["total_ref"] == 0
     assert report["NUMERAL"]["error_rate"] == 0.0
-    assert report["WORD"]["combined_total"] == 2
+    assert report["LEXICAL"]["combined_total"] == 2
     assert report["PUNCT"]["combined_total"] == 2
     assert report["NUMERAL"]["combined_total"] == 2
 
@@ -118,11 +118,11 @@ def test_pure_sandhi_event_does_not_affect_error_rate_or_counts():
     hyp = "ഇന്നല്ലെങ്കിൽ"
     report = text_error_rates(ref, hyp, None)
 
-    assert report["WORD"]["error_rate"] == 0.0
-    assert report["WORD"]["substitutions"] == 0
-    assert report["WORD"]["insertions"] == 0
-    assert report["WORD"]["deletions"] == 0
-    assert report["WORD"]["sandhi_hits"] == 1
+    assert report["LEXICAL"]["error_rate"] == 0.0
+    assert report["LEXICAL"]["substitutions"] == 0
+    assert report["LEXICAL"]["insertions"] == 0
+    assert report["LEXICAL"]["deletions"] == 0
+    assert report["LEXICAL"]["sandhi_hits"] == 1
 
 
 def test_token_error_rates_has_no_sandhi_parameter():

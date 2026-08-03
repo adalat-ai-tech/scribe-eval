@@ -23,19 +23,19 @@ Enter reference and hypothesis text directly. The view updates automatically on 
   - Green: exact match
   - Red: substitution, insertion, or deletion
   - Blue: Sandhi correction (merged/split Indic word)
-- **Token Error Rate** and **Accuracy** as metric tiles (hover on Accuracy for a note on why TER + Accuracy ≠ 100% when insertions or Sandhis are present)
-- Category decomposition caption: `Word Tokens X% + Legal Tokens Y% + ... = TER%`
+- **WER_SCRIBE** and **Accuracy** as metric tiles (hover for the composite definition and a note on why WER_SCRIBE + Accuracy ≠ 100% when insertions or Sandhis are present)
+- Category decomposition caption: `Lexical Tokens X% + Legal Tokens Y% + ... = WER_SCRIBE%`
 - **Jiwer WER and CER** shown side-by-side for baseline comparison
 - **Error Analysis** expander:
   - Category contributions table (Ref Tokens, Exact Match, Accuracy, Sub, Del, Ins, Error Rate, Impact on Total)
-  - Category breakdown chart (stacked bar: token matches left, TER contribution right)
+  - Category breakdown chart (stacked bar: token matches left, WER_SCRIBE contribution right)
 - **Frequent Errors** expander: top-N substitutions, deletions, insertions, sandhi merges, sandhi splits across five sub-tabs (the two sandhi tabs are populated only when sandhi detection is enabled and the language has agglutinative compounds)
 
 ### Batch Dataset Analysis
 
 Upload a JSONL file (or use the default path) to get aggregate metrics across multiple samples.
 
-- Same **Token Error Rate + Accuracy** and **Jiwer WER + CER** metric tiles as Single Sample
+- Same **WER_SCRIBE + Accuracy** and **Jiwer WER + CER** metric tiles as Single Sample
 - Category decomposition caption and Sandhis count
 - Category contributions table and breakdown chart
 - Frequent errors tables with adjustable top-N (changing top-N does not rerun the batch)

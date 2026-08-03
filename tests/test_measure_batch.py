@@ -54,7 +54,7 @@ def test_compute_sample_errors_writes_detailed_output(tmp_path, sample_jsonl, le
     # is nested under the "detailed_report" key.
     parsed = [json.loads(line) for line in lines]
     assert all("detailed_report" in p for p in parsed)
-    assert all("WORD" in p["detailed_report"] for p in parsed)
+    assert all("LEXICAL" in p["detailed_report"] for p in parsed)
 
 
 def test_aggregate_metrics_has_overall_and_by_dataset(sample_jsonl, legal_domain):
@@ -69,7 +69,7 @@ def test_aggregate_overall_metrics_have_required_categories(sample_jsonl, legal_
     results = compute_sample_errors(str(sample_jsonl), domain_config=legal_domain)
     agg = compute_aggregate_metrics(results)
     overall = agg["overall"]
-    for cat in ("WORD", "NUMERAL", "PUNCT", "LEGAL"):
+    for cat in ("LEXICAL", "NUMERAL", "PUNCT", "LEGAL"):
         assert cat in overall
         assert "error_rate" in overall[cat]
 
@@ -89,8 +89,8 @@ def test_per_dataset_totals_reflect_per_dataset_records(sample_jsonl, legal_doma
 
 def test_print_evaluation_summary_without_domain_config(sample_jsonl, capsys):
     """print_evaluation_summary must work on a batch measured without
-    any domain (regression: it raised KeyError 'DER'). No domain
-    category in the data means no domain column at all."""
+    any domain (regression: it raised KeyError on the domain label).
+    No domain category in the data means no domain column at all."""
     from scribe import print_evaluation_summary
 
     results = compute_sample_errors(str(sample_jsonl), domain_config=None)
@@ -101,7 +101,7 @@ def test_print_evaluation_summary_without_domain_config(sample_jsonl, capsys):
     assert "dataset-a" in out
     assert "dataset-b" in out
     # No domain category in the data -> no domain column at all.
-    assert "DER" not in out
+    assert "ER_DOMAIN" not in out
     assert "N/A" not in out
 
 
@@ -150,7 +150,7 @@ def test_aggregation_includes_domain_categories_from_data(tmp_path, legal_domain
     results = compute_sample_errors(str(path), domain_config=legal_domain)
     overall = compute_aggregate_metrics(results)["overall"]
 
-    # Ground truth: 3 ref tokens (charged/WORD, u/s/LEGAL, 302/NUMERAL),
+    # Ground truth: 3 ref tokens (charged/LEXICAL, u/s/LEGAL, 302/NUMERAL),
     # exactly one error — the LEGAL substitution u/s -> us.
     assert "LEGAL" in overall
     assert overall["LEGAL"]["substitutions"] == 1
@@ -164,7 +164,7 @@ def test_aggregation_includes_domain_categories_from_data(tmp_path, legal_domain
 def test_aggregate_error_rate_recomputed_from_summed_counts(tmp_path):
     """Aggregate rates must be recomputed from summed counts over the
     combined denominator — never averaged per-sample rates. Two samples,
-    8 WORD tokens total, exactly 1 substitution => WER 1/8."""
+    8 LEXICAL tokens total, exactly 1 substitution => WER 1/8."""
     records = [
         {"transcript_cleaned": "one two three four", "prediction": "one two three four"},
         {"transcript_cleaned": "one two three four", "prediction": "one two tree four"},
@@ -175,7 +175,7 @@ def test_aggregate_error_rate_recomputed_from_summed_counts(tmp_path):
             f.write(json.dumps(rec) + "\n")
 
     agg = compute_aggregate_metrics(compute_sample_errors(str(path)))
-    word = agg["overall"]["WORD"]
+    word = agg["overall"]["LEXICAL"]
     assert word["substitutions"] == 1
     assert word["total"] == 8
     assert word["combined_total"] == 8
@@ -198,9 +198,9 @@ def test_sandhi_hits_summed_across_samples_and_datasets(tmp_path):
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
     agg = compute_aggregate_metrics(compute_sample_errors(str(path)))
-    assert agg["overall"]["WORD"]["sandhi_hits"] == 6
-    assert agg["by_dataset"]["d1"]["WORD"]["sandhi_hits"] == 4
-    assert agg["by_dataset"]["d2"]["WORD"]["sandhi_hits"] == 2
+    assert agg["overall"]["LEXICAL"]["sandhi_hits"] == 6
+    assert agg["by_dataset"]["d1"]["LEXICAL"]["sandhi_hits"] == 4
+    assert agg["by_dataset"]["d2"]["LEXICAL"]["sandhi_hits"] == 2
 
 
 def test_non_string_dataset_ids_do_not_break_aggregation(tmp_path):

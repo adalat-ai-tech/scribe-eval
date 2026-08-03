@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-SCRIBE is a specialized ASR (Automatic Speech Recognition) error analysis tool for Indic languages (Malayalam, Kannada) with domain-aware tokenization. It provides fine-grained error metrics by categorizing tokens into base categories (WORD, NUMERAL, PUNCT) plus optional domain-specific categories (LEGAL, MEDICAL, or custom domains). Domain-critical terminology is protected from incorrect splitting and tracked separately for error analysis.
+SCRIBE is a specialized ASR (Automatic Speech Recognition) error analysis tool for Indic languages (Malayalam, Kannada) with domain-aware tokenization. It provides fine-grained error metrics by categorizing tokens into base categories (LEXICAL, NUMERAL, PUNCT) plus optional domain-specific categories (LEGAL, MEDICAL, or custom domains). Domain-critical terminology is protected from incorrect splitting and tracked separately for error analysis.
 
 ## Commands
 
@@ -72,8 +72,8 @@ uv run scribe-visualizer
 The visualizer provides:
 - **Single Sample Analysis Tab**: Auto-renders alignment and metrics when both fields are non-empty; no button press required
 - **Batch Dataset Analysis**: Upload JSONL files for aggregate metrics across datasets
-- **Token Error Rate + Accuracy metric tiles**: Both shown with equal visual weight; Accuracy tooltip explains why TER + Accuracy ≠ 100% when insertions or Sandhis are present
-- **Category breakdown chart**: Stacked bar showing Exact Match / Sub / Del / Ins per category plus TER contribution panel
+- **WER_SCRIBE + Accuracy metric tiles**: Both shown with equal visual weight; tooltips explain the composite definition and why WER_SCRIBE + Accuracy ≠ 100% when insertions or Sandhis are present
+- **Category breakdown chart**: Stacked bar showing Exact Match / Sub / Del / Ins per category plus WER_SCRIBE contribution panel
 - **Frequent errors tables**: Top-N substitutions, deletions, insertions in sub-tabs (tables only)
 - **Individual Record Inspection**: Drill down into specific samples from batch results
 - **Session State**: Maintains last 100 batch results; analysis summary cached separately for instant top-N slider updates without rerunning batch
@@ -87,7 +87,7 @@ The visualizer provides:
 
 1. **Tokenization** (`src/scribe/tokenize.py`, `src/scribe/domain_config.py`)
    - `domain_aware_tokenizer(text, domain_config=None)`: Main tokenization function
-   - Base categories: WORD, NUMERAL, PUNCT (always present)
+   - Base categories: LEXICAL, NUMERAL, PUNCT (always present)
    - Optional domain categories via `DomainConfig` class
    - Factory methods for bundled domains: `DomainConfig.legal()`, `DomainConfig.medical()`, `DomainConfig.technical()`
    - File-based configuration: `DomainConfig.from_file('config/custom.txt')`
@@ -109,7 +109,7 @@ The visualizer provides:
    - `text_error_details(ref_text, hyp_text, domain_config=None, normalize=True, use_sandhi=True)`: End-to-end pipeline from raw text to error detail records
    - `use_sandhi=False` disables Sandhi split/merge detection — useful for non-agglutinative languages
    - **Normalized error rates**: Uses combined denominator (sum of all category totals) across all categories to prevent misleading sparse-category metrics
-   - **Domain-aware metrics**: WER (Word Error Rate), NER (Numeral Error Rate), PER (Punctuation Error Rate), plus the domain error rate (DER) for the active domain category
+   - **Domain-aware metrics**: ER_LEX (Lexical Error Rate), ER_NUM (Numeral Error Rate), ER_PUNCT (Punctuation Error Rate), plus ER_DOMAIN (Domain Error Rate) for the active domain category
    - Tracks substitutions, insertions, deletions, and Sandhi corrections per category
 
 4. **Batch Processing** (`src/scribe/measure_batch.py`)
@@ -120,11 +120,11 @@ The visualizer provides:
    - Each detailed report includes category-wise breakdown (base + domain categories) with error rates, substitutions, insertions, deletions, correct counts, and Sandhi hits
    - `compute_aggregate_metrics(sample_results)`: Dataset-level and overall aggregation; categories are derived from the sample reports (domain config is applied at measurement time, not here)
    - `aggregate_error_details(sample_results)`: Flatten per-sample error detail records into a single list for frequency analysis
-   - `print_evaluation_summary()`: Formatted output table with WER/DER/NER/PER
+   - `print_evaluation_summary()`: Formatted output table with ER_LEX/ER_DOMAIN/ER_NUM/ER_PUNCT
 
 5. **Analysis** (`src/scribe/analysis.py`)
    - `compute_category_contributions(metrics)`: Full breakdown per category — correct/sub/del/ins counts, ref_tokens, correct_pct, error_count, contribution_pct
-   - `compute_total_error_rate(metrics)`: Composite TER as a float (sum of all category error_rates using combined denominator)
+   - `compute_wer_scribe(metrics)`: Composite WER_SCRIBE as a float (sum of all category error_rates using combined denominator)
    - `compute_error_type_distribution(metrics)`: Sub/ins/del percentage split per category
    - `compute_frequent_substitutions(error_details, top_n)`: Most frequent ref→hyp substitution pairs; returns `{cat: [(ref, hyp, count)], "_all": [...]}`
    - `compute_frequent_deletions(error_details, top_n)`: Most frequently deleted reference tokens; returns `{cat: [(token, count)], "_all": [...]}`
@@ -135,13 +135,13 @@ The visualizer provides:
    - Requires `matplotlib` (optional dependency; raises ImportError with install instructions if missing)
    - `category_breakdown_chart(contributions, output_path=None, title=...)`: 2-panel figure
      - **Left panel** (wide): Stacked horizontal bar — Exact Match (green) / Substitutions (red) / Deletions (amber) / Insertions (blue) per category + TOTAL row. Accuracy % annotated inside bar (or outside for small bars).
-     - **Right panel**: Category contribution to total TER — same stacked colors showing (S+I+D)/total_ref_tokens per category + TOTAL. Dynamic title: "Category Contribution to X.X% Token Error Rate"
-     - Category order: Word Tokens → Domain Tokens → Numeral Tokens → Punctuation Tokens, TOTAL at bottom
+     - **Right panel**: Category contribution to the composite rate — same stacked colors showing (S+I+D)/total_ref_tokens per category + TOTAL. Dynamic title: "Category Contribution to X.X% WER_SCRIBE"
+     - Category order: Lexical Tokens → Domain Tokens → Numeral Tokens → Punctuation Tokens, TOTAL at bottom
 
 7. **Reporting** (`src/scribe/reporting.py`)
    - Shared formatting functions used across CLI and web UI
    - `format_metrics_dict()`: Convert error metrics to formatted dictionary (returns formatted strings)
-   - `extract_error_rates()`: Extract raw numeric error rates (WER/DER/NER/PER/Sandhi) for UI components
+   - `extract_error_rates()`: Extract raw numeric error rates (er_lex/er_domain/er_num/er_punct/sandhi) for UI components
    - `format_dataset_table()`: Create dataset-level summary tables
    - `format_error_counts_table()`: Format error counts by category
    - `format_contribution_table(contributions)`: Category breakdown table with columns: Category, Ref Tokens, Exact Match, Accuracy, Sub, Del, Ins, Errors, Error Rate (S+I+D/category_ref), Impact on Total (S+I+D/total_ref)
@@ -152,7 +152,7 @@ The visualizer provides:
 
 ### Key Design Decisions
 
-**Combined Denominator Approach**: Error rates are calculated as `(Category Errors) / (Total ALL tokens)` instead of `(Category Errors) / (Category tokens)`. This prevents misleading percentages when a category has very few instances (e.g., 1 legal entity error shouldn't show as 100% DER).
+**Combined Denominator Approach**: Error rates are calculated as `(Category Errors) / (Total ALL tokens)` instead of `(Category Errors) / (Category tokens)`. This prevents misleading percentages when a category has very few instances (e.g., 1 legal entity error shouldn't show as 100% ER_DOMAIN).
 
 **Sandhi Awareness**: The alignment algorithm detects when Indic words are incorrectly merged or split by ASR systems. These are tracked separately as they represent different error types than pure substitutions.
 
@@ -164,9 +164,9 @@ The visualizer provides:
 
 **Two Error Rate Columns**: Category analysis tables expose two complementary rates:
 - **Error Rate**: `(S+I+D) / category_ref_tokens` — how accurately the model handles this category in isolation
-- **Impact on Total**: `(S+I+D) / total_ref_tokens` — how much this category contributes to the overall TER score
+- **Impact on Total**: `(S+I+D) / total_ref_tokens` — how much this category contributes to the overall WER_SCRIBE score
 
-**Standard Terminology**: Token categories display as "Word Tokens", "Domain Tokens", "Numeral Tokens", "Punctuation Tokens". Match columns use "Exact Match" and "Accuracy" (not "Correct" or "Match%").
+**Standard Terminology**: Token categories display as "Lexical Tokens", "Domain Tokens", "Numeral Tokens", "Punctuation Tokens". Match columns use "Exact Match" and "Accuracy" (not "Correct" or "Match%").
 
 **Error Detail Records**: `token_error_details()` emits one dict per aligned token pair: `{"error_type": "substitution"|"insertion"|"deletion", "category": tag, "ref_token": str|None, "hyp_token": str|None}`. Sandhi (MERGE:/SPLIT:) matches are skipped. These records power the frequent-error analysis without storing data in JSONL output.
 
@@ -186,7 +186,7 @@ The visualizer provides:
   - `align.py`: Alignment algorithm and scoring
   - `measure.py`: Single-sample error rate calculation; includes `token_error_details()` and `text_error_details()`
   - `measure_batch.py`: Multi-sample aggregation; includes `aggregate_error_details()`
-  - `analysis.py`: Analysis computations — category contributions, TER, frequent errors
+  - `analysis.py`: Analysis computations — category contributions, WER_SCRIBE, frequent errors
   - `charts.py`: matplotlib chart generation (optional dependency); category breakdown and frequent error bar charts
   - `reporting.py`: Shared formatting functions for CLI and web UI; includes `format_contribution_table()` and `format_frequent_errors_table()`
   - `constants.py`: Category constants and helper functions
@@ -207,7 +207,7 @@ The visualizer provides:
 ## Token Categories
 
 **Base Categories (always present):**
-- **WORD**: General words (Indic and English text)
+- **LEXICAL**: General words (Indic and English text)
 - **NUMERAL**: Numbers, dates (22.05.2023), times (10:30), currency (10,500)
 - **PUNCT**: Punctuation marks
 
@@ -390,13 +390,13 @@ python batch_evaluate.py --help
 --dataset-field          Field name for dataset identifier (default: source_dataset)
 --domain-config          Path to domain config file (e.g., config/legal_terms.txt)
 --no-normalize           Disable token normalization (strict matching)
---analysis               Enable detailed error analysis (TER, category contributions, frequent errors)
+--analysis               Enable detailed error analysis (WER_SCRIBE, category contributions, frequent errors)
 --top-n N                Number of top frequent errors to display (default: 10)
 --chart                  Save error analysis charts as PNG (requires --analysis and matplotlib)
 ```
 
 **Analysis output** (when `--analysis` is passed):
-- Console: Overall X% correct | Y% TER, token breakdown table, frequent substitutions/deletions/insertions
+- Console: Overall X% correct | Y% WER_SCRIBE, token breakdown table, frequent substitutions/deletions/insertions
 - `analysis_report.txt`: Same content saved to output directory
 
 **Chart output** (when `--chart` is passed):
@@ -415,13 +415,13 @@ When using `batch_evaluate.py` with the `output_file` parameter, detailed per-sa
 - `source_dataset`: Dataset identifier
 - `reference`: Original reference text
 - `hypothesis`: Original hypothesis text
-- `WORD`, `LEGAL`, `NUMERAL`, `PUNCT`: Category-specific dictionaries with:
+- `LEXICAL`, `LEGAL`, `NUMERAL`, `PUNCT`: Category-specific dictionaries with:
   - `error_rate`: Normalized error rate (errors / total tokens)
   - `substitutions`: Number of substitution errors
   - `insertions`: Number of insertion errors
   - `deletions`: Number of deletion errors
   - `correct`: Number of correctly recognized tokens
-  - `sandhi_hits`: Number of Sandhi corrections detected (for WORD category)
+  - `sandhi_hits`: Number of Sandhi corrections detected (for LEXICAL category)
 
 ## Dependencies
 

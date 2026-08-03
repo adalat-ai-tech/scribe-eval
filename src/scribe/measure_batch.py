@@ -168,7 +168,7 @@ def print_evaluation_summary(agg_results) -> None:
     Print evaluation summary table.
 
     Columns are derived from the categories present in the aggregated
-    data; the domain category (if any) is shown as DER.
+    data; the domain category (if any) is shown as ER_DOMAIN.
 
     Args:
         agg_results: Aggregated results from compute_aggregate_metrics

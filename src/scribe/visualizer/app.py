@@ -110,7 +110,7 @@ def inject_custom_css():
         .s-ins, .s-del { background-color: #ffe0b2; color: #7d4e00; }
         .s-merge   { background-color: #e0e7ff; color: #3730a3; border: 2px solid #6366f1 !important; }
 
-        .t-WORD    { border: 3px solid #a3cfbb; }
+        .t-LEXICAL { border: 3px solid #a3cfbb; }
         .t-NUMERAL { border: 3px solid #d32f2f; }
         .t-PUNCT   { border: 3px dashed #9c27b0; }
         .t-LEGAL   { border: 4px solid #1a237e; box-shadow: 0 0 8px rgba(26, 35, 126, 0.4); }
@@ -186,15 +186,17 @@ def generate_jiwer_alignment_html(ref_text, hyp_text):
 
 
 def build_category_chips(contributions, domain_config):
-    """Return 'Word Tokens 5.4%' style chips in canonical display order."""
+    """Return 'Lexical Tokens 5.4%' style chips in canonical display order."""
     display_names = {
-        "WORD": "Word Tokens",
+        "LEXICAL": "Lexical Tokens",
         "NUMERAL": "Numeral Tokens",
         "PUNCT": "Punctuation Tokens",
     }
-    base_cats = {"WORD", "NUMERAL", "PUNCT"}
+    base_cats = {"LEXICAL", "NUMERAL", "PUNCT"}
     domain_cats = [c for c in contributions if c not in base_cats]
-    ordered_cats = [c for c in ["WORD"] + domain_cats + ["NUMERAL", "PUNCT"] if c in contributions]
+    ordered_cats = [
+        c for c in ["LEXICAL"] + domain_cats + ["NUMERAL", "PUNCT"] if c in contributions
+    ]
     domain_display = f"{domain_config.name.title()} Tokens" if domain_config else "Domain Tokens"
     return [
         f"{display_names.get(c, domain_display)} {contributions[c]['error_rate']:.2%}"
@@ -254,7 +256,7 @@ def render_analysis(ref_text, hyp_text, weights, domain_config, normalize=True, 
     st.subheader("Alignment Visualizations")
     rates = extract_error_rates(report)
     contributions = compute_category_contributions(report)
-    ter_frac = sum(c["error_rate"] for c in contributions.values())
+    wer_scribe_frac = sum(c["error_rate"] for c in contributions.values())
     total_correct = sum(c["correct"] for c in contributions.values())
     total_ref = sum(c["ref_tokens"] for c in contributions.values())
     accuracy_frac = (total_correct / total_ref) if total_ref > 0 else 0.0
@@ -263,16 +265,24 @@ def render_analysis(ref_text, hyp_text, weights, domain_config, normalize=True, 
 
     st.markdown("**SCRIBE Alignment** (Domain-Aware)")
     mc1, mc2, _ = st.columns([1, 1, 2])
-    mc1.metric("Token Error Rate", f"{ter_frac:.2%}")
+    mc1.metric(
+        "WER_SCRIBE",
+        f"{wer_scribe_frac:.2%}",
+        help=(
+            "Composite SCRIBE error rate: errors from all token categories "
+            "(lexical, domain, numeral, punctuation) over the combined "
+            "reference-token denominator. Not comparable to jiwer's word-level WER."
+        ),
+    )
     mc2.metric(
         "Accuracy",
         f"{accuracy_frac:.2%}",
         help=(
-            "Accuracy + Token Error Rate need not sum to 100%. "
+            "Accuracy + WER_SCRIBE need not sum to 100%. "
             "Insertions and Sandhi corrections affects the reference token count."
         ),
     )
-    st.caption(" + ".join(category_chips) + f"  =  {ter_frac:.2%}")
+    st.caption(" + ".join(category_chips) + f"  =  {wer_scribe_frac:.2%}")
     st.caption(f"Sandhis: {rates['sandhi']}")
     st.markdown(generate_alignment_html(a_ref, a_hyp, normalize), unsafe_allow_html=True)
 
@@ -586,21 +596,29 @@ with tab_json:
         st.markdown("## 📈 Overall Metrics")
         overall_rates = extract_error_rates(agg["overall"])
         overall_chips = build_category_chips(summary["contributions"], domain_config)
-        overall_ter = summary["total_error_rate"]
+        overall_wer_scribe = summary["wer_scribe"]
 
         st.markdown("**SCRIBE** (Domain-Aware)")
         mc1, mc2, _ = st.columns([1, 1, 2])
-        mc1.metric("Token Error Rate", f"{overall_ter:.2%}")
+        mc1.metric(
+            "WER_SCRIBE",
+            f"{overall_wer_scribe:.2%}",
+            help=(
+                "Composite SCRIBE error rate: errors from all token categories "
+                "(lexical, domain, numeral, punctuation) over the combined "
+                "reference-token denominator. Not comparable to jiwer's word-level WER."
+            ),
+        )
         mc2.metric(
             "Accuracy",
             f"{summary['total_correct_pct'] / 100:.2%}",
             help=(
-                "Accuracy + Token Error Rate need not sum to 100%. "
+                "Accuracy + WER_SCRIBE need not sum to 100%. "
                 "Insertions add to the error rate without affecting the reference-token denominator, "
                 "and Sandhi corrections are tracked separately."
             ),
         )
-        st.caption(" + ".join(overall_chips) + f"  =  {overall_ter:.2%}")
+        st.caption(" + ".join(overall_chips) + f"  =  {overall_wer_scribe:.2%}")
         st.caption(f"Sandhis: {overall_rates['sandhi']}  ·  Total Ref Tokens: {total_ref:,}")
 
         st.markdown("---")

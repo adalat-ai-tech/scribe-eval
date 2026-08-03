@@ -32,12 +32,12 @@ results = compute_sample_errors(
 metrics = compute_aggregate_metrics(results)
 
 # Overall metrics
-print(metrics['overall']['WORD']['error_rate'])
+print(metrics['overall']['LEXICAL']['error_rate'])
 print(metrics['overall']['LEGAL']['error_rate'])
 
 # Per-dataset metrics
 for dataset, data in metrics['by_dataset'].items():
-    print(f"{dataset}: WER={data['WORD']['error_rate']:.2%}")
+    print(f"{dataset}: ER_LEX={data['LEXICAL']['error_rate']:.2%}")
 ```
 
 ### Error analysis (contributions + frequent errors)
@@ -64,7 +64,7 @@ all_error_details = aggregate_error_details(results)
 
 # Full analysis in one call
 summary = compute_error_summary(metrics["overall"], all_error_details, top_n=10)
-print(f"TER:      {summary['total_error_rate']:.2%}")
+print(f"WER_SCRIBE: {summary['wer_scribe']:.2%}")
 print(f"Accuracy: {summary['total_correct_pct']:.1f}%")
 
 # Formatted tables for display
@@ -128,10 +128,10 @@ Always produced:
 - `evaluation-detailed.jsonl` — per-sample breakdown (see below)
 
 With `--analysis`:
-- `analysis_report.txt` — TER, accuracy, category breakdown table, top-N frequent substitutions / deletions / insertions / sandhi merges / sandhi splits (the last two are only populated for agglutinative languages with sandhi events detected)
+- `analysis_report.txt` — WER_SCRIBE, accuracy, category breakdown table, top-N frequent substitutions / deletions / insertions / sandhi merges / sandhi splits (the last two are only populated for agglutinative languages with sandhi events detected)
 
 With `--analysis --chart`:
-- `category_breakdown.png` — 2-panel stacked bar chart: token matches per category (left panel) and each category's contribution to the overall TER (right panel)
+- `category_breakdown.png` — 2-panel stacked bar chart: token matches per category (left panel) and each category's contribution to the overall WER_SCRIBE (right panel)
 
 ## Detailed JSONL Output Format
 
@@ -143,7 +143,7 @@ Each line in the detailed output contains:
   "source_dataset": "adalat-ai/court-audio",
   "reference": "charged u/s 302 IPC",
   "hypothesis": "charged u/s 303 IPC",
-  "WORD": {
+  "LEXICAL": {
     "error_rate": 0.0,
     "substitutions": 0,
     "insertions": 0,

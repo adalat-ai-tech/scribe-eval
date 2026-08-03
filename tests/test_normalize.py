@@ -52,5 +52,5 @@ def test_normalize_token_dispatches_by_category():
 
 
 def test_normalize_token_word_category_unchanged():
-    """WORD-tagged text is not touched by numeral normalisation rules."""
-    assert normalize_token("hello", "WORD") == "hello"
+    """LEXICAL-tagged text is not touched by numeral normalisation rules."""
+    assert normalize_token("hello", "LEXICAL") == "hello"

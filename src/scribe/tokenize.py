@@ -1,7 +1,7 @@
 import re
 from typing import List, Optional, Tuple
 
-from .constants import CAT_NUMERAL, CAT_PUNCT, CAT_WORD
+from .constants import CAT_LEXICAL, CAT_NUMERAL, CAT_PUNCT
 from .domain_config import DomainConfig
 
 
@@ -28,7 +28,7 @@ def domain_aware_tokenizer(
         >>> legal = DomainConfig.legal()
         >>> tokens, tags = domain_aware_tokenizer("charged u/s 302 IPC", legal)
         >>> # tokens: ["charged", "u/s", "302", "IPC"]
-        >>> # tags: ["WORD", "LEGAL", "NUMERAL", "WORD"]
+        >>> # tags: ["LEXICAL", "LEGAL", "NUMERAL", "LEXICAL"]
 
         >>> # Medical domain
         >>> medical = DomainConfig.medical()
@@ -105,7 +105,7 @@ def domain_aware_tokenizer(
                     if domain_config is not None:
                         tags.append(domain_config.category)
                     else:
-                        tags.append(CAT_WORD)  # Fallback
+                        tags.append(CAT_LEXICAL)  # Fallback
                 else:  # numeral
                     tags.append(CAT_NUMERAL)
 
@@ -114,7 +114,7 @@ def domain_aware_tokenizer(
             # Check if it's a word or punctuation
             if any(c.isalnum() for c in t):
                 tokens.append(t)
-                tags.append(CAT_WORD)
+                tags.append(CAT_LEXICAL)
             else:
                 tokens.append(t)
                 tags.append(CAT_PUNCT)

@@ -59,14 +59,14 @@ def category_breakdown_chart(
 
     # Display names for categories
     category_display = {
-        "WORD": "Word Tokens",
+        "LEXICAL": "Lexical Tokens",
         "PUNCT": "Punctuation Tokens",
         "NUMERAL": "Numeral Tokens",
     }
 
-    # Fixed display order: Word, Domain, Numeral, Punctuation
+    # Fixed display order: Lexical, Domain, Numeral, Punctuation
     # Domain categories are anything not in the base set
-    base_cats = {"WORD", "NUMERAL", "PUNCT"}
+    base_cats = {"LEXICAL", "NUMERAL", "PUNCT"}
     domain_cats = [c for c in contributions if c not in base_cats]
 
     # A single domain category displays as "Domain Tokens"; with several
@@ -76,7 +76,7 @@ def category_breakdown_chart(
         for c in domain_cats:
             category_display[c] = f"{c} Tokens"
 
-    ordered_cats = ["WORD"] + domain_cats + ["NUMERAL", "PUNCT"]
+    ordered_cats = ["LEXICAL"] + domain_cats + ["NUMERAL", "PUNCT"]
     # Only include categories that exist in contributions
     ordered_cats = [c for c in ordered_cats if c in contributions]
 
@@ -229,7 +229,7 @@ def category_breakdown_chart(
     ax3.set_xlabel("%", fontsize=10)
     total_er_pct = er_of_total[0]  # TOTAL row is index 0
     ax3.set_title(
-        f"Category Contribution to {total_er_pct:.1f}% Token Error Rate",
+        f"Category Contribution to {total_er_pct:.1f}% WER_SCRIBE",
         fontsize=11,
         fontweight="bold",
     )

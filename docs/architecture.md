@@ -16,7 +16,7 @@ raw text  ──▶  tokenize  ──▶  align  ──▶  measure  ──▶  
 |---|---|
 | tokenize → align | `(tokens, tags, normalized_tokens)` per side |
 | align → measure | aligned `[(text, tag), ...]` pairs (gaps as `("**", "GAP")`) |
-| measure → aggregate | per-sample report `{WORD: {...}, NUMERAL: {...}, ...}` |
+| measure → aggregate | per-sample report `{LEXICAL: {...}, NUMERAL: {...}, ...}` |
 | aggregate → report | `{"overall": ..., "by_dataset": {...}}` |
 
 ## Quick example
@@ -30,9 +30,9 @@ ref = "charged u/s 302 IPC on 22.05.2023"
 hyp = "charged u/s 303 IPC on 22/05/2023"
 
 report = text_error_rates(ref, hyp, DomainConfig.legal())
-print(f"WER:   {report['WORD']['error_rate']:.2%}")    # 0.00% — words match
-print(f"DER:   {report['LEGAL']['error_rate']:.2%}")   # 0.00% — u/s, IPC shielded
-print(f"NER:   {report['NUMERAL']['error_rate']:.2%}") # 16.67% — 302 → 303
+print(f"ER_LEX:    {report['LEXICAL']['error_rate']:.2%}")    # 0.00% — words match
+print(f"ER_DOMAIN: {report['LEGAL']['error_rate']:.2%}")   # 0.00% — u/s, IPC shielded
+print(f"ER_NUM:    {report['NUMERAL']['error_rate']:.2%}") # 16.67% — 302 → 303
                                                        # (date is normalized away)
 ```
 
@@ -73,11 +73,11 @@ For batch evaluation across a JSONL dataset, see
 | `align.py` | Modified Needleman–Wunsch with token-type-aware scoring; sandhi merge / split detection | `align_arrays`, `DEFAULT_WEIGHTS` |
 | `measure.py` | Per-sample error rates and per-token error records | `text_error_rates`, `token_error_rates`, `text_error_details` |
 | `measure_batch.py` | JSONL ingestion, per-sample running, per-dataset & overall aggregation | `compute_sample_errors`, `compute_aggregate_metrics`, `aggregate_error_details` |
-| `analysis.py` | Category contributions, frequent substitutions / deletions / insertions / sandhi merges / sandhi splits, Token Error Rate (TER) | `compute_error_summary`, `compute_category_contributions`, `compute_frequent_sandhi_merges`, `compute_frequent_sandhi_splits` |
+| `analysis.py` | Category contributions, frequent substitutions / deletions / insertions / sandhi merges / sandhi splits, the composite WER_SCRIBE | `compute_error_summary`, `compute_category_contributions`, `compute_frequent_sandhi_merges`, `compute_frequent_sandhi_splits` |
 | `reporting.py` | Formatters shared by the CLI and Streamlit UI | `format_metrics_dict`, `format_contribution_table`, `format_alignment_table` |
 | `charts.py` | matplotlib chart generation (optional `[charts]` extra) | `category_breakdown_chart` |
 | `visualizer/` | Streamlit app and `scribe-visualizer` console script (optional `[visualizer]` extra) | `app.py`, `__main__.py` |
-| `constants.py` | Category names and helpers | `CAT_WORD`, `CAT_NUMERAL`, `get_categories(domain_config)` |
+| `constants.py` | Category names and helpers | `CAT_LEXICAL`, `CAT_NUMERAL`, `get_categories(domain_config)` |
 
 ## Stage-by-stage examples
 
@@ -91,10 +91,10 @@ from scribe import domain_aware_tokenizer, DomainConfig
 
 tokens, tags = domain_aware_tokenizer("filed u/s 302 IPC", DomainConfig.legal())
 # tokens: ['filed', 'u/s',  '302',     'IPC']
-# tags:   ['WORD',  'LEGAL', 'NUMERAL', 'LEGAL']
+# tags:   ['LEXICAL',  'LEGAL', 'NUMERAL', 'LEGAL']
 ```
 
-Both `u/s` and `IPC` are LEGAL — they're tracked under the domain error rate (DER), not WER, so
+Both `u/s` and `IPC` are LEGAL — they're tracked under the domain error rate (ER_DOMAIN), not ER_LEX, so
 a misrecognised legal abbreviation doesn't inflate your general word
 error rate. `u/s` also stays atomic instead of being split on `/`.
 
@@ -121,8 +121,8 @@ from scribe import align_arrays, domain_aware_tokenizer
 t1, g1 = domain_aware_tokenizer("ഇന്ന് അല്ലെങ്കിൽ", None)
 t2, g2 = domain_aware_tokenizer("ഇന്നല്ലെങ്കിൽ",     None)
 ref, hyp, _ = align_arrays(t1, g1, t2, g2)
-# ref: [('MERGE:ഇന്ന് അല്ലെങ്കിൽ', 'WORD')]
-# hyp: [('ഇന്നല്ലെങ്കിൽ',          'WORD')]
+# ref: [('MERGE:ഇന്ന് അല്ലെങ്കിൽ', 'LEXICAL')]
+# hyp: [('ഇന്നല്ലെങ്കിൽ',          'LEXICAL')]
 ```
 
 The aligner tags merge / split events with `MERGE:` / `SPLIT:` prefixes
@@ -135,13 +135,13 @@ records the event as a *sandhi correction* — not an error.
 from scribe import text_error_rates, text_error_details
 
 rates = text_error_rates("alpha beta gamma", "alpha delta epsilon", None)
-# rates['WORD']: {'error_rate': 0.667, 'substitutions': 2, 'correct': 1,
+# rates['LEXICAL']: {'error_rate': 0.667, 'substitutions': 2, 'correct': 1,
 #                 'total_ref': 3, 'sandhi_hits': 0, ...}
 
 details = text_error_details("alpha beta gamma", "alpha delta epsilon", None)
-# [{'error_type': 'substitution', 'category': 'WORD',
+# [{'error_type': 'substitution', 'category': 'LEXICAL',
 #   'ref_token': 'beta',  'hyp_token': 'delta'},
-#  {'error_type': 'substitution', 'category': 'WORD',
+#  {'error_type': 'substitution', 'category': 'LEXICAL',
 #   'ref_token': 'gamma', 'hyp_token': 'epsilon'}]
 ```
 
@@ -176,7 +176,7 @@ summary = compute_error_summary(agg["overall"], details, top_n=5)
 merge_rows = format_frequent_errors_table(
     summary["frequent_sandhi_merges"], "sandhi_merge", 5
 )
-# [{'Rank': 1, 'Category': 'WORD', 'Reference': 'ഇന്ന് അല്ലെങ്കിൽ',
+# [{'Rank': 1, 'Category': 'LEXICAL', 'Reference': 'ഇന്ന് അല്ലെങ്കിൽ',
 #   'Hypothesis': 'ഇന്നല്ലെങ്കിൽ', 'Count': 2}]
 ```
 
@@ -211,7 +211,7 @@ paper. When you change a module, run its corresponding test file first.
 - **Combined denominator** — error rates are `(category errors) / (total tokens across all categories)`, not `(category errors) / (category tokens)`. Stops sparse categories (e.g. 1 LEGAL error in 1 LEGAL token) reading as 100%. Implemented in `measure.py::token_error_rates`.
 - **Domain shielding** — domain entities (`u/s`, `r/w`, `PW1`) are extracted *before* general tokenization so they stay atomic and are tracked under their own category. Implemented across `tokenize.py` + `domain_config.py`.
 - **Sandhi awareness** — the alignment step detects when ASR has merged or split adjacent words (common in agglutinative Indic languages) and counts those separately from substitutions. The detected pairs are also surfaced as their own frequent-event tables (`frequent_sandhi_merges`, `frequent_sandhi_splits`) alongside the substitution / deletion / insertion tables, so recurring sandhi patterns are diagnosable at a dataset level. Implemented in `align.py` (detection) + `analysis.py` (aggregation). Disable with `use_sandhi=False` for non-agglutinative languages.
-- **Two error-rate views per category** — `error_rate` (errors / category_ref) for in-isolation accuracy, `combined_total` (errors / total_ref) for contribution to overall TER. The Streamlit UI shows both side-by-side.
+- **Two error-rate views per category** — `error_rate` (errors / category_ref) for in-isolation accuracy, `combined_total` (errors / total_ref) for contribution to the overall WER_SCRIBE. The Streamlit UI shows both side-by-side.
 
 ## Glossary
 
@@ -222,7 +222,7 @@ SCRIBE paper. Each entry points at the module that owns the concept.
 - **Sandhi correction** — an alignment hit where one reference token spans two hypothesis tokens (split) or two reference tokens collapse into one hypothesis token (merge). Tracked separately from substitutions because the underlying word identity is preserved. See `align.py`.
 - **Combined denominator** — the total reference-token count across all categories, used as the divisor for every category's error rate. Prevents 1-error-in-1-token categories from reading as 100%. See `measure.py::token_error_rates`.
 - **Domain shielding** — extracting domain-critical multi-character tokens (e.g. `u/s`, `r/w`, `PW1`) before general tokenization so they stay atomic and aren't split on punctuation. See `tokenize.py` + `domain_config.py`.
-- **TER (Token Error Rate)** — the headline overall error rate: `(sub + ins + del) / total_ref`, where `total_ref` is the combined-denominator count of reference tokens across all categories. Equivalently, TER is the sum of every category's `error_rate` (since they share the same denominator).
-- **Accuracy** — `total_correct / total_ref`, the fraction of reference tokens recovered exactly. **Accuracy and TER are independent quantities** — they do not sum to 100% in general because (a) insertions appear in the TER numerator but not in the reference token count, and (b) sandhi hits count as correct but consume two reference tokens per single hypothesis token. Both numbers are reported side-by-side in the CLI and visualizer.
-- **Error rate vs Impact on Total** — every category exposes two numbers. `error_rate = (sub + ins + del) / category_ref` answers "how accurate is the model on this category in isolation". `Impact on Total = (sub + ins + del) / total_ref` answers "how much does this category contribute to TER". Across categories the *Impact on Total* values sum to TER.
+- **WER_SCRIBE** — the headline composite error rate: `(sub + ins + del) / total_ref`, where `total_ref` is the combined-denominator count of reference tokens across all categories (lexical, domain, numeral, punctuation). Equivalently, WER_SCRIBE is the sum of every category's `error_rate` (since they share the same denominator). Not comparable to a standard word-level WER, which ignores token categories.
+- **Accuracy** — `total_correct / total_ref`, the fraction of reference tokens recovered exactly. **Accuracy and WER_SCRIBE are independent quantities** — they do not sum to 100% in general because (a) insertions appear in the WER_SCRIBE numerator but not in the reference token count, and (b) sandhi hits count as correct but consume two reference tokens per single hypothesis token. Both numbers are reported side-by-side in the CLI and visualizer.
+- **Error rate vs Impact on Total** — every category exposes two numbers. `error_rate = (sub + ins + del) / category_ref` answers "how accurate is the model on this category in isolation". `Impact on Total = (sub + ins + del) / total_ref` answers "how much does this category contribute to WER_SCRIBE". Across categories the *Impact on Total* values sum to WER_SCRIBE.
 - **Gap penalty / DP weight** — in the modified Needleman–Wunsch alignment, the cost of inserting a gap on either side. Tuned per-category in `DEFAULT_WEIGHTS` (align.py); punctuation gaps are cheaper than word or domain gaps because punctuation errors carry less semantic weight.

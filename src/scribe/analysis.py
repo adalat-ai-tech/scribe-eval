@@ -2,26 +2,27 @@
 Analytical computations for ASR error insights.
 
 This module transforms measured error data into actionable insights:
-Token Error Rate (TER), category contributions, error type
+the composite WER_SCRIBE, category contributions, error type
 distributions, and frequency analysis of specific token errors.
 """
 
 from collections import Counter
 
 
-def compute_total_error_rate(metrics: dict[str, dict]) -> float:
+def compute_wer_scribe(metrics: dict[str, dict]) -> float:
     """
-    Compute the composite Token Error Rate (TER) from category metrics.
+    Compute the composite WER_SCRIBE from category metrics.
 
-    Since each category's error_rate uses combined_total as denominator,
-    the sum naturally equals total_errors / combined_total.
+    WER_SCRIBE is the sum of all category error rates. Since each
+    category's error_rate uses combined_total as denominator, the sum
+    naturally equals total_errors / combined_total.
 
     Args:
         metrics: Output of token_error_rates() or aggregate metrics —
                  maps category name -> dict with 'error_rate' key
 
     Returns:
-        Token Error Rate as a float (0.0 to 1.0+; can exceed 1.0 when
+        WER_SCRIBE as a float (0.0 to 1.0+; can exceed 1.0 when
         insertions outnumber matched reference tokens).
     """
     return sum(cat_data["error_rate"] for cat_data in metrics.values())
@@ -291,7 +292,7 @@ def compute_error_summary(
 
     Returns:
         {
-            "total_error_rate": float,
+            "wer_scribe": float,
             "contributions": dict from compute_category_contributions,
             "error_type_distribution": dict from compute_error_type_distribution,
             "frequent_substitutions": dict from compute_frequent_substitutions,
@@ -309,7 +310,7 @@ def compute_error_summary(
     total_correct_pct = (total_correct / total_ref * 100) if total_ref > 0 else 0.0
 
     return {
-        "total_error_rate": compute_total_error_rate(metrics),
+        "wer_scribe": compute_wer_scribe(metrics),
         "total_correct_pct": total_correct_pct,
         "contributions": contributions,
         "error_type_distribution": compute_error_type_distribution(metrics),

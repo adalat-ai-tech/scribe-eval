@@ -33,11 +33,11 @@ PUBLIC_API = {
     "compute_frequent_sandhi_merges": "callable",
     "compute_frequent_sandhi_splits": "callable",
     "compute_frequent_substitutions": "callable",
-    "compute_total_error_rate": "callable",
+    "compute_wer_scribe": "callable",
     # constants
     "CAT_NUMERAL": str,
     "CAT_PUNCT": str,
-    "CAT_WORD": str,
+    "CAT_LEXICAL": str,
     "CATEGORIES": (list, tuple),
     "get_categories": "callable",
     # domain_config
@@ -98,11 +98,11 @@ def test_every_public_symbol_has_expected_kind():
 
 def test_categories_constants_are_consistent():
     """CAT_* constants appear in CATEGORIES, and get_categories() returns them."""
-    assert scribe.CAT_WORD in scribe.CATEGORIES
+    assert scribe.CAT_LEXICAL in scribe.CATEGORIES
     assert scribe.CAT_NUMERAL in scribe.CATEGORIES
     assert scribe.CAT_PUNCT in scribe.CATEGORIES
 
     cats = scribe.get_categories()
-    assert scribe.CAT_WORD in cats
+    assert scribe.CAT_LEXICAL in cats
     assert scribe.CAT_NUMERAL in cats
     assert scribe.CAT_PUNCT in cats

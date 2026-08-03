@@ -10,10 +10,11 @@ accepted at Interspeech 2026). It provides fine-grained error metrics for
 ASR systems on Indic languages (Malayalam, Kannada, Hindi, ...) and on
 domain-specific transcription (legal, medical, technical).
 
-Token categories are decomposed into base classes (WORD, NUMERAL, PUNCT) and
+Token categories are decomposed into base classes (LEXICAL, NUMERAL, PUNCT) and
 optional domain classes (LEGAL, MEDICAL, TECH, or custom). Domain-critical
 terminology is shielded from incorrect splitting and tracked separately — so a
-single misrecognized legal term doesn't inflate your general WER.
+single misrecognized legal term doesn't inflate your general lexical
+error rate (ER_LEX).
 
 ## Installation
 
@@ -37,9 +38,9 @@ hyp = "charged u/s 303 IPC on 22.05.2023"
 
 report = text_error_rates(ref, hyp, DomainConfig.legal())
 
-print(f"WER: {report['WORD']['error_rate']:.2%}")
-print(f"DER: {report['LEGAL']['error_rate']:.2%}")
-print(f"NER: {report['NUMERAL']['error_rate']:.2%}")
+print(f"ER_LEX: {report['LEXICAL']['error_rate']:.2%}")
+print(f"ER_DOMAIN: {report['LEGAL']['error_rate']:.2%}")
+print(f"ER_NUM: {report['NUMERAL']['error_rate']:.2%}")
 ```
 
 ## Features
@@ -48,19 +49,19 @@ print(f"NER: {report['NUMERAL']['error_rate']:.2%}")
 - **Sandhi correction detection** — identifies merged/split words common in Indic ASR
 - **Normalized error rates** — combined denominator prevents misleading metrics for sparse categories
 - **Batch evaluation** — process JSONL files with per-sample detail and dataset-level aggregation
-- **Interactive visualizer** — Streamlit UI with color-coded alignment, TER/Accuracy metric tiles, category breakdown chart, frequent-error tables, and per-sample drill-down
+- **Interactive visualizer** — Streamlit UI with color-coded alignment, WER_SCRIBE/Accuracy metric tiles, category breakdown chart, frequent-error tables, and per-sample drill-down
 
 ## Token Categories
 
 | Category | Type | Label | Description |
 |---|---|---|---|
-| WORD | base | WER | General words (Indic and English) |
-| NUMERAL | base | NER | Numbers, dates, times (302, 22.05.2023, 10:30) |
-| PUNCT | base | PER | Punctuation marks |
-| LEGAL | domain | DER | Indian legal terminology (u/s, r/w, PW1, Ext.A) |
-| MEDICAL | domain | DER | Medical units and dosages (mg, ml, 500mg) |
-| TECH | domain | DER | Technical abbreviations (API, SDK, v1.0) |
-| Custom | domain | DER | Define your own with lists or regex patterns |
+| LEXICAL | base | ER_LEX | General words (Indic and English) |
+| NUMERAL | base | ER_NUM | Numbers, dates, times (302, 22.05.2023, 10:30) |
+| PUNCT | base | ER_PUNCT | Punctuation marks |
+| LEGAL | domain | ER_DOMAIN | Indian legal terminology (u/s, r/w, PW1, Ext.A) |
+| MEDICAL | domain | ER_DOMAIN | Medical units and dosages (mg, ml, 500mg) |
+| TECH | domain | ER_DOMAIN | Technical abbreviations (API, SDK, v1.0) |
+| Custom | domain | ER_DOMAIN | Define your own with lists or regex patterns |
 
 ## Domain Configuration
 
@@ -127,7 +128,7 @@ uv run ruff format src tests examples      # auto-format
 ```
 
 See [`docs/architecture.md`](docs/architecture.md) for the module map and a
-glossary of project-specific terminology (sandhi, combined denominator, TER,
+glossary of project-specific terminology (sandhi, combined denominator, WER_SCRIBE,
 Accuracy, ...).
 
 ## Citation

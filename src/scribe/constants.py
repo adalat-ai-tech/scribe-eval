@@ -6,12 +6,12 @@ including token categories, formatting parameters, and utility functions.
 """
 
 # Base token category constants (always present)
-CAT_WORD = "WORD"
+CAT_LEXICAL = "LEXICAL"
 CAT_PUNCT = "PUNCT"
 CAT_NUMERAL = "NUMERAL"
 
 # Base categories - domain categories are added dynamically
-CATEGORIES = [CAT_WORD, CAT_PUNCT, CAT_NUMERAL]
+CATEGORIES = [CAT_LEXICAL, CAT_PUNCT, CAT_NUMERAL]
 
 
 def get_categories(domain_config=None):
@@ -27,10 +27,10 @@ def get_categories(domain_config=None):
     Examples:
         >>> from domain_config import MEDICAL_DOMAIN
         >>> cats = get_categories(MEDICAL_DOMAIN)
-        >>> # ['WORD', 'PUNCT', 'NUMERAL', 'MEDICAL']
+        >>> # ['LEXICAL', 'PUNCT', 'NUMERAL', 'MEDICAL']
 
         >>> cats = get_categories(None)
-        >>> # ['WORD', 'PUNCT', 'NUMERAL']
+        >>> # ['LEXICAL', 'PUNCT', 'NUMERAL']
     """
     if domain_config is None:
         return CATEGORIES.copy()
@@ -39,7 +39,7 @@ def get_categories(domain_config=None):
 
 # Table formatting constants
 TABLE_WIDTH = 85
-COLUMN_WIDTHS = {"dataset": 25, "metric": 8, "sandhi": 6}
+COLUMN_WIDTHS = {"dataset": 25, "metric": 10, "sandhi": 6}
 
 
 # Utility Functions
@@ -56,7 +56,7 @@ def calculate_combined_total(stats_dict: dict) -> int:
         Sum of 'total' field across all categories
 
     Example:
-        >>> stats = {"WORD": {"total": 100}, "LEGAL": {"total": 5}}
+        >>> stats = {"LEXICAL": {"total": 100}, "LEGAL": {"total": 5}}
         >>> calculate_combined_total(stats)
         105
     """
@@ -80,7 +80,7 @@ def init_stat_dict(categories=None) -> dict:
 
     Example:
         >>> stats = init_stat_dict()
-        >>> "substitutions" in stats["WORD"] and stats["WORD"]["substitutions"] == 0
+        >>> "substitutions" in stats["LEXICAL"] and stats["LEXICAL"]["substitutions"] == 0
         True
 
         >>> from domain_config import MEDICAL_DOMAIN
@@ -116,19 +116,18 @@ def format_table_header(domain_labels=None) -> str:
         Multi-line string with header row and separator line
 
     Example:
-        >>> print(format_table_header(["LER"]))
-        DATASET                   |      WER |      LER |      NER |      PER | SANDHI
-        -------------------------------------------------------------------------------------
-
         >>> print(format_table_header())
-        DATASET                   |      WER |      NER |      PER | SANDHI
-        --------------------------------------------------------------------------
+        DATASET                   |     ER_LEX |     ER_NUM |   ER_PUNCT | WER_SCRIBE | SANDHI
+        --------------------------------------------------------------------------------------
+
+        With domain_labels=["ER_DOMAIN"], an ER_DOMAIN column appears
+        between ER_LEX and ER_NUM.
     """
     dw = COLUMN_WIDTHS["dataset"]
     mw = COLUMN_WIDTHS["metric"]
     sw = COLUMN_WIDTHS["sandhi"]
 
-    columns = ["WER"] + list(domain_labels or []) + ["NER", "PER"]
+    columns = ["ER_LEX"] + list(domain_labels or []) + ["ER_NUM", "ER_PUNCT", "WER_SCRIBE"]
     header = f"{'DATASET':<{dw}} | " + " | ".join(f"{c:>{mw}}" for c in columns)
     header += f" | {'SANDHI':>{sw}}"
     separator = "-" * len(header)

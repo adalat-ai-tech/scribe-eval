@@ -25,7 +25,7 @@ print("=" * 80)
 # Use bundled legal domain
 legal_domain = DomainConfig.legal()
 report = text_error_rates(ref, hyp, legal_domain)
-print(f"\nLegal Domain - LER: {report['LEGAL']['error_rate']:.2%}")
+print(f"\nLegal Domain - ER_DOMAIN: {report['LEGAL']['error_rate']:.2%}")
 print(f"  Substitutions: {report['LEGAL']['substitutions']}")
 print(f"  Insertions: {report['LEGAL']['insertions']}")
 print(f"  Deletions: {report['LEGAL']['deletions']}")
@@ -47,7 +47,7 @@ print("=" * 80)
 custom_domain = DomainConfig.from_file(str(SAMPLE_LEGAL_FILE))
 report_custom = text_error_rates(ref, hyp, custom_domain)
 print(f"\nLoaded from: {SAMPLE_LEGAL_FILE.name}")
-print(f"  DER: {report_custom[custom_domain.category]['error_rate']:.2%}")
+print(f"  ER_DOMAIN: {report_custom[custom_domain.category]['error_rate']:.2%}")
 print(
     f"  Configuration: name={custom_domain.name}, "
     f"category={custom_domain.category}"
@@ -62,7 +62,7 @@ custom_inline = DomainConfig(
     "custom", ["u/s", "r/w", "sec.", "art."], category="CUSTOM"
 )
 report_inline = text_error_rates(ref, hyp, custom_inline)
-print(f"\nInline Custom Domain - DER: {report_inline['CUSTOM']['error_rate']:.2%}")
+print(f"\nInline Custom Domain - ER_DOMAIN: {report_inline['CUSTOM']['error_rate']:.2%}")
 print(f"  Custom term substitutions: {report_inline['CUSTOM']['substitutions']}")
 print("  (Detects 'u/s' → 'under section' and similar variations)")
 
