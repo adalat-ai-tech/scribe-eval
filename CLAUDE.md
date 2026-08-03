@@ -72,8 +72,8 @@ uv run scribe-visualizer
 The visualizer provides:
 - **Single Sample Analysis Tab**: Auto-renders alignment and metrics when both fields are non-empty; no button press required
 - **Batch Dataset Analysis**: Upload JSONL files for aggregate metrics across datasets
-- **Token Error Rate + Accuracy metric tiles**: Both shown with equal visual weight; Accuracy tooltip explains why TER + Accuracy ≠ 100% when insertions or Sandhis are present
-- **Category breakdown chart**: Stacked bar showing Exact Match / Sub / Del / Ins per category plus TER contribution panel
+- **WER_SCRIBE + Accuracy metric tiles**: Both shown with equal visual weight; tooltips explain the composite definition and why WER_SCRIBE + Accuracy ≠ 100% when insertions or Sandhis are present
+- **Category breakdown chart**: Stacked bar showing Exact Match / Sub / Del / Ins per category plus WER_SCRIBE contribution panel
 - **Frequent errors tables**: Top-N substitutions, deletions, insertions in sub-tabs (tables only)
 - **Individual Record Inspection**: Drill down into specific samples from batch results
 - **Session State**: Maintains last 100 batch results; analysis summary cached separately for instant top-N slider updates without rerunning batch
@@ -124,7 +124,7 @@ The visualizer provides:
 
 5. **Analysis** (`src/scribe/analysis.py`)
    - `compute_category_contributions(metrics)`: Full breakdown per category — correct/sub/del/ins counts, ref_tokens, correct_pct, error_count, contribution_pct
-   - `compute_total_error_rate(metrics)`: Composite TER as a float (sum of all category error_rates using combined denominator)
+   - `compute_wer_scribe(metrics)`: Composite WER_SCRIBE as a float (sum of all category error_rates using combined denominator)
    - `compute_error_type_distribution(metrics)`: Sub/ins/del percentage split per category
    - `compute_frequent_substitutions(error_details, top_n)`: Most frequent ref→hyp substitution pairs; returns `{cat: [(ref, hyp, count)], "_all": [...]}`
    - `compute_frequent_deletions(error_details, top_n)`: Most frequently deleted reference tokens; returns `{cat: [(token, count)], "_all": [...]}`
@@ -135,7 +135,7 @@ The visualizer provides:
    - Requires `matplotlib` (optional dependency; raises ImportError with install instructions if missing)
    - `category_breakdown_chart(contributions, output_path=None, title=...)`: 2-panel figure
      - **Left panel** (wide): Stacked horizontal bar — Exact Match (green) / Substitutions (red) / Deletions (amber) / Insertions (blue) per category + TOTAL row. Accuracy % annotated inside bar (or outside for small bars).
-     - **Right panel**: Category contribution to total TER — same stacked colors showing (S+I+D)/total_ref_tokens per category + TOTAL. Dynamic title: "Category Contribution to X.X% Token Error Rate"
+     - **Right panel**: Category contribution to the composite rate — same stacked colors showing (S+I+D)/total_ref_tokens per category + TOTAL. Dynamic title: "Category Contribution to X.X% WER_SCRIBE"
      - Category order: Lexical Tokens → Domain Tokens → Numeral Tokens → Punctuation Tokens, TOTAL at bottom
 
 7. **Reporting** (`src/scribe/reporting.py`)
@@ -164,7 +164,7 @@ The visualizer provides:
 
 **Two Error Rate Columns**: Category analysis tables expose two complementary rates:
 - **Error Rate**: `(S+I+D) / category_ref_tokens` — how accurately the model handles this category in isolation
-- **Impact on Total**: `(S+I+D) / total_ref_tokens` — how much this category contributes to the overall TER score
+- **Impact on Total**: `(S+I+D) / total_ref_tokens` — how much this category contributes to the overall WER_SCRIBE score
 
 **Standard Terminology**: Token categories display as "Lexical Tokens", "Domain Tokens", "Numeral Tokens", "Punctuation Tokens". Match columns use "Exact Match" and "Accuracy" (not "Correct" or "Match%").
 
@@ -186,7 +186,7 @@ The visualizer provides:
   - `align.py`: Alignment algorithm and scoring
   - `measure.py`: Single-sample error rate calculation; includes `token_error_details()` and `text_error_details()`
   - `measure_batch.py`: Multi-sample aggregation; includes `aggregate_error_details()`
-  - `analysis.py`: Analysis computations — category contributions, TER, frequent errors
+  - `analysis.py`: Analysis computations — category contributions, WER_SCRIBE, frequent errors
   - `charts.py`: matplotlib chart generation (optional dependency); category breakdown and frequent error bar charts
   - `reporting.py`: Shared formatting functions for CLI and web UI; includes `format_contribution_table()` and `format_frequent_errors_table()`
   - `constants.py`: Category constants and helper functions
@@ -390,13 +390,13 @@ python batch_evaluate.py --help
 --dataset-field          Field name for dataset identifier (default: source_dataset)
 --domain-config          Path to domain config file (e.g., config/legal_terms.txt)
 --no-normalize           Disable token normalization (strict matching)
---analysis               Enable detailed error analysis (TER, category contributions, frequent errors)
+--analysis               Enable detailed error analysis (WER_SCRIBE, category contributions, frequent errors)
 --top-n N                Number of top frequent errors to display (default: 10)
 --chart                  Save error analysis charts as PNG (requires --analysis and matplotlib)
 ```
 
 **Analysis output** (when `--analysis` is passed):
-- Console: Overall X% correct | Y% TER, token breakdown table, frequent substitutions/deletions/insertions
+- Console: Overall X% correct | Y% WER_SCRIBE, token breakdown table, frequent substitutions/deletions/insertions
 - `analysis_report.txt`: Same content saved to output directory
 
 **Chart output** (when `--chart` is passed):

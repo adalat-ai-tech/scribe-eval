@@ -116,19 +116,18 @@ def format_table_header(domain_labels=None) -> str:
         Multi-line string with header row and separator line
 
     Example:
-        >>> print(format_table_header(["ER_DOMAIN"]))
-        DATASET                   |     ER_LEX |  ER_DOMAIN |     ER_NUM |   ER_PUNCT | SANDHI
+        >>> print(format_table_header())
+        DATASET                   |     ER_LEX |     ER_NUM |   ER_PUNCT | WER_SCRIBE | SANDHI
         --------------------------------------------------------------------------------------
 
-        >>> print(format_table_header())
-        DATASET                   |     ER_LEX |     ER_NUM |   ER_PUNCT | SANDHI
-        -------------------------------------------------------------------------
+        With domain_labels=["ER_DOMAIN"], an ER_DOMAIN column appears
+        between ER_LEX and ER_NUM.
     """
     dw = COLUMN_WIDTHS["dataset"]
     mw = COLUMN_WIDTHS["metric"]
     sw = COLUMN_WIDTHS["sandhi"]
 
-    columns = ["ER_LEX"] + list(domain_labels or []) + ["ER_NUM", "ER_PUNCT"]
+    columns = ["ER_LEX"] + list(domain_labels or []) + ["ER_NUM", "ER_PUNCT", "WER_SCRIBE"]
     header = f"{'DATASET':<{dw}} | " + " | ".join(f"{c:>{mw}}" for c in columns)
     header += f" | {'SANDHI':>{sw}}"
     separator = "-" * len(header)

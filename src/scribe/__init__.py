@@ -43,7 +43,7 @@ from .analysis import (
     compute_frequent_substitutions as compute_frequent_substitutions,
 )
 from .analysis import (
-    compute_total_error_rate as compute_total_error_rate,
+    compute_wer_scribe as compute_wer_scribe,
 )
 from .constants import (
     CAT_LEXICAL as CAT_LEXICAL,

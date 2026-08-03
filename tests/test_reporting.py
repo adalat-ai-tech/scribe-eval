@@ -31,7 +31,7 @@ def test_format_metrics_dict_returns_expected_keys(legal_domain):
     formatted = format_metrics_dict(report)
     assert isinstance(formatted, dict)
     # Headline rate keys are formatted as percent strings.
-    for key in ("ER_LEX", "ER_NUM", "ER_PUNCT", "ER_DOMAIN"):
+    for key in ("ER_LEX", "ER_NUM", "ER_PUNCT", "ER_DOMAIN", "WER_SCRIBE"):
         assert key in formatted
         assert isinstance(formatted[key], str)
         assert formatted[key].endswith("%")
@@ -44,10 +44,34 @@ def test_format_metrics_dict_without_domain_config():
     and Total are still reported (they do not depend on any domain)."""
     report = text_error_rates("the case is closed", "the case was closed", None)
     formatted = format_metrics_dict(report)
-    for key in ("ER_LEX", "ER_NUM", "ER_PUNCT", "Sandhi", "Total"):
+    for key in ("ER_LEX", "ER_NUM", "ER_PUNCT", "WER_SCRIBE", "Sandhi", "Total"):
         assert key in formatted
     assert "ER_DOMAIN" not in formatted
     assert "LER" not in formatted
+
+
+def test_wer_scribe_column_is_sum_of_category_rates(tmp_path, legal_domain):
+    """The consolidated table gains a WER_SCRIBE column equal to the sum
+    of the category error rates (total errors / combined denominator).
+
+    Hand-computed fixture: 4 ref tokens (charged/LEXICAL, u/s/LEGAL,
+    302/NUMERAL, IPC/LEXICAL) with 2 substitutions (u/s->us, 302->303)
+    => ER_DOMAIN 25%, ER_NUM 25%, WER_SCRIBE 50%."""
+    report = text_error_rates("charged u/s 302 IPC", "charged us 303 IPC", legal_domain)
+
+    formatted = format_metrics_dict(report)
+    assert formatted["ER_DOMAIN"] == "25.00%"
+    assert formatted["ER_NUM"] == "25.00%"
+    assert formatted["ER_LEX"] == "0.00%"
+    assert formatted["WER_SCRIBE"] == "50.00%"
+
+    agg = {"overall": report, "by_dataset": {"court": report}}
+    out = tmp_path / "summary.txt"
+    write_summary_to_file(agg, str(out))
+    content = out.read_text(encoding="utf-8")
+    assert "WER_SCRIBE" in content
+    court_row = next(line for line in content.splitlines() if line.startswith("court"))
+    assert "50.00%" in court_row
 
 
 def test_write_summary_to_file_without_domain_config(tmp_path):

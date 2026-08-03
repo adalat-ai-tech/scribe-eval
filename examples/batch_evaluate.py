@@ -5,7 +5,7 @@ Batch evaluation script with CLI arguments and proper error handling.
 Processes JSONL files containing reference and hypothesis pairs, computes
 error metrics (ER_LEX/ER_DOMAIN/ER_NUM/ER_PUNCT), and outputs detailed per-sample reports
 and aggregate summaries. With --analysis, provides additional insights:
-Token Error Rate (TER), category contributions, and frequent error patterns.
+the composite WER_SCRIBE, category contributions, and frequent error patterns.
 """
 
 import argparse
@@ -57,9 +57,9 @@ def print_analysis(summary, domain_config, top_n):
     print("=" * 85)
 
     # 1. Overall rates
-    ter = summary["total_error_rate"]
+    wer_scribe = summary["wer_scribe"]
     correct_pct = summary["total_correct_pct"]
-    print(f"\nOverall: {correct_pct:.1f}% correct | {ter:.2%} TER")
+    print(f"\nOverall: {correct_pct:.1f}% correct | {wer_scribe:.2%} WER_SCRIBE")
 
     # 2. Category Breakdown (correct/sub/del/ins per category)
     print("\n--- Token Breakdown by Category ---")
@@ -110,9 +110,9 @@ def save_analysis_to_file(summary, output_path, domain_config, top_n):
         f.write("DETAILED ERROR ANALYSIS\n")
         f.write("=" * 85 + "\n")
 
-        ter = summary["total_error_rate"]
+        wer_scribe = summary["wer_scribe"]
         correct_pct = summary["total_correct_pct"]
-        f.write(f"\nOverall: {correct_pct:.1f}% correct | {ter:.2%} TER\n")
+        f.write(f"\nOverall: {correct_pct:.1f}% correct | {wer_scribe:.2%} WER_SCRIBE\n")
 
         f.write("\n--- Token Breakdown by Category ---\n")
         contrib_rows = format_contribution_table(summary["contributions"])

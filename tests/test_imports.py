@@ -33,7 +33,7 @@ PUBLIC_API = {
     "compute_frequent_sandhi_merges": "callable",
     "compute_frequent_sandhi_splits": "callable",
     "compute_frequent_substitutions": "callable",
-    "compute_total_error_rate": "callable",
+    "compute_wer_scribe": "callable",
     # constants
     "CAT_NUMERAL": str,
     "CAT_PUNCT": str,

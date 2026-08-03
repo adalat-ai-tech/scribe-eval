@@ -7,6 +7,7 @@ and alignment results for both CLI and web UI presentations.
 
 from typing import Dict, List, Tuple
 
+from .analysis import compute_wer_scribe
 from .constants import (
     CAT_LEXICAL,
     CAT_NUMERAL,
@@ -42,10 +43,13 @@ def resolve_domain_labels(metrics: Dict) -> Dict[str, str]:
 
 def format_metrics_dict(metrics: Dict) -> Dict[str, str]:
     """
-    Extract ER_LEX/ER_DOMAIN/ER_NUM/ER_PUNCT from aggregate metrics.
+    Extract ER_LEX/ER_DOMAIN/ER_NUM/ER_PUNCT and the composite
+    WER_SCRIBE from aggregate metrics.
 
     Columns are derived from the categories present in the data; the
-    domain category (if any) is reported as ER_DOMAIN.
+    domain category (if any) is reported as ER_DOMAIN. WER_SCRIBE is
+    the sum of all category error rates (total errors over the combined
+    denominator).
 
     Args:
         metrics: Dictionary containing error metrics for each category
@@ -53,14 +57,14 @@ def format_metrics_dict(metrics: Dict) -> Dict[str, str]:
     Returns:
         Dictionary with formatted metric strings ready for table display
     """
-    result = {
-        "ER_LEX": f"{metrics[CAT_LEXICAL]['error_rate']:.2%}",
-        "ER_NUM": f"{metrics[CAT_NUMERAL]['error_rate']:.2%}",
-        "ER_PUNCT": f"{metrics[CAT_PUNCT]['error_rate']:.2%}",
-    }
+    result = {"ER_LEX": f"{metrics[CAT_LEXICAL]['error_rate']:.2%}"}
 
     for cat, label in resolve_domain_labels(metrics).items():
         result[label] = f"{metrics[cat]['error_rate']:.2%}"
+
+    result["ER_NUM"] = f"{metrics[CAT_NUMERAL]['error_rate']:.2%}"
+    result["ER_PUNCT"] = f"{metrics[CAT_PUNCT]['error_rate']:.2%}"
+    result["WER_SCRIBE"] = f"{compute_wer_scribe(metrics):.2%}"
 
     # Sandhi can occur in any category (LEXICAL, LEGAL, MEDICAL, etc.).
     result["Sandhi"] = sum(metrics[cat]["sandhi_hits"] for cat in metrics.keys())
@@ -193,6 +197,7 @@ def format_summary_lines(agg_results: Dict) -> List[str]:
                 cells.append(f"{'N/A':>{mw}}")
         cells.append(f"{row['ER_NUM']:>{mw}}")
         cells.append(f"{row['ER_PUNCT']:>{mw}}")
+        cells.append(f"{row['WER_SCRIBE']:>{mw}}")
         cells.append(f"{row['Sandhi']:>{sw}}")
         lines.append(" | ".join(cells))
         if ds_name == "OVERALL":

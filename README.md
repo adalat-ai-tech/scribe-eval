@@ -49,7 +49,7 @@ print(f"ER_NUM: {report['NUMERAL']['error_rate']:.2%}")
 - **Sandhi correction detection** — identifies merged/split words common in Indic ASR
 - **Normalized error rates** — combined denominator prevents misleading metrics for sparse categories
 - **Batch evaluation** — process JSONL files with per-sample detail and dataset-level aggregation
-- **Interactive visualizer** — Streamlit UI with color-coded alignment, TER/Accuracy metric tiles, category breakdown chart, frequent-error tables, and per-sample drill-down
+- **Interactive visualizer** — Streamlit UI with color-coded alignment, WER_SCRIBE/Accuracy metric tiles, category breakdown chart, frequent-error tables, and per-sample drill-down
 
 ## Token Categories
 
@@ -128,7 +128,7 @@ uv run ruff format src tests examples      # auto-format
 ```
 
 See [`docs/architecture.md`](docs/architecture.md) for the module map and a
-glossary of project-specific terminology (sandhi, combined denominator, TER,
+glossary of project-specific terminology (sandhi, combined denominator, WER_SCRIBE,
 Accuracy, ...).
 
 ## Citation

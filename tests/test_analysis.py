@@ -17,7 +17,7 @@ from scribe import (
     compute_frequent_sandhi_merges,
     compute_frequent_sandhi_splits,
     compute_frequent_substitutions,
-    compute_total_error_rate,
+    compute_wer_scribe,
     format_frequent_errors_table,
     text_error_details,
     text_error_rates,
@@ -204,28 +204,28 @@ def test_compute_frequent_substitutions_returns_empty_for_perfect_match():
 
 
 # ---------------------------------------------------------------------------
-# compute_total_error_rate
+# compute_wer_scribe
 # ---------------------------------------------------------------------------
 
 
-def test_compute_total_error_rate_zero_for_perfect_match():
+def test_compute_wer_scribe_zero_for_perfect_match():
     metrics = text_error_rates("नमस्ते दुनिया", "नमस्ते दुनिया", None)
-    assert compute_total_error_rate(metrics) == 0.0
+    assert compute_wer_scribe(metrics) == 0.0
 
 
-def test_compute_total_error_rate_matches_combined_denominator():
-    """TER = total_errors / combined_total. One sub of three word tokens
+def test_compute_wer_scribe_matches_combined_denominator():
+    """WER_SCRIBE = total_errors / combined_total. One sub of three word tokens
     yields 1/3 regardless of how the categories slice the denominator.
     """
     metrics = text_error_rates("मैंने आम खाया", "मैंने केला खाया", None)
-    assert compute_total_error_rate(metrics) == pytest.approx(1 / 3)
+    assert compute_wer_scribe(metrics) == pytest.approx(1 / 3)
 
 
-def test_compute_total_error_rate_can_exceed_one_with_insertions():
+def test_compute_wer_scribe_can_exceed_one_with_insertions():
     """When the hyp has more tokens than the ref (lots of insertions),
-    TER can exceed 1.0 since the denominator is ref-side."""
+    WER_SCRIBE can exceed 1.0 since the denominator is ref-side."""
     metrics = text_error_rates("नमस्ते", "नमस्ते दुनिया शुभ प्रभात मित्र", None)
-    assert compute_total_error_rate(metrics) > 1.0
+    assert compute_wer_scribe(metrics) > 1.0
 
 
 # ---------------------------------------------------------------------------
@@ -317,7 +317,7 @@ def test_compute_error_summary_has_all_expected_keys():
     summary = compute_error_summary(metrics, details, top_n=5)
 
     expected = {
-        "total_error_rate",
+        "wer_scribe",
         "total_correct_pct",
         "contributions",
         "error_type_distribution",
@@ -336,7 +336,7 @@ def test_compute_error_summary_total_correct_pct_matches_ratio():
     details = text_error_details("मैंने आम खाया", "मैंने केला खाया", None)
     summary = compute_error_summary(metrics, details, top_n=5)
     assert summary["total_correct_pct"] == pytest.approx(2 / 3 * 100)
-    assert summary["total_error_rate"] == pytest.approx(1 / 3)
+    assert summary["wer_scribe"] == pytest.approx(1 / 3)
 
 
 def test_compute_error_summary_top_n_applies_to_all_frequency_tables():

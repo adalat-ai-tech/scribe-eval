@@ -229,7 +229,7 @@ def category_breakdown_chart(
     ax3.set_xlabel("%", fontsize=10)
     total_er_pct = er_of_total[0]  # TOTAL row is index 0
     ax3.set_title(
-        f"Category Contribution to {total_er_pct:.1f}% Token Error Rate",
+        f"Category Contribution to {total_er_pct:.1f}% WER_SCRIBE",
         fontsize=11,
         fontweight="bold",
     )
