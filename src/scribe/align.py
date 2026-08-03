@@ -100,61 +100,69 @@ def align_arrays(
         weights = DEFAULT_WEIGHTS
 
     m, n = len(arr1), len(arr2)
-    dp = [[-float("inf") for _ in range(n + 1)] for _ in range(m + 1)]
+
+    # Per-position facts are fixed for the whole alignment: a token's
+    # gap penalty and sandhi eligibility depend only on its tag, and
+    # two equal tokens always score match_reward + 1.0 (their character
+    # distance is zero). Precompute them once here instead of
+    # re-deriving them inside the O(m*n) fill loop.
+    gap1 = [get_gap_penalty(tag, weights) for tag in tags1]
+    gap2 = [get_gap_penalty(tag, weights) for tag in tags2]
+    sandhi_ok1 = [is_sandhi_eligible(tag) for tag in tags1]
+    sandhi_ok2 = [is_sandhi_eligible(tag) for tag in tags2]
+    exact_match_score = weights["match_reward"] + 1.0
+    neg_inf = -float("inf")
+
+    dp = [[neg_inf for _ in range(n + 1)] for _ in range(m + 1)]
     dp[0][0] = 0
 
     # Initialize gaps
     for i in range(1, m + 1):
-        dp[i][0] = dp[i - 1][0] + get_gap_penalty(tags1[i - 1], weights)
+        dp[i][0] = dp[i - 1][0] + gap1[i - 1]
     for j in range(1, n + 1):
-        dp[0][j] = dp[0][j - 1] + get_gap_penalty(tags2[j - 1], weights)
+        dp[0][j] = dp[0][j - 1] + gap2[j - 1]
 
     # Fill DP
     for i in range(1, m + 1):
+        w1 = arr1[i - 1]
+        t1 = tags1[i - 1]
+        row = dp[i]
+        prev_row = dp[i - 1]
         for j in range(1, n + 1):
+            w2 = arr2[j - 1]
+
             # 1. Standard Match/Mismatch (Category Aware)
-            score = 0
-            if arr1[i - 1] == arr2[j - 1]:
-                score = get_match_score(arr1[i - 1], arr2[j - 1], weights)
+            if w1 == w2:
+                score = exact_match_score
             else:
-                score = get_mismatch_penalty(
-                    arr1[i - 1], tags1[i - 1], arr2[j - 1], tags2[j - 1], weights
-                )
-            match_val = dp[i - 1][j - 1] + score
+                score = get_mismatch_penalty(w1, t1, w2, tags2[j - 1], weights)
+            match_val = prev_row[j - 1] + score
 
             # 2. Standard Indel (Category-aware gap penalties)
-            del_val = dp[i - 1][j] + get_gap_penalty(tags1[i - 1], weights)
-            ins_val = dp[i][j - 1] + get_gap_penalty(tags2[j - 1], weights)
+            del_val = prev_row[j] + gap1[i - 1]
+            ins_val = row[j - 1] + gap2[j - 1]
 
             # 3. Sandhi Split/Merge (for all categories except PUNCT and NUMERAL)
-            split_val = merge_val = -float("inf")
+            split_val = merge_val = neg_inf
 
             if use_sandhi:
-                # Split: 1 Ref matches 2 Hyp
-                if (
-                    j >= 2
-                    and is_sandhi_eligible(tags1[i - 1])
-                    and is_sandhi_eligible(tags2[j - 2])
-                    and is_sandhi_eligible(tags2[j - 1])
-                ):
-                    score_split = check_sandhi_match(
-                        [arr2[j - 2], arr2[j - 1]], arr1[i - 1], weights
-                    )
-                    split_val = dp[i - 1][j - 2] + score_split
+                # Split: 1 Ref matches 2 Hyp. Only probe pairs that can
+                # pass check_sandhi_match's own guards: both hyp words
+                # at least 2 chars, and the single word sharing the
+                # first word's first char (startswith w[: -1]) and the
+                # second word's last char (endswith w[1:]).
+                if j >= 2 and sandhi_ok1[i - 1] and sandhi_ok2[j - 2] and sandhi_ok2[j - 1]:
+                    a, b = arr2[j - 2], arr2[j - 1]
+                    if len(a) >= 2 and len(b) >= 2 and w1 and w1[0] == a[0] and w1[-1] == b[-1]:
+                        split_val = dp[i - 1][j - 2] + check_sandhi_match([a, b], w1, weights)
 
                 # Merge: 2 Ref match 1 Hyp
-                if (
-                    i >= 2
-                    and is_sandhi_eligible(tags1[i - 2])
-                    and is_sandhi_eligible(tags1[i - 1])
-                    and is_sandhi_eligible(tags2[j - 1])
-                ):
-                    score_merge = check_sandhi_match(
-                        [arr1[i - 2], arr1[i - 1]], arr2[j - 1], weights
-                    )
-                    merge_val = dp[i - 2][j - 1] + score_merge
+                if i >= 2 and sandhi_ok1[i - 2] and sandhi_ok1[i - 1] and sandhi_ok2[j - 1]:
+                    a, b = arr1[i - 2], arr1[i - 1]
+                    if len(a) >= 2 and len(b) >= 2 and w2 and w2[0] == a[0] and w2[-1] == b[-1]:
+                        merge_val = dp[i - 2][j - 1] + check_sandhi_match([a, b], w2, weights)
 
-            dp[i][j] = max(match_val, del_val, ins_val, split_val, merge_val)
+            row[j] = max(match_val, del_val, ins_val, split_val, merge_val)
 
     # Traceback
     aligned_ref = []
