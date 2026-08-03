@@ -109,7 +109,7 @@ The visualizer provides:
    - `text_error_details(ref_text, hyp_text, domain_config=None, normalize=True, use_sandhi=True)`: End-to-end pipeline from raw text to error detail records
    - `use_sandhi=False` disables Sandhi split/merge detection — useful for non-agglutinative languages
    - **Normalized error rates**: Uses combined denominator (sum of all category totals) across all categories to prevent misleading sparse-category metrics
-   - **Domain-aware metrics**: WER (Word Error Rate), NER (Numeral Error Rate), PER (Punctuation Error Rate), plus the domain error rate (DER) for the active domain category
+   - **Domain-aware metrics**: ER_LEX (Lexical Error Rate), ER_NUM (Numeral Error Rate), ER_PUNCT (Punctuation Error Rate), plus ER_DOMAIN (Domain Error Rate) for the active domain category
    - Tracks substitutions, insertions, deletions, and Sandhi corrections per category
 
 4. **Batch Processing** (`src/scribe/measure_batch.py`)
@@ -120,7 +120,7 @@ The visualizer provides:
    - Each detailed report includes category-wise breakdown (base + domain categories) with error rates, substitutions, insertions, deletions, correct counts, and Sandhi hits
    - `compute_aggregate_metrics(sample_results)`: Dataset-level and overall aggregation; categories are derived from the sample reports (domain config is applied at measurement time, not here)
    - `aggregate_error_details(sample_results)`: Flatten per-sample error detail records into a single list for frequency analysis
-   - `print_evaluation_summary()`: Formatted output table with WER/DER/NER/PER
+   - `print_evaluation_summary()`: Formatted output table with ER_LEX/ER_DOMAIN/ER_NUM/ER_PUNCT
 
 5. **Analysis** (`src/scribe/analysis.py`)
    - `compute_category_contributions(metrics)`: Full breakdown per category — correct/sub/del/ins counts, ref_tokens, correct_pct, error_count, contribution_pct
@@ -141,7 +141,7 @@ The visualizer provides:
 7. **Reporting** (`src/scribe/reporting.py`)
    - Shared formatting functions used across CLI and web UI
    - `format_metrics_dict()`: Convert error metrics to formatted dictionary (returns formatted strings)
-   - `extract_error_rates()`: Extract raw numeric error rates (WER/DER/NER/PER/Sandhi) for UI components
+   - `extract_error_rates()`: Extract raw numeric error rates (er_lex/er_domain/er_num/er_punct/sandhi) for UI components
    - `format_dataset_table()`: Create dataset-level summary tables
    - `format_error_counts_table()`: Format error counts by category
    - `format_contribution_table(contributions)`: Category breakdown table with columns: Category, Ref Tokens, Exact Match, Accuracy, Sub, Del, Ins, Errors, Error Rate (S+I+D/category_ref), Impact on Total (S+I+D/total_ref)
@@ -152,7 +152,7 @@ The visualizer provides:
 
 ### Key Design Decisions
 
-**Combined Denominator Approach**: Error rates are calculated as `(Category Errors) / (Total ALL tokens)` instead of `(Category Errors) / (Category tokens)`. This prevents misleading percentages when a category has very few instances (e.g., 1 legal entity error shouldn't show as 100% DER).
+**Combined Denominator Approach**: Error rates are calculated as `(Category Errors) / (Total ALL tokens)` instead of `(Category Errors) / (Category tokens)`. This prevents misleading percentages when a category has very few instances (e.g., 1 legal entity error shouldn't show as 100% ER_DOMAIN).
 
 **Sandhi Awareness**: The alignment algorithm detects when Indic words are incorrectly merged or split by ASR systems. These are tracked separately as they represent different error types than pure substitutions.
 

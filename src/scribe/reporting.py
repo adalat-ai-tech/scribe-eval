@@ -22,8 +22,8 @@ def resolve_domain_labels(metrics: Dict) -> Dict[str, str]:
     Map the domain category present in the metrics to its display label.
 
     SCRIBE supports a single active domain, and its error-rate column is
-    always labelled "DER" (Domain Error Rate) — the label is fixed by
-    the toolkit, not by the domain configuration. If the data ever
+    always labelled "ER_DOMAIN" (Domain Error Rate) — the label is fixed
+    by the toolkit, not by the domain configuration. If the data ever
     contains several domain categories (e.g. samples measured with
     different configs aggregated together), each falls back to its
     category name so none is hidden.
@@ -36,16 +36,16 @@ def resolve_domain_labels(metrics: Dict) -> Dict[str, str]:
     """
     domain_cats = sorted(cat for cat in metrics.keys() if cat not in CATEGORIES)
     if len(domain_cats) == 1:
-        return {domain_cats[0]: "DER"}
+        return {domain_cats[0]: "ER_DOMAIN"}
     return {cat: cat for cat in domain_cats}
 
 
 def format_metrics_dict(metrics: Dict) -> Dict[str, str]:
     """
-    Extract WER/DER/NER/PER from aggregate metrics.
+    Extract ER_LEX/ER_DOMAIN/ER_NUM/ER_PUNCT from aggregate metrics.
 
     Columns are derived from the categories present in the data; the
-    domain category (if any) is reported as DER.
+    domain category (if any) is reported as ER_DOMAIN.
 
     Args:
         metrics: Dictionary containing error metrics for each category
@@ -54,9 +54,9 @@ def format_metrics_dict(metrics: Dict) -> Dict[str, str]:
         Dictionary with formatted metric strings ready for table display
     """
     result = {
-        "WER": f"{metrics[CAT_LEXICAL]['error_rate']:.2%}",
-        "NER": f"{metrics[CAT_NUMERAL]['error_rate']:.2%}",
-        "PER": f"{metrics[CAT_PUNCT]['error_rate']:.2%}",
+        "ER_LEX": f"{metrics[CAT_LEXICAL]['error_rate']:.2%}",
+        "ER_NUM": f"{metrics[CAT_NUMERAL]['error_rate']:.2%}",
+        "ER_PUNCT": f"{metrics[CAT_PUNCT]['error_rate']:.2%}",
     }
 
     for cat, label in resolve_domain_labels(metrics).items():
@@ -74,7 +74,7 @@ def extract_error_rates(report: Dict) -> Dict:
     Extract error rates from report for display.
 
     The domain category's rate (if present in the data) is reported
-    under the fixed "der" key.
+    under the fixed "er_domain" key.
 
     Args:
         report: Dictionary containing error metrics for each category
@@ -86,9 +86,9 @@ def extract_error_rates(report: Dict) -> Dict:
     total_sandhi = sum(report[cat]["sandhi_hits"] for cat in report.keys())
 
     result = {
-        "wer": report[CAT_LEXICAL]["error_rate"],
-        "ner": report[CAT_NUMERAL]["error_rate"],
-        "per": report[CAT_PUNCT]["error_rate"],
+        "er_lex": report[CAT_LEXICAL]["error_rate"],
+        "er_num": report[CAT_NUMERAL]["error_rate"],
+        "er_punct": report[CAT_PUNCT]["error_rate"],
         "sandhi": total_sandhi,
     }
 
@@ -157,7 +157,7 @@ def format_summary_lines(agg_results: Dict) -> List[str]:
     Single renderer shared by print_evaluation_summary (console) and
     write_summary_to_file (file) so the two outputs cannot drift.
     Columns are derived from the categories present in the data; the
-    domain category (if any) is shown as DER.
+    domain category (if any) is shown as ER_DOMAIN.
 
     Args:
         agg_results: Dictionary with 'overall' and 'by_dataset' keys
@@ -184,15 +184,15 @@ def format_summary_lines(agg_results: Dict) -> List[str]:
     lines = ["=" * width, *header.split("\n")]
     for ds_name, metrics in named_metrics:
         row = format_metrics_dict(metrics)
-        cells = [f"{ds_name:<{dw}}", f"{row['WER']:>{mw}}"]
+        cells = [f"{ds_name:<{dw}}", f"{row['ER_LEX']:>{mw}}"]
         for cat in labels:
             if cat in metrics:
                 cells.append(f"{metrics[cat]['error_rate']:>{mw}.2%}")
             else:
                 # Genuinely absent from this dataset's data.
                 cells.append(f"{'N/A':>{mw}}")
-        cells.append(f"{row['NER']:>{mw}}")
-        cells.append(f"{row['PER']:>{mw}}")
+        cells.append(f"{row['ER_NUM']:>{mw}}")
+        cells.append(f"{row['ER_PUNCT']:>{mw}}")
         cells.append(f"{row['Sandhi']:>{sw}}")
         lines.append(" | ".join(cells))
         if ds_name == "OVERALL":

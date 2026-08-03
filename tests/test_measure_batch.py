@@ -89,8 +89,8 @@ def test_per_dataset_totals_reflect_per_dataset_records(sample_jsonl, legal_doma
 
 def test_print_evaluation_summary_without_domain_config(sample_jsonl, capsys):
     """print_evaluation_summary must work on a batch measured without
-    any domain (regression: it raised KeyError 'DER'). No domain
-    category in the data means no domain column at all."""
+    any domain (regression: it raised KeyError on the domain label).
+    No domain category in the data means no domain column at all."""
     from scribe import print_evaluation_summary
 
     results = compute_sample_errors(str(sample_jsonl), domain_config=None)
@@ -101,7 +101,7 @@ def test_print_evaluation_summary_without_domain_config(sample_jsonl, capsys):
     assert "dataset-a" in out
     assert "dataset-b" in out
     # No domain category in the data -> no domain column at all.
-    assert "DER" not in out
+    assert "ER_DOMAIN" not in out
     assert "N/A" not in out
 
 

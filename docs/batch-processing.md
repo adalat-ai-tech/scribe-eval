@@ -37,7 +37,7 @@ print(metrics['overall']['LEGAL']['error_rate'])
 
 # Per-dataset metrics
 for dataset, data in metrics['by_dataset'].items():
-    print(f"{dataset}: WER={data['LEXICAL']['error_rate']:.2%}")
+    print(f"{dataset}: ER_LEX={data['LEXICAL']['error_rate']:.2%}")
 ```
 
 ### Error analysis (contributions + frequent errors)

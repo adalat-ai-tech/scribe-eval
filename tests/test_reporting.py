@@ -25,13 +25,13 @@ def test_format_metrics_dict_returns_expected_keys(legal_domain):
     """format_metrics_dict pulls the headline metrics into a flat dict.
 
     The domain category present in the data is reported under the
-    fixed DER label, plus Sandhi and Total counts.
+    fixed ER_DOMAIN label, plus Sandhi and Total counts.
     """
     report = _basic_report(legal_domain)
     formatted = format_metrics_dict(report)
     assert isinstance(formatted, dict)
     # Headline rate keys are formatted as percent strings.
-    for key in ("WER", "NER", "PER", "DER"):
+    for key in ("ER_LEX", "ER_NUM", "ER_PUNCT", "ER_DOMAIN"):
         assert key in formatted
         assert isinstance(formatted[key], str)
         assert formatted[key].endswith("%")
@@ -44,16 +44,17 @@ def test_format_metrics_dict_without_domain_config():
     and Total are still reported (they do not depend on any domain)."""
     report = text_error_rates("the case is closed", "the case was closed", None)
     formatted = format_metrics_dict(report)
-    for key in ("WER", "NER", "PER", "Sandhi", "Total"):
+    for key in ("ER_LEX", "ER_NUM", "ER_PUNCT", "Sandhi", "Total"):
         assert key in formatted
-    assert "DER" not in formatted
+    assert "ER_DOMAIN" not in formatted
     assert "LER" not in formatted
 
 
 def test_write_summary_to_file_without_domain_config(tmp_path):
     """write_summary_to_file must produce a complete table when called
-    with domain_config=None (regression: it raised KeyError 'DER').
-    With no domain category in the data there is no domain column."""
+    with domain_config=None (regression: it raised KeyError on the
+    domain label). With no domain category in the data there is no
+    domain column."""
     report = text_error_rates("the case is closed", "the case was closed", None)
     agg = {"overall": report, "by_dataset": {"test-set": report}}
     out = tmp_path / "summary.txt"
@@ -61,24 +62,25 @@ def test_write_summary_to_file_without_domain_config(tmp_path):
     content = out.read_text(encoding="utf-8")
     assert "OVERALL" in content
     assert "test-set" in content
-    assert "WER" in content
+    assert "ER_LEX" in content
     # No domain data -> no domain column, no filler values.
-    assert "DER" not in content
+    assert "ER_DOMAIN" not in content
     assert "N/A" not in content
 
 
 def test_summary_domain_column_inferred_from_data(tmp_path, legal_domain):
-    """The domain column comes from the data and is always labelled DER:
-    a batch measured with any domain shows a DER column with no
-    reporting-time configuration."""
+    """The domain column comes from the data and is always labelled
+    ER_DOMAIN: a batch measured with any domain shows an ER_DOMAIN
+    column with no reporting-time configuration."""
     report = text_error_rates("charged u/s 302 IPC", "charged us 302 IPC", legal_domain)
     agg = {"overall": report, "by_dataset": {"court": report}}
 
     out = tmp_path / "summary.txt"
     write_summary_to_file(agg, str(out))
     content = out.read_text(encoding="utf-8")
-    assert "DER" in content
-    # The fixed DER label is used, not the category name or config label.
+    assert "ER_DOMAIN" in content
+    # The fixed ER_DOMAIN label is used, not the category name or a
+    # per-domain label like LER.
     assert "LEGAL" not in content
     assert "LER" not in content
 
@@ -89,7 +91,7 @@ def test_extract_error_rates_returns_floats_and_sandhi_count(legal_domain):
     report = _basic_report(legal_domain)
     rates = extract_error_rates(report)
     assert isinstance(rates, dict)
-    for key in ("wer", "ner", "per", "der"):
+    for key in ("er_lex", "er_num", "er_punct", "er_domain"):
         assert key in rates
         assert isinstance(rates[key], (int, float))
         assert 0.0 <= rates[key] <= 1.0

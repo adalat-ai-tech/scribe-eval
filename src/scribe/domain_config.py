@@ -23,7 +23,7 @@ class DomainConfig:
         r"""
         Initialize domain configuration.
 
-        The domain category's error rate is always reported as DER.
+        The domain category's error rate is always reported as ER_DOMAIN.
 
         Args:
             name: Domain name (e.g., "legal", "medical", "technical")

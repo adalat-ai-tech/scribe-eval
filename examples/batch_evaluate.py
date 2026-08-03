@@ -3,7 +3,7 @@
 Batch evaluation script with CLI arguments and proper error handling.
 
 Processes JSONL files containing reference and hypothesis pairs, computes
-error metrics (WER/LER/NER/PER), and outputs detailed per-sample reports
+error metrics (ER_LEX/ER_DOMAIN/ER_NUM/ER_PUNCT), and outputs detailed per-sample reports
 and aggregate summaries. With --analysis, provides additional insights:
 Token Error Rate (TER), category contributions, and frequent error patterns.
 """

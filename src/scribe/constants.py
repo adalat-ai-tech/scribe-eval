@@ -39,7 +39,7 @@ def get_categories(domain_config=None):
 
 # Table formatting constants
 TABLE_WIDTH = 85
-COLUMN_WIDTHS = {"dataset": 25, "metric": 8, "sandhi": 6}
+COLUMN_WIDTHS = {"dataset": 25, "metric": 10, "sandhi": 6}
 
 
 # Utility Functions
@@ -116,19 +116,19 @@ def format_table_header(domain_labels=None) -> str:
         Multi-line string with header row and separator line
 
     Example:
-        >>> print(format_table_header(["LER"]))
-        DATASET                   |      WER |      LER |      NER |      PER | SANDHI
-        -------------------------------------------------------------------------------------
+        >>> print(format_table_header(["ER_DOMAIN"]))
+        DATASET                   |     ER_LEX |  ER_DOMAIN |     ER_NUM |   ER_PUNCT | SANDHI
+        --------------------------------------------------------------------------------------
 
         >>> print(format_table_header())
-        DATASET                   |      WER |      NER |      PER | SANDHI
-        --------------------------------------------------------------------------
+        DATASET                   |     ER_LEX |     ER_NUM |   ER_PUNCT | SANDHI
+        -------------------------------------------------------------------------
     """
     dw = COLUMN_WIDTHS["dataset"]
     mw = COLUMN_WIDTHS["metric"]
     sw = COLUMN_WIDTHS["sandhi"]
 
-    columns = ["WER"] + list(domain_labels or []) + ["NER", "PER"]
+    columns = ["ER_LEX"] + list(domain_labels or []) + ["ER_NUM", "ER_PUNCT"]
     header = f"{'DATASET':<{dw}} | " + " | ".join(f"{c:>{mw}}" for c in columns)
     header += f" | {'SANDHI':>{sw}}"
     separator = "-" * len(header)

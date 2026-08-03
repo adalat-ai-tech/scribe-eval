@@ -18,9 +18,9 @@ report = text_error_rates(ref, hyp, domain)
 
 | Factory Method | Category | Label | Includes |
 |---|---|---|---|
-| `DomainConfig.legal()` | LEGAL | DER | u/s, r/w, sec., art., v., vs., PW1/PW-1, CW1, Ext.A |
-| `DomainConfig.medical()` | MEDICAL | DER | mg, ml, cc, mcg, IU, 500mg, 10ml |
-| `DomainConfig.technical()` | TECH | DER | API, SDK, CLI, JSON, HTTP, v1.0 |
+| `DomainConfig.legal()` | LEGAL | ER_DOMAIN | u/s, r/w, sec., art., v., vs., PW1/PW-1, CW1, Ext.A |
+| `DomainConfig.medical()` | MEDICAL | ER_DOMAIN | mg, ml, cc, mcg, IU, 500mg, 10ml |
+| `DomainConfig.technical()` | TECH | ER_DOMAIN | API, SDK, CLI, JSON, HTTP, v1.0 |
 
 ## File-Based Configuration
 

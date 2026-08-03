@@ -30,9 +30,9 @@ ref = "charged u/s 302 IPC on 22.05.2023"
 hyp = "charged u/s 303 IPC on 22/05/2023"
 
 report = text_error_rates(ref, hyp, DomainConfig.legal())
-print(f"WER:   {report['LEXICAL']['error_rate']:.2%}")    # 0.00% — words match
-print(f"DER:   {report['LEGAL']['error_rate']:.2%}")   # 0.00% — u/s, IPC shielded
-print(f"NER:   {report['NUMERAL']['error_rate']:.2%}") # 16.67% — 302 → 303
+print(f"ER_LEX:    {report['LEXICAL']['error_rate']:.2%}")    # 0.00% — words match
+print(f"ER_DOMAIN: {report['LEGAL']['error_rate']:.2%}")   # 0.00% — u/s, IPC shielded
+print(f"ER_NUM:    {report['NUMERAL']['error_rate']:.2%}") # 16.67% — 302 → 303
                                                        # (date is normalized away)
 ```
 
@@ -94,7 +94,7 @@ tokens, tags = domain_aware_tokenizer("filed u/s 302 IPC", DomainConfig.legal())
 # tags:   ['LEXICAL',  'LEGAL', 'NUMERAL', 'LEGAL']
 ```
 
-Both `u/s` and `IPC` are LEGAL — they're tracked under the domain error rate (DER), not WER, so
+Both `u/s` and `IPC` are LEGAL — they're tracked under the domain error rate (ER_DOMAIN), not ER_LEX, so
 a misrecognised legal abbreviation doesn't inflate your general word
 error rate. `u/s` also stays atomic instead of being split on `/`.
 
