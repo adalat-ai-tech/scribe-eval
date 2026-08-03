@@ -291,3 +291,16 @@ def test_evaluate_records_canonicalizes_dataset_ids():
     ]
     results = evaluate_records(records, source_dataset_field="ds")
     assert [r["source_dataset"] for r in results] == ["7", "0", "unknown"]
+
+
+def test_parallel_workers_match_sequential(sample_jsonl, legal_domain):
+    """workers=2 must return exactly the sequential results, in input
+    order, including error details."""
+    with sample_jsonl.open(encoding="utf-8") as f:
+        records = [json.loads(line) for line in f]
+
+    sequential = evaluate_records(records, domain_config=legal_domain, collect_error_details=True)
+    parallel = evaluate_records(
+        records, domain_config=legal_domain, collect_error_details=True, workers=2
+    )
+    assert parallel == sequential

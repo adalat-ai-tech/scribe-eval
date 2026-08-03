@@ -1,5 +1,7 @@
 import json
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor
+from functools import partial
 from typing import Optional
 
 from .constants import (
@@ -11,6 +13,45 @@ from .measure import text_error_details, text_error_rates
 from .reporting import format_summary_lines
 
 
+def _evaluate_one(
+    record,
+    ref_field,
+    hyp_field,
+    source_dataset_field,
+    domain_config,
+    normalize,
+    use_sandhi,
+    collect_error_details,
+) -> dict:
+    """Evaluate a single record. Module-level so worker processes can
+    pickle it under the spawn start method."""
+    # Shallow-copy so the caller's dicts are left untouched.
+    data = dict(record)
+
+    # Canonicalize the dataset id under "source_dataset" so
+    # downstream aggregation works regardless of which field
+    # name the caller configured. Non-string ids (numbers, JSON
+    # arrays/objects) are stringified — aggregation uses the
+    # value as a grouping key. Only a missing/null/empty field
+    # falls back to "unknown"; falsy scalars like 0 or false
+    # are real dataset ids.
+    ds_value = data.get(source_dataset_field)
+    if ds_value is None or ds_value == "":
+        ds_value = "unknown"
+    data["source_dataset"] = ds_value if isinstance(ds_value, str) else str(ds_value)
+
+    ref = data[ref_field]
+    hyp = data[hyp_field]
+
+    report = text_error_rates(ref, hyp, domain_config, normalize, use_sandhi)
+    data["detailed_report"] = report
+
+    if collect_error_details:
+        data["error_details"] = text_error_details(ref, hyp, domain_config, normalize, use_sandhi)
+
+    return data
+
+
 def evaluate_records(
     records,
     ref_field="transcript_cleaned",
@@ -20,6 +61,7 @@ def evaluate_records(
     normalize: bool = True,
     use_sandhi: bool = True,
     collect_error_details: bool = False,
+    workers: Optional[int] = None,
 ) -> list[dict]:
     """
     Compute error metrics for an in-memory iterable of sample records.
@@ -45,41 +87,37 @@ def evaluate_records(
         use_sandhi: If True, detect sandhi splits/merges (default: True)
         collect_error_details: If True, also collect per-token error records
             for frequency analysis. Stored in each result's "error_details" key.
+        workers: Number of worker processes for parallel evaluation.
+            None or 1 evaluates sequentially (the default); larger values
+            spread records over a process pool. Results are identical and
+            in input order either way. Parallel mode materializes the
+            records iterable into a list before dispatching.
 
     Returns:
         List of result dictionaries with detailed reports
     """
-    results = []
-    for record in records:
-        # Shallow-copy so the caller's dicts are left untouched.
-        data = dict(record)
+    evaluate = partial(
+        _evaluate_one,
+        ref_field=ref_field,
+        hyp_field=hyp_field,
+        source_dataset_field=source_dataset_field,
+        domain_config=domain_config,
+        normalize=normalize,
+        use_sandhi=use_sandhi,
+        collect_error_details=collect_error_details,
+    )
 
-        # Canonicalize the dataset id under "source_dataset" so
-        # downstream aggregation works regardless of which field
-        # name the caller configured. Non-string ids (numbers, JSON
-        # arrays/objects) are stringified — aggregation uses the
-        # value as a grouping key. Only a missing/null/empty field
-        # falls back to "unknown"; falsy scalars like 0 or false
-        # are real dataset ids.
-        ds_value = data.get(source_dataset_field)
-        if ds_value is None or ds_value == "":
-            ds_value = "unknown"
-        data["source_dataset"] = ds_value if isinstance(ds_value, str) else str(ds_value)
+    if workers is not None and workers > 1:
+        records = list(records)
+        # Per-sample cost varies by orders of magnitude (alignment is
+        # quadratic in sample length), so small batches keep skewed
+        # workloads balanced; ~32 chunks per worker amortizes IPC on
+        # large record counts without starving anyone.
+        chunksize = max(1, len(records) // (workers * 32))
+        with ProcessPoolExecutor(max_workers=workers) as pool:
+            return list(pool.map(evaluate, records, chunksize=chunksize))
 
-        ref = data[ref_field]
-        hyp = data[hyp_field]
-
-        report = text_error_rates(ref, hyp, domain_config, normalize, use_sandhi)
-        data["detailed_report"] = report
-
-        if collect_error_details:
-            data["error_details"] = text_error_details(
-                ref, hyp, domain_config, normalize, use_sandhi
-            )
-
-        results.append(data)
-
-    return results
+    return [evaluate(record) for record in records]
 
 
 def compute_sample_errors(
@@ -92,6 +130,7 @@ def compute_sample_errors(
     normalize: bool = True,
     use_sandhi: bool = True,
     collect_error_details: bool = False,
+    workers: Optional[int] = None,
 ) -> list[dict]:
     """
     Compute error metrics for all samples in a JSONL file.
@@ -113,6 +152,8 @@ def compute_sample_errors(
         use_sandhi: If True, detect sandhi splits/merges (default: True)
         collect_error_details: If True, also collect per-token error records
             for frequency analysis. Stored in each result's "error_details" key.
+        workers: Number of worker processes for parallel evaluation
+            (None or 1 = sequential; see evaluate_records)
 
     Returns:
         List of result dictionaries with detailed reports
@@ -127,6 +168,7 @@ def compute_sample_errors(
             normalize=normalize,
             use_sandhi=use_sandhi,
             collect_error_details=collect_error_details,
+            workers=workers,
         )
 
     # Save detailed results if output file is specified

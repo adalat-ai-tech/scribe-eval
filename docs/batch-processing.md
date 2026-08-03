@@ -59,6 +59,17 @@ results = evaluate_records(records, domain_config=DomainConfig.legal())
 metrics = compute_aggregate_metrics(results)
 ```
 
+### Parallel evaluation
+
+Both `evaluate_records()` and `compute_sample_errors()` accept `workers=N`
+to spread samples over a process pool — useful for large batches or long
+dictation samples. Results are identical to sequential evaluation and stay
+in input order. The CLI equivalent is `--workers N`.
+
+```python
+results = evaluate_records(records, workers=4)
+```
+
 ### Error analysis (contributions + frequent errors)
 
 ```python
