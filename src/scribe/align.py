@@ -7,7 +7,7 @@ def is_sandhi_eligible(tag) -> bool:
     """Check if a tag is eligible for Sandhi split/merge operations.
 
     Sandhi operations apply to all categories except PUNCT and NUMERAL.
-    This includes WORD and all domain-specific categories (LEGAL, MEDICAL, etc.).
+    This includes LEXICAL and all domain-specific categories (LEGAL, MEDICAL, etc.).
     """
     return tag not in (CAT_PUNCT, CAT_NUMERAL)
 

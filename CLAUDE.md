@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-SCRIBE is a specialized ASR (Automatic Speech Recognition) error analysis tool for Indic languages (Malayalam, Kannada) with domain-aware tokenization. It provides fine-grained error metrics by categorizing tokens into base categories (WORD, NUMERAL, PUNCT) plus optional domain-specific categories (LEGAL, MEDICAL, or custom domains). Domain-critical terminology is protected from incorrect splitting and tracked separately for error analysis.
+SCRIBE is a specialized ASR (Automatic Speech Recognition) error analysis tool for Indic languages (Malayalam, Kannada) with domain-aware tokenization. It provides fine-grained error metrics by categorizing tokens into base categories (LEXICAL, NUMERAL, PUNCT) plus optional domain-specific categories (LEGAL, MEDICAL, or custom domains). Domain-critical terminology is protected from incorrect splitting and tracked separately for error analysis.
 
 ## Commands
 
@@ -87,7 +87,7 @@ The visualizer provides:
 
 1. **Tokenization** (`src/scribe/tokenize.py`, `src/scribe/domain_config.py`)
    - `domain_aware_tokenizer(text, domain_config=None)`: Main tokenization function
-   - Base categories: WORD, NUMERAL, PUNCT (always present)
+   - Base categories: LEXICAL, NUMERAL, PUNCT (always present)
    - Optional domain categories via `DomainConfig` class
    - Factory methods for bundled domains: `DomainConfig.legal()`, `DomainConfig.medical()`, `DomainConfig.technical()`
    - File-based configuration: `DomainConfig.from_file('config/custom.txt')`
@@ -136,7 +136,7 @@ The visualizer provides:
    - `category_breakdown_chart(contributions, output_path=None, title=...)`: 2-panel figure
      - **Left panel** (wide): Stacked horizontal bar — Exact Match (green) / Substitutions (red) / Deletions (amber) / Insertions (blue) per category + TOTAL row. Accuracy % annotated inside bar (or outside for small bars).
      - **Right panel**: Category contribution to total TER — same stacked colors showing (S+I+D)/total_ref_tokens per category + TOTAL. Dynamic title: "Category Contribution to X.X% Token Error Rate"
-     - Category order: Word Tokens → Domain Tokens → Numeral Tokens → Punctuation Tokens, TOTAL at bottom
+     - Category order: Lexical Tokens → Domain Tokens → Numeral Tokens → Punctuation Tokens, TOTAL at bottom
 
 7. **Reporting** (`src/scribe/reporting.py`)
    - Shared formatting functions used across CLI and web UI
@@ -166,7 +166,7 @@ The visualizer provides:
 - **Error Rate**: `(S+I+D) / category_ref_tokens` — how accurately the model handles this category in isolation
 - **Impact on Total**: `(S+I+D) / total_ref_tokens` — how much this category contributes to the overall TER score
 
-**Standard Terminology**: Token categories display as "Word Tokens", "Domain Tokens", "Numeral Tokens", "Punctuation Tokens". Match columns use "Exact Match" and "Accuracy" (not "Correct" or "Match%").
+**Standard Terminology**: Token categories display as "Lexical Tokens", "Domain Tokens", "Numeral Tokens", "Punctuation Tokens". Match columns use "Exact Match" and "Accuracy" (not "Correct" or "Match%").
 
 **Error Detail Records**: `token_error_details()` emits one dict per aligned token pair: `{"error_type": "substitution"|"insertion"|"deletion", "category": tag, "ref_token": str|None, "hyp_token": str|None}`. Sandhi (MERGE:/SPLIT:) matches are skipped. These records power the frequent-error analysis without storing data in JSONL output.
 
@@ -207,7 +207,7 @@ The visualizer provides:
 ## Token Categories
 
 **Base Categories (always present):**
-- **WORD**: General words (Indic and English text)
+- **LEXICAL**: General words (Indic and English text)
 - **NUMERAL**: Numbers, dates (22.05.2023), times (10:30), currency (10,500)
 - **PUNCT**: Punctuation marks
 
@@ -415,13 +415,13 @@ When using `batch_evaluate.py` with the `output_file` parameter, detailed per-sa
 - `source_dataset`: Dataset identifier
 - `reference`: Original reference text
 - `hypothesis`: Original hypothesis text
-- `WORD`, `LEGAL`, `NUMERAL`, `PUNCT`: Category-specific dictionaries with:
+- `LEXICAL`, `LEGAL`, `NUMERAL`, `PUNCT`: Category-specific dictionaries with:
   - `error_rate`: Normalized error rate (errors / total tokens)
   - `substitutions`: Number of substitution errors
   - `insertions`: Number of insertion errors
   - `deletions`: Number of deletion errors
   - `correct`: Number of correctly recognized tokens
-  - `sandhi_hits`: Number of Sandhi corrections detected (for WORD category)
+  - `sandhi_hits`: Number of Sandhi corrections detected (for LEXICAL category)
 
 ## Dependencies
 

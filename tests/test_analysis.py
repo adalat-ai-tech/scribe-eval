@@ -41,7 +41,7 @@ def test_token_error_details_emits_sandhi_merge_record():
     merges = [d for d in details if d["error_type"] == "sandhi_merge"]
     assert len(merges) == 1
     rec = merges[0]
-    assert rec["category"] == "WORD"
+    assert rec["category"] == "LEXICAL"
     assert rec["ref_token"] == MERGE_REF
     assert rec["hyp_token"] == MERGE_HYP
 
@@ -51,7 +51,7 @@ def test_token_error_details_emits_sandhi_split_record():
     splits = [d for d in details if d["error_type"] == "sandhi_split"]
     assert len(splits) == 1
     rec = splits[0]
-    assert rec["category"] == "WORD"
+    assert rec["category"] == "LEXICAL"
     assert rec["ref_token"] == MERGE_HYP
     assert rec["hyp_token"] == MERGE_REF
 
@@ -75,14 +75,14 @@ def test_compute_frequent_sandhi_merges_counts_repeats():
     pairs = [(MERGE_REF, MERGE_HYP)] * 3 + [(MERGE_HYP, MERGE_REF)]
     merges = compute_frequent_sandhi_merges(_details_for(pairs), top_n=10)
     assert merges["_all"] == [(MERGE_REF, MERGE_HYP, 3)]
-    assert merges["WORD"] == [(MERGE_REF, MERGE_HYP, 3)]
+    assert merges["LEXICAL"] == [(MERGE_REF, MERGE_HYP, 3)]
 
 
 def test_compute_frequent_sandhi_splits_counts_repeats():
     pairs = [(MERGE_HYP, MERGE_REF)] * 2 + [(MERGE_REF, MERGE_HYP)]
     splits = compute_frequent_sandhi_splits(_details_for(pairs), top_n=10)
     assert splits["_all"] == [(MERGE_HYP, MERGE_REF, 2)]
-    assert splits["WORD"] == [(MERGE_HYP, MERGE_REF, 2)]
+    assert splits["LEXICAL"] == [(MERGE_HYP, MERGE_REF, 2)]
 
 
 def test_compute_frequent_sandhi_returns_empty_when_no_sandhi_present():
@@ -122,7 +122,7 @@ def test_format_frequent_errors_table_handles_sandhi_merge():
     assert rows == [
         {
             "Rank": 1,
-            "Category": "WORD",
+            "Category": "LEXICAL",
             "Reference": MERGE_REF,
             "Hypothesis": MERGE_HYP,
             "Count": 1,
@@ -136,7 +136,7 @@ def test_format_frequent_errors_table_handles_sandhi_split():
     assert rows == [
         {
             "Rank": 1,
-            "Category": "WORD",
+            "Category": "LEXICAL",
             "Reference": MERGE_HYP,
             "Hypothesis": MERGE_REF,
             "Count": 1,
@@ -159,17 +159,17 @@ def test_compute_frequent_substitutions_ranks_by_count():
     subs = compute_frequent_substitutions(_details_for(pairs), top_n=5)
     assert subs["_all"][0] == ("आम", "केला", 2)
     assert subs["_all"][1] == ("आम", "सेब", 1)
-    assert subs["WORD"][0] == ("आम", "केला", 2)
+    assert subs["LEXICAL"][0] == ("आम", "केला", 2)
 
 
 def test_compute_frequent_substitutions_top_n_truncates():
-    # Five distinct Hindi word substitutions in WORD category.
+    # Five distinct Hindi word substitutions in LEXICAL category.
     refs = ["आम", "केला", "सेब", "अंगूर", "नारंगी"]
     hyps = ["कुत्ता", "बिल्ली", "गाय", "घोड़ा", "हाथी"]
     pairs = [(f"मैंने {r} खाया", f"मैंने {h} खाया") for r, h in zip(refs, hyps)]
     subs = compute_frequent_substitutions(_details_for(pairs), top_n=3)
     assert len(subs["_all"]) == 3
-    assert len(subs["WORD"]) == 3
+    assert len(subs["LEXICAL"]) == 3
 
 
 def test_compute_frequent_deletions_counts_repeats():
@@ -234,11 +234,11 @@ def test_compute_total_error_rate_can_exceed_one_with_insertions():
 
 
 def test_compute_category_contributions_counts_and_pct():
-    """One sub in WORD: ref_tokens=3, correct=2, error_count=1, accuracy=2/3."""
+    """One sub in LEXICAL: ref_tokens=3, correct=2, error_count=1, accuracy=2/3."""
     metrics = text_error_rates("मैंने आम खाया", "मैंने केला खाया", None)
     contribs = compute_category_contributions(metrics)
 
-    word = contribs["WORD"]
+    word = contribs["LEXICAL"]
     assert word["correct"] == 2
     assert word["substitutions"] == 1
     assert word["deletions"] == 0
@@ -246,7 +246,7 @@ def test_compute_category_contributions_counts_and_pct():
     assert word["ref_tokens"] == 3
     assert word["error_count"] == 1
     assert word["correct_pct"] == pytest.approx(2 / 3 * 100)
-    # WORD owns the only error, so its contribution is 100%.
+    # LEXICAL owns the only error, so its contribution is 100%.
     assert word["contribution_pct"] == 100.0
 
 
@@ -276,9 +276,9 @@ def test_compute_category_contributions_pct_sums_to_one_hundred():
 def test_compute_error_type_distribution_pure_substitution():
     metrics = text_error_rates("मैंने आम खाया", "मैंने केला खाया", None)
     dist = compute_error_type_distribution(metrics)
-    assert dist["WORD"]["substitution_pct"] == 100.0
-    assert dist["WORD"]["insertion_pct"] == 0.0
-    assert dist["WORD"]["deletion_pct"] == 0.0
+    assert dist["LEXICAL"]["substitution_pct"] == 100.0
+    assert dist["LEXICAL"]["insertion_pct"] == 0.0
+    assert dist["LEXICAL"]["deletion_pct"] == 0.0
 
 
 def test_compute_error_type_distribution_mixed():
@@ -287,13 +287,13 @@ def test_compute_error_type_distribution_mixed():
     # Aligner produces 1 sub + 2 ins + 1 del here.
     metrics = text_error_rates("आम केला सेब", "अंगूर सेब नया कुछ", None)
     dist = compute_error_type_distribution(metrics)
-    assert dist["WORD"]["substitution_pct"] > 0
-    assert dist["WORD"]["insertion_pct"] > 0
-    assert dist["WORD"]["deletion_pct"] > 0
+    assert dist["LEXICAL"]["substitution_pct"] > 0
+    assert dist["LEXICAL"]["insertion_pct"] > 0
+    assert dist["LEXICAL"]["deletion_pct"] > 0
     total = (
-        dist["WORD"]["substitution_pct"]
-        + dist["WORD"]["insertion_pct"]
-        + dist["WORD"]["deletion_pct"]
+        dist["LEXICAL"]["substitution_pct"]
+        + dist["LEXICAL"]["insertion_pct"]
+        + dist["LEXICAL"]["deletion_pct"]
     )
     assert total == pytest.approx(100.0)
 
@@ -301,9 +301,9 @@ def test_compute_error_type_distribution_mixed():
 def test_compute_error_type_distribution_zero_when_no_errors():
     metrics = text_error_rates("नमस्ते दुनिया", "नमस्ते दुनिया", None)
     dist = compute_error_type_distribution(metrics)
-    assert dist["WORD"]["substitution_pct"] == 0.0
-    assert dist["WORD"]["insertion_pct"] == 0.0
-    assert dist["WORD"]["deletion_pct"] == 0.0
+    assert dist["LEXICAL"]["substitution_pct"] == 0.0
+    assert dist["LEXICAL"]["insertion_pct"] == 0.0
+    assert dist["LEXICAL"]["deletion_pct"] == 0.0
 
 
 # ---------------------------------------------------------------------------

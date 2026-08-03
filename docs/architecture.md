@@ -16,7 +16,7 @@ raw text  ──▶  tokenize  ──▶  align  ──▶  measure  ──▶  
 |---|---|
 | tokenize → align | `(tokens, tags, normalized_tokens)` per side |
 | align → measure | aligned `[(text, tag), ...]` pairs (gaps as `("**", "GAP")`) |
-| measure → aggregate | per-sample report `{WORD: {...}, NUMERAL: {...}, ...}` |
+| measure → aggregate | per-sample report `{LEXICAL: {...}, NUMERAL: {...}, ...}` |
 | aggregate → report | `{"overall": ..., "by_dataset": {...}}` |
 
 ## Quick example
@@ -30,7 +30,7 @@ ref = "charged u/s 302 IPC on 22.05.2023"
 hyp = "charged u/s 303 IPC on 22/05/2023"
 
 report = text_error_rates(ref, hyp, DomainConfig.legal())
-print(f"WER:   {report['WORD']['error_rate']:.2%}")    # 0.00% — words match
+print(f"WER:   {report['LEXICAL']['error_rate']:.2%}")    # 0.00% — words match
 print(f"DER:   {report['LEGAL']['error_rate']:.2%}")   # 0.00% — u/s, IPC shielded
 print(f"NER:   {report['NUMERAL']['error_rate']:.2%}") # 16.67% — 302 → 303
                                                        # (date is normalized away)
@@ -77,7 +77,7 @@ For batch evaluation across a JSONL dataset, see
 | `reporting.py` | Formatters shared by the CLI and Streamlit UI | `format_metrics_dict`, `format_contribution_table`, `format_alignment_table` |
 | `charts.py` | matplotlib chart generation (optional `[charts]` extra) | `category_breakdown_chart` |
 | `visualizer/` | Streamlit app and `scribe-visualizer` console script (optional `[visualizer]` extra) | `app.py`, `__main__.py` |
-| `constants.py` | Category names and helpers | `CAT_WORD`, `CAT_NUMERAL`, `get_categories(domain_config)` |
+| `constants.py` | Category names and helpers | `CAT_LEXICAL`, `CAT_NUMERAL`, `get_categories(domain_config)` |
 
 ## Stage-by-stage examples
 
@@ -91,7 +91,7 @@ from scribe import domain_aware_tokenizer, DomainConfig
 
 tokens, tags = domain_aware_tokenizer("filed u/s 302 IPC", DomainConfig.legal())
 # tokens: ['filed', 'u/s',  '302',     'IPC']
-# tags:   ['WORD',  'LEGAL', 'NUMERAL', 'LEGAL']
+# tags:   ['LEXICAL',  'LEGAL', 'NUMERAL', 'LEGAL']
 ```
 
 Both `u/s` and `IPC` are LEGAL — they're tracked under the domain error rate (DER), not WER, so
@@ -121,8 +121,8 @@ from scribe import align_arrays, domain_aware_tokenizer
 t1, g1 = domain_aware_tokenizer("ഇന്ന് അല്ലെങ്കിൽ", None)
 t2, g2 = domain_aware_tokenizer("ഇന്നല്ലെങ്കിൽ",     None)
 ref, hyp, _ = align_arrays(t1, g1, t2, g2)
-# ref: [('MERGE:ഇന്ന് അല്ലെങ്കിൽ', 'WORD')]
-# hyp: [('ഇന്നല്ലെങ്കിൽ',          'WORD')]
+# ref: [('MERGE:ഇന്ന് അല്ലെങ്കിൽ', 'LEXICAL')]
+# hyp: [('ഇന്നല്ലെങ്കിൽ',          'LEXICAL')]
 ```
 
 The aligner tags merge / split events with `MERGE:` / `SPLIT:` prefixes
@@ -135,13 +135,13 @@ records the event as a *sandhi correction* — not an error.
 from scribe import text_error_rates, text_error_details
 
 rates = text_error_rates("alpha beta gamma", "alpha delta epsilon", None)
-# rates['WORD']: {'error_rate': 0.667, 'substitutions': 2, 'correct': 1,
+# rates['LEXICAL']: {'error_rate': 0.667, 'substitutions': 2, 'correct': 1,
 #                 'total_ref': 3, 'sandhi_hits': 0, ...}
 
 details = text_error_details("alpha beta gamma", "alpha delta epsilon", None)
-# [{'error_type': 'substitution', 'category': 'WORD',
+# [{'error_type': 'substitution', 'category': 'LEXICAL',
 #   'ref_token': 'beta',  'hyp_token': 'delta'},
-#  {'error_type': 'substitution', 'category': 'WORD',
+#  {'error_type': 'substitution', 'category': 'LEXICAL',
 #   'ref_token': 'gamma', 'hyp_token': 'epsilon'}]
 ```
 
@@ -176,7 +176,7 @@ summary = compute_error_summary(agg["overall"], details, top_n=5)
 merge_rows = format_frequent_errors_table(
     summary["frequent_sandhi_merges"], "sandhi_merge", 5
 )
-# [{'Rank': 1, 'Category': 'WORD', 'Reference': 'ഇന്ന് അല്ലെങ്കിൽ',
+# [{'Rank': 1, 'Category': 'LEXICAL', 'Reference': 'ഇന്ന് അല്ലെങ്കിൽ',
 #   'Hypothesis': 'ഇന്നല്ലെങ്കിൽ', 'Count': 2}]
 ```
 

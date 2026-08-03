@@ -46,13 +46,13 @@ from .analysis import (
     compute_total_error_rate as compute_total_error_rate,
 )
 from .constants import (
+    CAT_LEXICAL as CAT_LEXICAL,
+)
+from .constants import (
     CAT_NUMERAL as CAT_NUMERAL,
 )
 from .constants import (
     CAT_PUNCT as CAT_PUNCT,
-)
-from .constants import (
-    CAT_WORD as CAT_WORD,
 )
 from .constants import (
     CATEGORIES as CATEGORIES,

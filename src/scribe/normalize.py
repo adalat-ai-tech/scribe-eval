@@ -158,7 +158,7 @@ def normalize_token(text: str, category: str) -> str:
 
     Args:
         text: Original token text
-        category: Token category (WORD, NUMERAL, PUNCT, LEGAL, etc.)
+        category: Token category (LEXICAL, NUMERAL, PUNCT, LEGAL, etc.)
 
     Returns:
         Normalized token text
@@ -166,7 +166,7 @@ def normalize_token(text: str, category: str) -> str:
     Examples:
         >>> normalize_token("22.05.2023", "NUMERAL")
         '22-05-2023'
-        >>> normalize_token("hello", "WORD")
+        >>> normalize_token("hello", "LEXICAL")
         'hello'
         >>> normalize_token(".", "PUNCT")
         '.'

@@ -2,7 +2,7 @@
 
 import pytest
 
-from scribe import CAT_NUMERAL, CAT_PUNCT, CAT_WORD, DomainConfig, domain_aware_tokenizer
+from scribe import CAT_LEXICAL, CAT_NUMERAL, CAT_PUNCT, DomainConfig, domain_aware_tokenizer
 
 
 def test_empty_string_returns_empty_token_list():
@@ -20,7 +20,7 @@ def test_whitespace_only_returns_empty_token_list():
 def test_words_are_tagged_WORD():
     tokens, tags = domain_aware_tokenizer("hello world")
     assert tokens == ["hello", "world"]
-    assert tags == [CAT_WORD, CAT_WORD]
+    assert tags == [CAT_LEXICAL, CAT_LEXICAL]
 
 
 def test_punctuation_is_separate_tokens():
@@ -79,11 +79,11 @@ def test_legal_domain_shields_pw_witness_patterns(legal_domain):
 
 
 def test_no_domain_leaves_legal_terms_as_WORD():
-    """Without a domain config, `u/s` is a regular WORD token."""
+    """Without a domain config, `u/s` is a regular LEXICAL token."""
     tokens, tags = domain_aware_tokenizer("charged u/s 302")
     assert "u/s" in tokens
     idx = tokens.index("u/s")
-    # The point: not LEGAL. (Could be WORD or a combination — we just
+    # The point: not LEGAL. (Could be LEXICAL or a combination — we just
     # assert it isn't tagged with the domain category.)
     assert tags[idx] != "LEGAL"
 
@@ -100,7 +100,7 @@ def test_indic_text_tokenizes_per_whitespace():
     text = "ഇന്ന് നാളെ"
     tokens, tags = domain_aware_tokenizer(text)
     assert len(tokens) == 2
-    assert all(tag == CAT_WORD for tag in tags)
+    assert all(tag == CAT_LEXICAL for tag in tags)
 
 
 @pytest.mark.parametrize(

@@ -100,7 +100,7 @@ report = text_error_rates(ref, hyp, custom)
 
 ## No Domain
 
-Pass `None` to use base categories only (WORD, NUMERAL, PUNCT):
+Pass `None` to use base categories only (LEXICAL, NUMERAL, PUNCT):
 
 ```python
 report = text_error_rates(ref, hyp, None)

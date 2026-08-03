@@ -110,7 +110,7 @@ def inject_custom_css():
         .s-ins, .s-del { background-color: #ffe0b2; color: #7d4e00; }
         .s-merge   { background-color: #e0e7ff; color: #3730a3; border: 2px solid #6366f1 !important; }
 
-        .t-WORD    { border: 3px solid #a3cfbb; }
+        .t-LEXICAL { border: 3px solid #a3cfbb; }
         .t-NUMERAL { border: 3px solid #d32f2f; }
         .t-PUNCT   { border: 3px dashed #9c27b0; }
         .t-LEGAL   { border: 4px solid #1a237e; box-shadow: 0 0 8px rgba(26, 35, 126, 0.4); }
@@ -186,15 +186,17 @@ def generate_jiwer_alignment_html(ref_text, hyp_text):
 
 
 def build_category_chips(contributions, domain_config):
-    """Return 'Word Tokens 5.4%' style chips in canonical display order."""
+    """Return 'Lexical Tokens 5.4%' style chips in canonical display order."""
     display_names = {
-        "WORD": "Word Tokens",
+        "LEXICAL": "Lexical Tokens",
         "NUMERAL": "Numeral Tokens",
         "PUNCT": "Punctuation Tokens",
     }
-    base_cats = {"WORD", "NUMERAL", "PUNCT"}
+    base_cats = {"LEXICAL", "NUMERAL", "PUNCT"}
     domain_cats = [c for c in contributions if c not in base_cats]
-    ordered_cats = [c for c in ["WORD"] + domain_cats + ["NUMERAL", "PUNCT"] if c in contributions]
+    ordered_cats = [
+        c for c in ["LEXICAL"] + domain_cats + ["NUMERAL", "PUNCT"] if c in contributions
+    ]
     domain_display = f"{domain_config.name.title()} Tokens" if domain_config else "Domain Tokens"
     return [
         f"{display_names.get(c, domain_display)} {contributions[c]['error_rate']:.2%}"

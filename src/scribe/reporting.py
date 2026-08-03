@@ -8,9 +8,9 @@ and alignment results for both CLI and web UI presentations.
 from typing import Dict, List, Tuple
 
 from .constants import (
+    CAT_LEXICAL,
     CAT_NUMERAL,
     CAT_PUNCT,
-    CAT_WORD,
     CATEGORIES,
     COLUMN_WIDTHS,
     format_table_header,
@@ -54,7 +54,7 @@ def format_metrics_dict(metrics: Dict) -> Dict[str, str]:
         Dictionary with formatted metric strings ready for table display
     """
     result = {
-        "WER": f"{metrics[CAT_WORD]['error_rate']:.2%}",
+        "WER": f"{metrics[CAT_LEXICAL]['error_rate']:.2%}",
         "NER": f"{metrics[CAT_NUMERAL]['error_rate']:.2%}",
         "PER": f"{metrics[CAT_PUNCT]['error_rate']:.2%}",
     }
@@ -62,9 +62,9 @@ def format_metrics_dict(metrics: Dict) -> Dict[str, str]:
     for cat, label in resolve_domain_labels(metrics).items():
         result[label] = f"{metrics[cat]['error_rate']:.2%}"
 
-    # Sandhi can occur in any category (WORD, LEGAL, MEDICAL, etc.).
+    # Sandhi can occur in any category (LEXICAL, LEGAL, MEDICAL, etc.).
     result["Sandhi"] = sum(metrics[cat]["sandhi_hits"] for cat in metrics.keys())
-    result["Total"] = metrics[CAT_WORD].get("combined_total", 0)
+    result["Total"] = metrics[CAT_LEXICAL].get("combined_total", 0)
 
     return result
 
@@ -82,11 +82,11 @@ def extract_error_rates(report: Dict) -> Dict:
     Returns:
         Dictionary with raw numeric error rates
     """
-    # Sum sandhi_hits across all categories (Sandhi can occur in WORD, LEGAL, MEDICAL, etc.)
+    # Sum sandhi_hits across all categories (Sandhi can occur in LEXICAL, LEGAL, MEDICAL, etc.)
     total_sandhi = sum(report[cat]["sandhi_hits"] for cat in report.keys())
 
     result = {
-        "wer": report[CAT_WORD]["error_rate"],
+        "wer": report[CAT_LEXICAL]["error_rate"],
         "ner": report[CAT_NUMERAL]["error_rate"],
         "per": report[CAT_PUNCT]["error_rate"],
         "sandhi": total_sandhi,
@@ -230,7 +230,7 @@ def format_contribution_table(contributions: Dict) -> List[Dict]:
     """
     # Display names for categories
     category_display = {
-        CAT_WORD: "Word Tokens",
+        CAT_LEXICAL: "Lexical Tokens",
         CAT_PUNCT: "Punctuation Tokens",
         CAT_NUMERAL: "Numeral Tokens",
     }

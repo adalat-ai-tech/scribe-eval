@@ -24,7 +24,7 @@ Enter reference and hypothesis text directly. The view updates automatically on 
   - Red: substitution, insertion, or deletion
   - Blue: Sandhi correction (merged/split Indic word)
 - **Token Error Rate** and **Accuracy** as metric tiles (hover on Accuracy for a note on why TER + Accuracy ≠ 100% when insertions or Sandhis are present)
-- Category decomposition caption: `Word Tokens X% + Legal Tokens Y% + ... = TER%`
+- Category decomposition caption: `Lexical Tokens X% + Legal Tokens Y% + ... = TER%`
 - **Jiwer WER and CER** shown side-by-side for baseline comparison
 - **Error Analysis** expander:
   - Category contributions table (Ref Tokens, Exact Match, Accuracy, Sub, Del, Ins, Error Rate, Impact on Total)

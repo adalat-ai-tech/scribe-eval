@@ -127,7 +127,7 @@ def token_error_details(
         List of error record dicts. Each dict has:
             - "error_type": "substitution" | "insertion" | "deletion"
                             | "sandhi_merge" | "sandhi_split"
-            - "category": the token category (WORD, PUNCT, NUMERAL, etc.)
+            - "category": the token category (LEXICAL, PUNCT, NUMERAL, etc.)
             - "ref_token": the reference token text (None for insertions;
                            "word1 word2" for sandhi_merge)
             - "hyp_token": the hypothesis token text (None for deletions;

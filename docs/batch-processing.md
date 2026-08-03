@@ -32,12 +32,12 @@ results = compute_sample_errors(
 metrics = compute_aggregate_metrics(results)
 
 # Overall metrics
-print(metrics['overall']['WORD']['error_rate'])
+print(metrics['overall']['LEXICAL']['error_rate'])
 print(metrics['overall']['LEGAL']['error_rate'])
 
 # Per-dataset metrics
 for dataset, data in metrics['by_dataset'].items():
-    print(f"{dataset}: WER={data['WORD']['error_rate']:.2%}")
+    print(f"{dataset}: WER={data['LEXICAL']['error_rate']:.2%}")
 ```
 
 ### Error analysis (contributions + frequent errors)
@@ -143,7 +143,7 @@ Each line in the detailed output contains:
   "source_dataset": "adalat-ai/court-audio",
   "reference": "charged u/s 302 IPC",
   "hypothesis": "charged u/s 303 IPC",
-  "WORD": {
+  "LEXICAL": {
     "error_rate": 0.0,
     "substitutions": 0,
     "insertions": 0,

@@ -163,8 +163,8 @@ def test_check_sandhi_match_accepts_genuine_junctions(combined, single):
 def test_alignment_counts_extra_word_as_indel_not_sandhi(combined, single):
     """End to end: the extra word must surface as a gap (insertion) in the
     alignment rather than being absorbed into a MERGE/SPLIT slot."""
-    ref_toks, ref_tags = [single], ["WORD"]
-    hyp_toks, hyp_tags = list(combined), ["WORD"] * len(combined)
+    ref_toks, ref_tags = [single], ["LEXICAL"]
+    hyp_toks, hyp_tags = list(combined), ["LEXICAL"] * len(combined)
     aligned_ref, aligned_hyp, _ = align_arrays(
         ref_toks, ref_tags, hyp_toks, hyp_tags, use_sandhi=True
     )

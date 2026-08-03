@@ -10,7 +10,7 @@ accepted at Interspeech 2026). It provides fine-grained error metrics for
 ASR systems on Indic languages (Malayalam, Kannada, Hindi, ...) and on
 domain-specific transcription (legal, medical, technical).
 
-Token categories are decomposed into base classes (WORD, NUMERAL, PUNCT) and
+Token categories are decomposed into base classes (LEXICAL, NUMERAL, PUNCT) and
 optional domain classes (LEGAL, MEDICAL, TECH, or custom). Domain-critical
 terminology is shielded from incorrect splitting and tracked separately — so a
 single misrecognized legal term doesn't inflate your general WER.
@@ -37,7 +37,7 @@ hyp = "charged u/s 303 IPC on 22.05.2023"
 
 report = text_error_rates(ref, hyp, DomainConfig.legal())
 
-print(f"WER: {report['WORD']['error_rate']:.2%}")
+print(f"WER: {report['LEXICAL']['error_rate']:.2%}")
 print(f"DER: {report['LEGAL']['error_rate']:.2%}")
 print(f"NER: {report['NUMERAL']['error_rate']:.2%}")
 ```
@@ -54,7 +54,7 @@ print(f"NER: {report['NUMERAL']['error_rate']:.2%}")
 
 | Category | Type | Label | Description |
 |---|---|---|---|
-| WORD | base | WER | General words (Indic and English) |
+| LEXICAL | base | WER | General words (Indic and English) |
 | NUMERAL | base | NER | Numbers, dates, times (302, 22.05.2023, 10:30) |
 | PUNCT | base | PER | Punctuation marks |
 | LEGAL | domain | DER | Indian legal terminology (u/s, r/w, PW1, Ext.A) |
