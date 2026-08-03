@@ -51,6 +51,7 @@ PUBLIC_API = {
     "aggregate_error_details": "callable",
     "compute_aggregate_metrics": "callable",
     "compute_sample_errors": "callable",
+    "evaluate_records": "callable",
     "print_evaluation_summary": "callable",
     # normalize
     "normalize_currency": "callable",

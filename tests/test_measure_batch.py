@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from scribe import compute_aggregate_metrics, compute_sample_errors
+from scribe import compute_aggregate_metrics, compute_sample_errors, evaluate_records
 
 
 @pytest.fixture
@@ -244,3 +244,50 @@ def test_falsy_dataset_ids_are_real_values(tmp_path):
     results = compute_sample_errors(str(path), source_dataset_field="ds")
     agg = compute_aggregate_metrics(results)
     assert set(agg["by_dataset"].keys()) == {"0", "False", "unknown"}
+
+
+def test_evaluate_records_matches_file_pipeline(sample_jsonl, legal_domain):
+    """The in-memory API and the JSONL file loader must produce
+    identical results for the same records — compute_sample_errors is a
+    thin wrapper over evaluate_records."""
+    with sample_jsonl.open(encoding="utf-8") as f:
+        records = [json.loads(line) for line in f]
+
+    from_records = evaluate_records(records, domain_config=None)
+    from_file = compute_sample_errors(str(sample_jsonl), domain_config=None)
+    assert from_records == from_file
+
+
+def test_evaluate_records_does_not_mutate_input_records():
+    """Callers keep ownership of their dicts: results are copies, and
+    the report/canonical keys are never written into the inputs."""
+    records = [{"transcript_cleaned": "one two", "prediction": "one too"}]
+    snapshot = [dict(r) for r in records]
+
+    results = evaluate_records(records)
+
+    assert records == snapshot
+    assert "detailed_report" in results[0]
+    assert "detailed_report" not in records[0]
+
+
+def test_evaluate_records_accepts_a_generator():
+    """Any iterable works, not just lists (e.g. streaming from a file
+    or a training loop)."""
+    gen = ({"transcript_cleaned": t, "prediction": t} for t in ("a b", "c d"))
+    results = evaluate_records(gen)
+    assert len(results) == 2
+    assert all("detailed_report" in r for r in results)
+
+
+def test_evaluate_records_canonicalizes_dataset_ids():
+    """The same dataset-id rules as the file pipeline apply in memory:
+    custom field name honoured, non-strings stringified, only
+    missing/null/empty falls back to 'unknown'."""
+    records = [
+        {"transcript_cleaned": "a b", "prediction": "a b", "ds": 7},
+        {"transcript_cleaned": "c d", "prediction": "c d", "ds": 0},
+        {"transcript_cleaned": "e f", "prediction": "e f"},
+    ]
+    results = evaluate_records(records, source_dataset_field="ds")
+    assert [r["source_dataset"] for r in results] == ["7", "0", "unknown"]

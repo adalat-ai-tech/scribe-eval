@@ -11,6 +11,77 @@ from .measure import text_error_details, text_error_rates
 from .reporting import format_summary_lines
 
 
+def evaluate_records(
+    records,
+    ref_field="transcript_cleaned",
+    hyp_field="prediction",
+    source_dataset_field="source_dataset",
+    domain_config: Optional[DomainConfig] = None,
+    normalize: bool = True,
+    use_sandhi: bool = True,
+    collect_error_details: bool = False,
+) -> list[dict]:
+    """
+    Compute error metrics for an in-memory iterable of sample records.
+
+    This is the core batch-evaluation API: it takes plain dicts (from any
+    source — a parsed JSONL file, a pandas DataFrame's to_dict records, a
+    training loop's predictions) and returns one result dict per record.
+    compute_sample_errors() is a thin JSONL file loader over this
+    function.
+
+    Args:
+        records: Iterable of dicts, each holding at least the reference
+            and hypothesis text fields. Input dicts are not mutated;
+            each result is a shallow copy with the report keys added.
+        ref_field: Field name for reference text
+        hyp_field: Field name for hypothesis text
+        source_dataset_field: Field name for dataset identifier; its value
+            is copied to the canonical "source_dataset" key on each result
+            ("unknown" when missing) so aggregation can group by dataset
+            regardless of the configured field name
+        domain_config: Domain configuration (None for no domain)
+        normalize: If True, apply normalization for matching (default: True)
+        use_sandhi: If True, detect sandhi splits/merges (default: True)
+        collect_error_details: If True, also collect per-token error records
+            for frequency analysis. Stored in each result's "error_details" key.
+
+    Returns:
+        List of result dictionaries with detailed reports
+    """
+    results = []
+    for record in records:
+        # Shallow-copy so the caller's dicts are left untouched.
+        data = dict(record)
+
+        # Canonicalize the dataset id under "source_dataset" so
+        # downstream aggregation works regardless of which field
+        # name the caller configured. Non-string ids (numbers, JSON
+        # arrays/objects) are stringified — aggregation uses the
+        # value as a grouping key. Only a missing/null/empty field
+        # falls back to "unknown"; falsy scalars like 0 or false
+        # are real dataset ids.
+        ds_value = data.get(source_dataset_field)
+        if ds_value is None or ds_value == "":
+            ds_value = "unknown"
+        data["source_dataset"] = ds_value if isinstance(ds_value, str) else str(ds_value)
+
+        ref = data[ref_field]
+        hyp = data[hyp_field]
+
+        report = text_error_rates(ref, hyp, domain_config, normalize, use_sandhi)
+        data["detailed_report"] = report
+
+        if collect_error_details:
+            data["error_details"] = text_error_details(
+                ref, hyp, domain_config, normalize, use_sandhi
+            )
+
+        results.append(data)
+
+    return results
+
+
 def compute_sample_errors(
     input_file,
     output_file=None,
@@ -25,6 +96,9 @@ def compute_sample_errors(
     """
     Compute error metrics for all samples in a JSONL file.
 
+    Thin file-loading wrapper over evaluate_records(): parses one JSON
+    record per line and evaluates them in memory.
+
     Args:
         input_file: Path to JSONL file
         output_file: Optional path to save detailed results
@@ -36,41 +110,24 @@ def compute_sample_errors(
             regardless of the configured field name
         domain_config: Domain configuration (None for no domain)
         normalize: If True, apply normalization for matching (default: True)
+        use_sandhi: If True, detect sandhi splits/merges (default: True)
         collect_error_details: If True, also collect per-token error records
             for frequency analysis. Stored in each result's "error_details" key.
 
     Returns:
         List of result dictionaries with detailed reports
     """
-    results = []
     with open(input_file, "r", encoding="utf-8") as f:
-        for line in f:
-            data = json.loads(line)
-            # Canonicalize the dataset id under "source_dataset" so
-            # downstream aggregation works regardless of which field
-            # name the caller configured. Non-string ids (numbers, JSON
-            # arrays/objects) are stringified — aggregation uses the
-            # value as a grouping key. Only a missing/null/empty field
-            # falls back to "unknown"; falsy scalars like 0 or false
-            # are real dataset ids.
-            ds_value = data.get(source_dataset_field)
-            if ds_value is None or ds_value == "":
-                ds_value = "unknown"
-            data["source_dataset"] = ds_value if isinstance(ds_value, str) else str(ds_value)
-
-            ref = data[ref_field]
-            hyp = data[hyp_field]
-
-            # Pass domain_config, normalize and use_sandhi to text_error_rates
-            report = text_error_rates(ref, hyp, domain_config, normalize, use_sandhi)
-            data["detailed_report"] = report
-
-            if collect_error_details:
-                data["error_details"] = text_error_details(
-                    ref, hyp, domain_config, normalize, use_sandhi
-                )
-
-            results.append(data)
+        results = evaluate_records(
+            (json.loads(line) for line in f),
+            ref_field=ref_field,
+            hyp_field=hyp_field,
+            source_dataset_field=source_dataset_field,
+            domain_config=domain_config,
+            normalize=normalize,
+            use_sandhi=use_sandhi,
+            collect_error_details=collect_error_details,
+        )
 
     # Save detailed results if output file is specified
     if output_file:
