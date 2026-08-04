@@ -233,6 +233,12 @@ Examples:
         action="store_true",
         help="Save category breakdown chart as PNG (requires --analysis)",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Worker processes for parallel evaluation (default: 1, sequential)",
+    )
 
     args = parser.parse_args()
 
@@ -287,6 +293,7 @@ Examples:
             domain_config=domain_config,
             normalize=not args.no_normalize,
             collect_error_details=args.analysis,
+            workers=args.workers,
         )
 
         # 6. Aggregate metrics with dataset splits

@@ -1,5 +1,7 @@
 import json
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor
+from functools import partial
 from typing import Optional
 
 from .constants import (
@@ -9,6 +11,113 @@ from .constants import (
 from .domain_config import DomainConfig
 from .measure import text_error_details, text_error_rates
 from .reporting import format_summary_lines
+
+
+def _evaluate_one(
+    record,
+    ref_field,
+    hyp_field,
+    source_dataset_field,
+    domain_config,
+    normalize,
+    use_sandhi,
+    collect_error_details,
+) -> dict:
+    """Evaluate a single record. Module-level so worker processes can
+    pickle it under the spawn start method."""
+    # Shallow-copy so the caller's dicts are left untouched.
+    data = dict(record)
+
+    # Canonicalize the dataset id under "source_dataset" so
+    # downstream aggregation works regardless of which field
+    # name the caller configured. Non-string ids (numbers, JSON
+    # arrays/objects) are stringified — aggregation uses the
+    # value as a grouping key. Only a missing/null/empty field
+    # falls back to "unknown"; falsy scalars like 0 or false
+    # are real dataset ids.
+    ds_value = data.get(source_dataset_field)
+    if ds_value is None or ds_value == "":
+        ds_value = "unknown"
+    data["source_dataset"] = ds_value if isinstance(ds_value, str) else str(ds_value)
+
+    ref = data[ref_field]
+    hyp = data[hyp_field]
+
+    report = text_error_rates(ref, hyp, domain_config, normalize, use_sandhi)
+    data["detailed_report"] = report
+
+    if collect_error_details:
+        data["error_details"] = text_error_details(ref, hyp, domain_config, normalize, use_sandhi)
+
+    return data
+
+
+def evaluate_records(
+    records,
+    ref_field="transcript_cleaned",
+    hyp_field="prediction",
+    source_dataset_field="source_dataset",
+    domain_config: Optional[DomainConfig] = None,
+    normalize: bool = True,
+    use_sandhi: bool = True,
+    collect_error_details: bool = False,
+    workers: Optional[int] = None,
+) -> list[dict]:
+    """
+    Compute error metrics for an in-memory iterable of sample records.
+
+    This is the core batch-evaluation API: it takes plain dicts (from any
+    source — a parsed JSONL file, a pandas DataFrame's to_dict records, a
+    training loop's predictions) and returns one result dict per record.
+    compute_sample_errors() is a thin JSONL file loader over this
+    function.
+
+    Args:
+        records: Iterable of dicts, each holding at least the reference
+            and hypothesis text fields. Input dicts are not mutated;
+            each result is a shallow copy with the report keys added.
+        ref_field: Field name for reference text
+        hyp_field: Field name for hypothesis text
+        source_dataset_field: Field name for dataset identifier; its value
+            is copied to the canonical "source_dataset" key on each result
+            ("unknown" when missing) so aggregation can group by dataset
+            regardless of the configured field name
+        domain_config: Domain configuration (None for no domain)
+        normalize: If True, apply normalization for matching (default: True)
+        use_sandhi: If True, detect sandhi splits/merges (default: True)
+        collect_error_details: If True, also collect per-token error records
+            for frequency analysis. Stored in each result's "error_details" key.
+        workers: Number of worker processes for parallel evaluation.
+            None or 1 evaluates sequentially (the default); larger values
+            spread records over a process pool. Results are identical and
+            in input order either way. Parallel mode materializes the
+            records iterable into a list before dispatching.
+
+    Returns:
+        List of result dictionaries with detailed reports
+    """
+    evaluate = partial(
+        _evaluate_one,
+        ref_field=ref_field,
+        hyp_field=hyp_field,
+        source_dataset_field=source_dataset_field,
+        domain_config=domain_config,
+        normalize=normalize,
+        use_sandhi=use_sandhi,
+        collect_error_details=collect_error_details,
+    )
+
+    if workers is not None and workers > 1:
+        records = list(records)
+        # Per-sample cost varies by orders of magnitude (alignment is
+        # quadratic in sample length), so small batches keep skewed
+        # workloads balanced; ~32 chunks per worker amortizes IPC on
+        # large record counts without starving anyone.
+        chunksize = max(1, len(records) // (workers * 32))
+        with ProcessPoolExecutor(max_workers=workers) as pool:
+            return list(pool.map(evaluate, records, chunksize=chunksize))
+
+    return [evaluate(record) for record in records]
 
 
 def compute_sample_errors(
@@ -21,9 +130,13 @@ def compute_sample_errors(
     normalize: bool = True,
     use_sandhi: bool = True,
     collect_error_details: bool = False,
+    workers: Optional[int] = None,
 ) -> list[dict]:
     """
     Compute error metrics for all samples in a JSONL file.
+
+    Thin file-loading wrapper over evaluate_records(): parses one JSON
+    record per line and evaluates them in memory.
 
     Args:
         input_file: Path to JSONL file
@@ -36,41 +149,27 @@ def compute_sample_errors(
             regardless of the configured field name
         domain_config: Domain configuration (None for no domain)
         normalize: If True, apply normalization for matching (default: True)
+        use_sandhi: If True, detect sandhi splits/merges (default: True)
         collect_error_details: If True, also collect per-token error records
             for frequency analysis. Stored in each result's "error_details" key.
+        workers: Number of worker processes for parallel evaluation
+            (None or 1 = sequential; see evaluate_records)
 
     Returns:
         List of result dictionaries with detailed reports
     """
-    results = []
     with open(input_file, "r", encoding="utf-8") as f:
-        for line in f:
-            data = json.loads(line)
-            # Canonicalize the dataset id under "source_dataset" so
-            # downstream aggregation works regardless of which field
-            # name the caller configured. Non-string ids (numbers, JSON
-            # arrays/objects) are stringified — aggregation uses the
-            # value as a grouping key. Only a missing/null/empty field
-            # falls back to "unknown"; falsy scalars like 0 or false
-            # are real dataset ids.
-            ds_value = data.get(source_dataset_field)
-            if ds_value is None or ds_value == "":
-                ds_value = "unknown"
-            data["source_dataset"] = ds_value if isinstance(ds_value, str) else str(ds_value)
-
-            ref = data[ref_field]
-            hyp = data[hyp_field]
-
-            # Pass domain_config, normalize and use_sandhi to text_error_rates
-            report = text_error_rates(ref, hyp, domain_config, normalize, use_sandhi)
-            data["detailed_report"] = report
-
-            if collect_error_details:
-                data["error_details"] = text_error_details(
-                    ref, hyp, domain_config, normalize, use_sandhi
-                )
-
-            results.append(data)
+        results = evaluate_records(
+            (json.loads(line) for line in f),
+            ref_field=ref_field,
+            hyp_field=hyp_field,
+            source_dataset_field=source_dataset_field,
+            domain_config=domain_config,
+            normalize=normalize,
+            use_sandhi=use_sandhi,
+            collect_error_details=collect_error_details,
+            workers=workers,
+        )
 
     # Save detailed results if output file is specified
     if output_file:

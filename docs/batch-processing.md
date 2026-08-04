@@ -40,6 +40,36 @@ for dataset, data in metrics['by_dataset'].items():
     print(f"{dataset}: ER_LEX={data['LEXICAL']['error_rate']:.2%}")
 ```
 
+### In-memory evaluation (no file needed)
+
+`evaluate_records()` is the core batch API — `compute_sample_errors()` is a
+thin JSONL loader over it. Pass any iterable of dicts (parsed JSON, a
+DataFrame's `to_dict("records")`, predictions generated inside a training
+loop); input dicts are never mutated.
+
+```python
+from scribe import evaluate_records, compute_aggregate_metrics
+
+records = [
+    {"transcript_cleaned": "charged u/s 302", "prediction": "charged us 302"},
+    {"transcript_cleaned": "hearing on 22.05.2023", "prediction": "hearing on 22.05.2023"},
+]
+
+results = evaluate_records(records, domain_config=DomainConfig.legal())
+metrics = compute_aggregate_metrics(results)
+```
+
+### Parallel evaluation
+
+Both `evaluate_records()` and `compute_sample_errors()` accept `workers=N`
+to spread samples over a process pool — useful for large batches or long
+dictation samples. Results are identical to sequential evaluation and stay
+in input order. The CLI equivalent is `--workers N`.
+
+```python
+results = evaluate_records(records, workers=4)
+```
+
 ### Error analysis (contributions + frequent errors)
 
 ```python

@@ -113,7 +113,8 @@ The visualizer provides:
    - Tracks substitutions, insertions, deletions, and Sandhi corrections per category
 
 4. **Batch Processing** (`src/scribe/measure_batch.py`)
-   - `compute_sample_errors(input_file, output_file=None, domain_config=None, normalize=True, use_sandhi=True, collect_error_details=False, ...)`: Process JSONL files with multiple samples
+   - `evaluate_records(records, ref_field=..., hyp_field=..., domain_config=None, normalize=True, use_sandhi=True, collect_error_details=False, workers=None, ...)`: Core in-memory batch API — evaluates any iterable of dicts (parsed JSONL, DataFrame records, training-loop predictions) without touching the filesystem; input dicts are never mutated. `workers=N` spreads samples over a process pool (results identical, input order preserved); the CLI flag is `--workers`
+   - `compute_sample_errors(input_file, output_file=None, domain_config=None, normalize=True, use_sandhi=True, collect_error_details=False, ...)`: Process JSONL files with multiple samples — a thin file loader over `evaluate_records()`
    - `collect_error_details=True` stores per-token error records in memory (needed for `--analysis`; excluded from JSONL output)
    - Optional `domain_config` parameter enables domain-specific error tracking
    - Optional `output_file` parameter saves detailed per-sample error reports as JSONL

@@ -89,6 +89,9 @@ from .measure_batch import (
     compute_sample_errors as compute_sample_errors,
 )
 from .measure_batch import (
+    evaluate_records as evaluate_records,
+)
+from .measure_batch import (
     print_evaluation_summary as print_evaluation_summary,
 )
 
