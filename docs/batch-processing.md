@@ -59,6 +59,24 @@ results = evaluate_records(records, domain_config=DomainConfig.legal())
 metrics = compute_aggregate_metrics(results)
 ```
 
+### Bad input handling
+
+Both entry points fail fast on bad data so a file problem cannot
+silently distort metrics: a line that is not valid JSON, or a record
+whose text fields are missing, null, or not strings, raises
+`ValueError` naming the file and line number (`compute_sample_errors`)
+or the record number (`evaluate_records`). Blank lines are not records
+and are always skipped. Empty-string text is allowed — an empty
+reference is a legitimate transcript (e.g. silence).
+
+To tolerate dirty files instead, pass `skip_bad_records=True`: bad
+lines/records are skipped with a warning each, and only the valid
+records are evaluated.
+
+```python
+results = compute_sample_errors("dirty.jsonl", skip_bad_records=True)
+```
+
 ### Parallel evaluation
 
 Both `evaluate_records()` and `compute_sample_errors()` accept `workers=N`

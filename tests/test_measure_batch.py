@@ -304,3 +304,117 @@ def test_parallel_workers_match_sequential(sample_jsonl, legal_domain):
         records, domain_config=legal_domain, collect_error_details=True, workers=2
     )
     assert parallel == sequential
+
+
+def _write_lines(tmp_path, lines):
+    path = tmp_path / "input.jsonl"
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def test_malformed_jsonl_fails_with_file_and_line_number(tmp_path):
+    """A line that is not valid JSON must fail fast, naming the file
+    and the 1-based line number so the record can be found and fixed."""
+    path = _write_lines(
+        tmp_path,
+        [
+            json.dumps({"transcript_cleaned": "a b", "prediction": "a b"}),
+            '{"transcript_cleaned": "broken',
+        ],
+    )
+    with pytest.raises(ValueError, match=r"line 2.*invalid JSON"):
+        compute_sample_errors(str(path))
+
+
+def test_blank_lines_are_not_records(tmp_path):
+    """Blank lines (interior or trailing) are skipped silently — they
+    are formatting, not data, and must not shift error line numbers."""
+    path = _write_lines(
+        tmp_path,
+        [
+            json.dumps({"transcript_cleaned": "a b", "prediction": "a b"}),
+            "",
+            json.dumps({"transcript_cleaned": "c d", "prediction": "c d"}),
+            "   ",
+        ],
+    )
+    results = compute_sample_errors(str(path))
+    assert len(results) == 2
+
+
+def test_missing_text_field_fails_with_line_number(tmp_path):
+    """A record without the hypothesis field must fail fast with the
+    line number and field name, not KeyError deep in evaluation."""
+    path = _write_lines(
+        tmp_path,
+        [
+            json.dumps({"transcript_cleaned": "a b", "prediction": "a b"}),
+            json.dumps({"transcript_cleaned": "c d"}),
+        ],
+    )
+    with pytest.raises(ValueError, match=r"line 2.*'prediction'"):
+        compute_sample_errors(str(path))
+
+
+def test_null_text_field_fails_instead_of_scoring_empty(tmp_path):
+    """A null reference must raise, not silently score as empty text
+    (regression: None flowed into the tokenizer, which treated it as an
+    empty transcript and counted every hypothesis token as insertion)."""
+    path = _write_lines(
+        tmp_path,
+        [json.dumps({"transcript_cleaned": None, "prediction": "a b"})],
+    )
+    with pytest.raises(ValueError, match=r"line 1.*'transcript_cleaned'.*null"):
+        compute_sample_errors(str(path))
+
+
+def test_non_string_text_field_fails(tmp_path):
+    """Numbers/objects in a text field are data errors, not text."""
+    path = _write_lines(
+        tmp_path,
+        [json.dumps({"transcript_cleaned": "a b", "prediction": 42})],
+    )
+    with pytest.raises(ValueError, match=r"line 1.*'prediction'.*int"):
+        compute_sample_errors(str(path))
+
+
+def test_skip_bad_records_warns_and_evaluates_the_rest(tmp_path):
+    """With skip_bad_records=True every bad line/record is skipped with
+    a warning naming its line, and the good records still evaluate."""
+    path = _write_lines(
+        tmp_path,
+        [
+            json.dumps({"transcript_cleaned": "a b", "prediction": "a b"}),
+            "not json at all",
+            json.dumps({"transcript_cleaned": None, "prediction": "x"}),
+            json.dumps({"transcript_cleaned": "c d", "prediction": "c d"}),
+        ],
+    )
+    with pytest.warns(UserWarning) as caught:
+        results = compute_sample_errors(str(path), skip_bad_records=True)
+    assert len(results) == 2
+    messages = [str(w.message) for w in caught]
+    assert any("line 2" in m for m in messages)
+    assert any("line 3" in m for m in messages)
+
+
+def test_evaluate_records_validation_names_the_record_number():
+    """The in-memory API reports the 1-based record number."""
+    records = [
+        {"transcript_cleaned": "a b", "prediction": "a b"},
+        {"transcript_cleaned": "c d"},
+    ]
+    with pytest.raises(ValueError, match=r"Record 2.*'prediction'"):
+        evaluate_records(records)
+
+
+def test_evaluate_records_skip_bad_records():
+    """skip_bad_records=True on the in-memory API warns and continues."""
+    records = [
+        {"transcript_cleaned": "a b", "prediction": "a b"},
+        {"transcript_cleaned": "c d", "prediction": None},
+        "not a dict",
+    ]
+    with pytest.warns(UserWarning):
+        results = evaluate_records(records, skip_bad_records=True)
+    assert len(results) == 1
