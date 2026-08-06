@@ -20,10 +20,18 @@ def token_error_rates(
     sandhi detection, pass use_sandhi=False to align_arrays() (or to the
     text_error_rates() end-to-end pipeline).
 
+    Counting is data-driven — every tag found in the aligned tokens is
+    counted under its own category. The domain_config's role here is a
+    declaration of intent: its category (like the base categories) is
+    seeded into the report so it appears even when the data contains no
+    such tokens ("you asked about this domain; there was nothing to
+    measure" — rendered as N/A by the reporting layer).
+
     Args:
         aligned_ref: list of (text, tag) tuples
         aligned_hyp: list of (text, tag) tuples
-        domain_config: Domain configuration (None for no domain)
+        domain_config: Declares the domain category that must appear in
+            the report even with zero tokens (None for no domain)
         normalize: If True, check normalized equality for matches (default: True)
 
     Returns:
@@ -113,7 +121,6 @@ def token_error_rates(
 def token_error_details(
     aligned_ref,
     aligned_hyp,
-    domain_config: Optional[DomainConfig] = None,
     normalize: bool = True,
 ) -> list[dict]:
     """
@@ -121,12 +128,14 @@ def token_error_details(
 
     Walks the same aligned pairs as token_error_rates() but records each
     error or sandhi correction as a structured dict instead of just counting.
-    Correct matches are excluded.
+    Correct matches are excluded. Categories are the tags carried by the
+    aligned tokens themselves — every error is recorded under its token's
+    tag; no domain configuration is needed here (it was applied at
+    tokenization time).
 
     Args:
         aligned_ref: list of (text, tag) tuples
         aligned_hyp: list of (text, tag) tuples
-        domain_config: Domain configuration (None for no domain)
         normalize: If True, check normalized equality for matches
 
     Returns:
@@ -238,7 +247,7 @@ def text_error_details(
     t1, g1 = domain_aware_tokenizer(ref_text, domain_config)
     t2, g2 = domain_aware_tokenizer(hyp_text, domain_config)
     aligned_ref, aligned_hyp, _ = align_arrays(t1, g1, t2, g2, use_sandhi=use_sandhi)
-    return token_error_details(aligned_ref, aligned_hyp, domain_config, normalize)
+    return token_error_details(aligned_ref, aligned_hyp, normalize)
 
 
 def text_error_rates(

@@ -18,6 +18,24 @@ from .constants import (
 )
 
 
+def _format_rate(cat_metrics: Dict) -> str:
+    """Format a category's error rate, or N/A when there was nothing
+    to measure.
+
+    A category with zero reference tokens and zero errors renders as
+    "N/A" — showing 0.00% would read as *perfect* when the truth is
+    that no such tokens occurred. A hallucination-only category
+    (insertions with no reference tokens) still shows its rate.
+    """
+    errors = cat_metrics["substitutions"] + cat_metrics["insertions"] + cat_metrics["deletions"]
+    # Per-sample reports store the reference count as "total_ref";
+    # aggregates store it as "total".
+    total_ref = cat_metrics.get("total_ref", cat_metrics.get("total", 0))
+    if total_ref == 0 and errors == 0:
+        return "N/A"
+    return f"{cat_metrics['error_rate']:.2%}"
+
+
 def resolve_domain_labels(metrics: Dict) -> Dict[str, str]:
     """
     Map the domain category present in the metrics to its display label.
@@ -49,7 +67,8 @@ def format_metrics_dict(metrics: Dict) -> Dict[str, str]:
     Columns are derived from the categories present in the data; the
     domain category (if any) is reported as ER_DOMAIN. WER_SCRIBE is
     the sum of all category error rates (total errors over the combined
-    denominator).
+    denominator). A category with no tokens and no errors renders as
+    "N/A" rather than a misleading 0.00%.
 
     Args:
         metrics: Dictionary containing error metrics for each category
@@ -57,13 +76,13 @@ def format_metrics_dict(metrics: Dict) -> Dict[str, str]:
     Returns:
         Dictionary with formatted metric strings ready for table display
     """
-    result = {"ER_LEX": f"{metrics[CAT_LEXICAL]['error_rate']:.2%}"}
+    result = {"ER_LEX": _format_rate(metrics[CAT_LEXICAL])}
 
     for cat, label in resolve_domain_labels(metrics).items():
-        result[label] = f"{metrics[cat]['error_rate']:.2%}"
+        result[label] = _format_rate(metrics[cat])
 
-    result["ER_NUM"] = f"{metrics[CAT_NUMERAL]['error_rate']:.2%}"
-    result["ER_PUNCT"] = f"{metrics[CAT_PUNCT]['error_rate']:.2%}"
+    result["ER_NUM"] = _format_rate(metrics[CAT_NUMERAL])
+    result["ER_PUNCT"] = _format_rate(metrics[CAT_PUNCT])
     result["WER_SCRIBE"] = f"{compute_wer_scribe(metrics):.2%}"
 
     # Sandhi can occur in any category (LEXICAL, LEGAL, MEDICAL, etc.).
@@ -191,7 +210,9 @@ def format_summary_lines(agg_results: Dict) -> List[str]:
         cells = [f"{ds_name:<{dw}}", f"{row['ER_LEX']:>{mw}}"]
         for cat in labels:
             if cat in metrics:
-                cells.append(f"{metrics[cat]['error_rate']:>{mw}.2%}")
+                # _format_rate renders N/A for a present-but-empty
+                # category, matching the absent-category case below.
+                cells.append(f"{_format_rate(metrics[cat]):>{mw}}")
             else:
                 # Genuinely absent from this dataset's data.
                 cells.append(f"{'N/A':>{mw}}")

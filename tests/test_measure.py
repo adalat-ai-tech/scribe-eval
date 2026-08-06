@@ -172,15 +172,20 @@ def test_unknown_insertion_tags_are_counted(legal_domain):
     assert report["LEGAL"]["insertions"] == 1
 
 
-def test_error_details_record_unknown_tags(legal_domain):
+def test_error_details_record_all_tags_from_data(legal_domain):
     """token_error_details records every error under its token's own
-    tag, regardless of the domain_config passed at measurement time."""
+    tag — it takes no domain configuration; categories come from the
+    aligned tags."""
+    import inspect
+
     from scribe import align_arrays, domain_aware_tokenizer, token_error_details
+
+    assert "domain_config" not in inspect.signature(token_error_details).parameters
 
     ref_toks, ref_tags = domain_aware_tokenizer("charged u/s 302", legal_domain)
     hyp_toks, hyp_tags = domain_aware_tokenizer("charged us 302", legal_domain)
     aligned_ref, aligned_hyp, _ = align_arrays(ref_toks, ref_tags, hyp_toks, hyp_tags)
 
-    details = token_error_details(aligned_ref, aligned_hyp, domain_config=None)
+    details = token_error_details(aligned_ref, aligned_hyp)
     categories = {d["category"] for d in details}
     assert "LEGAL" in categories

@@ -103,9 +103,9 @@ The visualizer provides:
    - Configurable weights via DEFAULT_WEIGHTS dict
 
 3. **Measurement** (`src/scribe/measure.py`)
-   - `token_error_rates(aligned_ref, aligned_hyp, domain_config=None, normalize=True)`: Computes category-specific error rates from aligned tokens; sandhi handling is decided at alignment time (it counts the MERGE:/SPLIT: markers align_arrays emitted)
+   - `token_error_rates(aligned_ref, aligned_hyp, domain_config=None, normalize=True)`: Computes category-specific error rates from aligned tokens; sandhi handling is decided at alignment time (it counts the MERGE:/SPLIT: markers align_arrays emitted). Categories are data-driven: base (and configured domain) categories are pre-seeded, and any further tag found in the aligned tokens is counted under its own category — never silently dropped from the counts or the combined denominator
    - `text_error_rates(ref_text, hyp_text, domain_config=None, normalize=True, use_sandhi=True)`: End-to-end pipeline from raw text to error metrics
-   - `token_error_details(aligned_ref, aligned_hyp, domain_config=None, normalize=True)`: Returns flat list of individual error records (substitution/insertion/deletion) per aligned token pair — used for frequent-error analysis
+   - `token_error_details(aligned_ref, aligned_hyp, normalize=True)`: Returns flat list of individual error records (substitution/insertion/deletion) per aligned token pair — used for frequent-error analysis; categories come from the aligned tags, no domain config needed
    - `text_error_details(ref_text, hyp_text, domain_config=None, normalize=True, use_sandhi=True)`: End-to-end pipeline from raw text to error detail records
    - `use_sandhi=False` disables Sandhi split/merge detection — useful for non-agglutinative languages
    - **Normalized error rates**: Uses combined denominator (sum of all category totals) across all categories to prevent misleading sparse-category metrics
@@ -163,6 +163,8 @@ The visualizer provides:
 **Category-Specific Gap Penalties**: Punctuation errors receive lighter penalties than word/legal/numeral errors in the alignment scoring, reflecting their lower semantic importance.
 
 **Shared Reporting Module**: The `reporting.py` module eliminates code duplication between CLI tools and the Streamlit web UI by providing common formatting functions. This ensures consistent output presentation across all interfaces.
+
+**N/A Means Nothing To Measure**: In formatted tables (`format_metrics_dict`, summary lines), a category with zero reference tokens and zero errors renders as "N/A" — 0.00% never means "nothing was tested". A hallucination-only category (insertions with no reference tokens) still shows its rate. The domain config's role at measurement time is intent declaration: its category is seeded into per-sample reports so the ER_DOMAIN column appears (as N/A) even when the data contains no domain tokens.
 
 **Two Error Rate Columns**: Category analysis tables expose two complementary rates:
 - **Error Rate**: `(S+I+D) / category_ref_tokens` — how accurately the model handles this category in isolation
