@@ -545,6 +545,19 @@ with tab_json:
                         f"`{ref_col}`/`{hyp_col}` fields."
                     )
 
+                if not res_detailed:
+                    # Nothing was scored — publishing empty aggregates
+                    # would render 0.00% tiles as if the model were
+                    # perfect, and the record inspector would index an
+                    # empty list. Drop any stale batch results too.
+                    clear_session_keys()
+                    st.error(
+                        "No valid records to evaluate — metrics were not "
+                        f"computed. Check the `{ref_col}`/`{hyp_col}` "
+                        "field selection."
+                    )
+                    st.stop()
+
                 # Results are copies of the input records, so the
                 # dataset id is read from each result itself — an
                 # index zip against the raw records would misalign
