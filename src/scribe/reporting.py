@@ -285,18 +285,25 @@ def format_contribution_table(contributions: Dict) -> List[Dict]:
         cat_er = (data["error_count"] / ref * 100) if ref > 0 else 0.0
         impact = (data["error_count"] / total_ref * 100) if total_ref > 0 else 0.0
         display_name = category_display.get(cat, "Domain Tokens")
+        # Accuracy and Error Rate divide by the category's own ref
+        # tokens — undefined when there are none (0.0% would read as
+        # "all missed" and "perfect" respectively, both wrong for a
+        # hallucination-only row). Impact on Total divides by ALL ref
+        # tokens, so it stays meaningful whenever errors exist; it is
+        # N/A only when there is nothing measured at all.
+        nothing_measured = ref == 0 and data["error_count"] == 0
         rows.append(
             {
                 "Category": display_name,
                 "Ref Tokens": ref,
                 "Exact Match": data["correct"],
-                "Accuracy": f"{data['correct_pct']:.1f}%",
+                "Accuracy": f"{data['correct_pct']:.1f}%" if ref > 0 else "N/A",
                 "Sub": data["substitutions"],
                 "Del": data["deletions"],
                 "Ins": data["insertions"],
                 "Errors": data["error_count"],
-                "Error Rate": f"{cat_er:.1f}%",
-                "Impact on Total": f"{impact:.1f}%",
+                "Error Rate": f"{cat_er:.1f}%" if ref > 0 else "N/A",
+                "Impact on Total": "N/A" if nothing_measured else f"{impact:.1f}%",
             }
         )
         total_correct += data["correct"]
@@ -322,6 +329,44 @@ def format_contribution_table(contributions: Dict) -> List[Dict]:
         }
     )
     return rows
+
+
+def format_category_chips(contributions: Dict, domain_display: str = "Domain Tokens") -> List[str]:
+    """
+    Return "Lexical Tokens 5.40%" style chips in canonical display order.
+
+    The chips caption is an equation — the chip rates sum to WER_SCRIBE —
+    so categories with no tokens and no errors are omitted: they
+    contribute nothing to the sum, and a 0.00% chip would read as
+    "perfect" when nothing was measured. A hallucination-only category
+    (errors with no reference tokens) keeps its chip.
+
+    Args:
+        contributions: From compute_category_contributions()
+        domain_display: Display name for domain categories
+            (e.g. "Legal Tokens")
+
+    Returns:
+        List of chip strings in canonical order
+        (Lexical, Domain, Numeral, Punctuation)
+    """
+    display_names = {
+        CAT_LEXICAL: "Lexical Tokens",
+        CAT_NUMERAL: "Numeral Tokens",
+        CAT_PUNCT: "Punctuation Tokens",
+    }
+    base_cats = set(display_names)
+    domain_cats = [c for c in contributions if c not in base_cats]
+    ordered_cats = [
+        c for c in [CAT_LEXICAL] + domain_cats + [CAT_NUMERAL, CAT_PUNCT] if c in contributions
+    ]
+    chips = []
+    for cat in ordered_cats:
+        data = contributions[cat]
+        if data["ref_tokens"] == 0 and data["error_count"] == 0:
+            continue
+        chips.append(f"{display_names.get(cat, domain_display)} {data['error_rate']:.2%}")
+    return chips
 
 
 def format_frequent_errors_table(

@@ -31,6 +31,7 @@ from scribe import (
 from scribe.reporting import (
     extract_error_rates,
     format_alignment_dict,
+    format_category_chips,
     format_contribution_table,
     format_dataset_table,
     format_frequent_errors_table,
@@ -186,22 +187,10 @@ def generate_jiwer_alignment_html(ref_text, hyp_text):
 
 
 def build_category_chips(contributions, domain_config):
-    """Return 'Lexical Tokens 5.4%' style chips in canonical display order."""
-    display_names = {
-        "LEXICAL": "Lexical Tokens",
-        "NUMERAL": "Numeral Tokens",
-        "PUNCT": "Punctuation Tokens",
-    }
-    base_cats = {"LEXICAL", "NUMERAL", "PUNCT"}
-    domain_cats = [c for c in contributions if c not in base_cats]
-    ordered_cats = [
-        c for c in ["LEXICAL"] + domain_cats + ["NUMERAL", "PUNCT"] if c in contributions
-    ]
+    """Category chips via the shared formatter; token-less categories
+    are omitted (see reporting.format_category_chips)."""
     domain_display = f"{domain_config.name.title()} Tokens" if domain_config else "Domain Tokens"
-    return [
-        f"{display_names.get(c, domain_display)} {contributions[c]['error_rate']:.2%}"
-        for c in ordered_cats
-    ]
+    return format_category_chips(contributions, domain_display)
 
 
 def render_category_analysis(summary, domain_config):

@@ -62,6 +62,7 @@ PUBLIC_API = {
     "extract_error_rates": "callable",
     "format_alignment_dict": "callable",
     "format_alignment_table": "callable",
+    "format_category_chips": "callable",
     "format_contribution_table": "callable",
     "format_dataset_table": "callable",
     "format_error_counts_table": "callable",

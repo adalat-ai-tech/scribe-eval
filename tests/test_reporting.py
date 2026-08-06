@@ -325,3 +325,68 @@ def test_mixed_aggregate_summary_shows_per_dataset_domain_rates(legal_domain, me
     # plain numerals), and ER_PUNCT (no punctuation).
     assert "33.33%" in clinic_row
     assert clinic_row.count("N/A") == 3
+
+
+def test_contribution_table_na_for_token_less_categories(legal_domain):
+    """A category with no reference tokens and no errors shows N/A in
+    its percentage cells — 0.0% Accuracy would read as "all missed"
+    while 0.0% Error Rate reads as "perfect"; the truth is nothing was
+    measured. Counts stay visible."""
+    from scribe import compute_category_contributions
+
+    # No punctuation in this sample.
+    report = text_error_rates("charged u/s 302 IPC", "charged us 302 IPC", legal_domain)
+    rows = format_contribution_table(compute_category_contributions(report))
+    punct_row = next(r for r in rows if r["Category"] == "Punctuation Tokens")
+    assert punct_row["Ref Tokens"] == 0
+    assert punct_row["Accuracy"] == "N/A"
+    assert punct_row["Error Rate"] == "N/A"
+    assert punct_row["Impact on Total"] == "N/A"
+    # Categories with tokens keep their numbers.
+    domain_row = next(r for r in rows if r["Category"] == "Domain Tokens")
+    assert domain_row["Accuracy"].endswith("%")
+
+
+def test_contribution_table_hallucinated_category_shows_impact_only(legal_domain):
+    """A hallucination-only category (errors, no reference tokens):
+    Accuracy and Error Rate divide by the category's own ref count and
+    are undefined — N/A. Impact on Total divides by ALL ref tokens and
+    stays meaningful, so it shows a number alongside the error count."""
+    from scribe import compute_category_contributions
+
+    report = text_error_rates("charged 302", "charged u/s 302", legal_domain)
+    rows = format_contribution_table(compute_category_contributions(report))
+    domain_row = next(r for r in rows if r["Category"] == "Domain Tokens")
+    assert domain_row["Ref Tokens"] == 0
+    assert domain_row["Ins"] == 1
+    assert domain_row["Accuracy"] == "N/A"
+    assert domain_row["Error Rate"] == "N/A"
+    assert domain_row["Impact on Total"].endswith("%")
+
+
+def test_category_chips_omit_token_less_categories(legal_domain):
+    """The chips caption is a sum (chips = WER_SCRIBE): categories with
+    nothing to measure are omitted rather than shown as 0.00%."""
+    from scribe import compute_category_contributions, format_category_chips
+
+    # No punctuation in this sample.
+    report = text_error_rates("charged u/s 302 IPC", "charged us 302 IPC", legal_domain)
+    chips = format_category_chips(
+        compute_category_contributions(report), domain_display="Legal Tokens"
+    )
+    assert any(c.startswith("Lexical Tokens") for c in chips)
+    assert any(c.startswith("Legal Tokens") for c in chips)
+    assert any(c.startswith("Numeral Tokens") for c in chips)
+    assert not any(c.startswith("Punctuation Tokens") for c in chips)
+
+
+def test_category_chips_keep_hallucinated_categories(legal_domain):
+    """A hallucination-only category contributes real errors to the
+    sum, so its chip stays."""
+    from scribe import compute_category_contributions, format_category_chips
+
+    report = text_error_rates("charged 302", "charged u/s 302", legal_domain)
+    chips = format_category_chips(
+        compute_category_contributions(report), domain_display="Legal Tokens"
+    )
+    assert any(c.startswith("Legal Tokens") for c in chips)
