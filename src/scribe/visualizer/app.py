@@ -23,8 +23,8 @@ from scribe import (
     compute_aggregate_metrics,
     compute_category_contributions,
     compute_error_summary,
-    compute_sample_errors,
     domain_aware_tokenizer,
+    evaluate_records,
     text_error_details,
     token_error_rates,
 )
@@ -498,7 +498,14 @@ with tab_json:
             if records:
                 st.success(f"Successfully loaded {len(records)} records")
                 try:
-                    keys = list(records[0].keys())
+                    # Union of keys across ALL records, in first-seen
+                    # order — heterogeneous files may carry a field
+                    # only on some records.
+                    keys = list(
+                        dict.fromkeys(
+                            key for rec in records if isinstance(rec, dict) for key in rec.keys()
+                        )
+                    )
                     def_ref = (
                         keys.index("transcript_cleaned") if "transcript_cleaned" in keys else 0
                     )
@@ -518,58 +525,74 @@ with tab_json:
         if records:
             st.markdown("### 📊 Dataset Evaluation")
             if st.button("Run Batch Evaluation", type="primary"):
-                with tempfile.NamedTemporaryFile(
-                    mode="w+", suffix=".jsonl", delete=False, encoding="utf-8"
-                ) as tmp:
-                    for r in records:
-                        tmp.write(json.dumps(r, ensure_ascii=False) + "\n")
-                    tmp_path = tmp.name
-
-                try:
-                    res_detailed = compute_sample_errors(
-                        tmp_path,
-                        ref_field=ref_col,
-                        hyp_field=hyp_col,
-                        domain_config=domain_config,
-                        normalize=normalize_enabled,
-                        use_sandhi=use_sandhi_enabled,
-                        collect_error_details=True,
+                # In-memory evaluation; bad records (missing/null/
+                # non-string text fields) are skipped rather than
+                # aborting the interactive session.
+                res_detailed = evaluate_records(
+                    records,
+                    ref_field=ref_col,
+                    hyp_field=hyp_col,
+                    domain_config=domain_config,
+                    normalize=normalize_enabled,
+                    use_sandhi=use_sandhi_enabled,
+                    collect_error_details=True,
+                    skip_bad_records=True,
+                )
+                skipped = len(records) - len(res_detailed)
+                if skipped:
+                    st.warning(
+                        f"Skipped {skipped} record(s) with missing or invalid "
+                        f"`{ref_col}`/`{hyp_col}` fields."
                     )
 
-                    for i, r in enumerate(res_detailed):
-                        r["source_dataset"] = (
-                            records[i].get(src_col, "unknown")
-                            if src_col and src_col != "(None)"
-                            else "overall"
-                        )
-
-                    agg = compute_aggregate_metrics(res_detailed)
-                    all_error_details = aggregate_error_details(res_detailed)
-
-                    all_refs = [r.get(ref_col, "") for r in records]
-                    all_hyps = [r.get(hyp_col, "") for r in records]
-                    j_output = jiwer.process_words(all_refs, all_hyps)
-                    jiwer_stats = {
-                        "wer": jiwer.wer(all_refs, all_hyps),
-                        "cer": jiwer.cer(all_refs, all_hyps),
-                        "subs": j_output.substitutions,
-                        "ins": j_output.insertions,
-                        "dels": j_output.deletions,
-                    }
-
-                    MAX_STORED_RESULTS = 100
-                    st.session_state["detailed_results"] = res_detailed[-MAX_STORED_RESULTS:]
-                    st.session_state["jiwer_stats"] = jiwer_stats
-                    st.session_state["ref_col"] = ref_col
-                    st.session_state["hyp_col"] = hyp_col
-                    st.session_state["all_error_details"] = all_error_details
-                    st.session_state["agg_metrics"] = agg
-                    st.session_state["domain_config_snapshot"] = (
-                        domain_config.name if domain_config else None
+                if not res_detailed:
+                    # Nothing was scored — publishing empty aggregates
+                    # would render 0.00% tiles as if the model were
+                    # perfect, and the record inspector would index an
+                    # empty list. Drop any stale batch results too.
+                    clear_session_keys()
+                    st.error(
+                        "No valid records to evaluate — metrics were not "
+                        f"computed. Check the `{ref_col}`/`{hyp_col}` "
+                        "field selection."
                     )
-                finally:
-                    if os.path.exists(tmp_path):
-                        os.unlink(tmp_path)
+                    st.stop()
+
+                # Results are copies of the input records, so the
+                # dataset id is read from each result itself — an
+                # index zip against the raw records would misalign
+                # once any record is skipped.
+                for r in res_detailed:
+                    r["source_dataset"] = (
+                        r.get(src_col, "unknown") if src_col and src_col != "(None)" else "overall"
+                    )
+
+                agg = compute_aggregate_metrics(res_detailed)
+                all_error_details = aggregate_error_details(res_detailed)
+
+                # jiwer baseline over the same (valid) records SCRIBE
+                # scored, so the two tiles describe the same data.
+                all_refs = [r[ref_col] for r in res_detailed]
+                all_hyps = [r[hyp_col] for r in res_detailed]
+                j_output = jiwer.process_words(all_refs, all_hyps)
+                jiwer_stats = {
+                    "wer": jiwer.wer(all_refs, all_hyps),
+                    "cer": jiwer.cer(all_refs, all_hyps),
+                    "subs": j_output.substitutions,
+                    "ins": j_output.insertions,
+                    "dels": j_output.deletions,
+                }
+
+                MAX_STORED_RESULTS = 100
+                st.session_state["detailed_results"] = res_detailed[-MAX_STORED_RESULTS:]
+                st.session_state["jiwer_stats"] = jiwer_stats
+                st.session_state["ref_col"] = ref_col
+                st.session_state["hyp_col"] = hyp_col
+                st.session_state["all_error_details"] = all_error_details
+                st.session_state["agg_metrics"] = agg
+                st.session_state["domain_config_snapshot"] = (
+                    domain_config.name if domain_config else None
+                )
 
     # --- Render results (from session state) ---
     if "agg_metrics" in st.session_state and "all_error_details" in st.session_state:
