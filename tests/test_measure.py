@@ -133,3 +133,54 @@ def test_token_error_rates_has_no_sandhi_parameter():
 
     params = inspect.signature(token_error_rates).parameters
     assert "use_sandhi" not in params
+
+
+def test_unknown_ref_tags_are_counted_not_dropped(legal_domain):
+    """Tokens whose tags are outside the configured category set must
+    still be counted — under their own tag — in both the error counts
+    and the combined denominator (regression: they were silently
+    dropped from both, deflating every other category's rate).
+
+    Ground truth: tokens tagged with the legal domain (charged/LEXICAL,
+    u/s/LEGAL, 302/NUMERAL), then measured with domain_config=None."""
+    from scribe import align_arrays, domain_aware_tokenizer
+
+    ref_toks, ref_tags = domain_aware_tokenizer("charged u/s 302", legal_domain)
+    hyp_toks, hyp_tags = domain_aware_tokenizer("charged us 302", legal_domain)
+    aligned_ref, aligned_hyp, _ = align_arrays(ref_toks, ref_tags, hyp_toks, hyp_tags)
+
+    report = token_error_rates(aligned_ref, aligned_hyp, domain_config=None)
+
+    assert "LEGAL" in report
+    assert report["LEGAL"]["substitutions"] == 1
+    assert report["LEGAL"]["combined_total"] == 3
+    # The LEGAL token counts in every category's shared denominator.
+    assert report["LEXICAL"]["combined_total"] == 3
+
+
+def test_unknown_insertion_tags_are_counted(legal_domain):
+    """An inserted token with an out-of-set tag is counted under its
+    own tag instead of vanishing."""
+    from scribe import align_arrays, domain_aware_tokenizer
+
+    ref_toks, ref_tags = domain_aware_tokenizer("charged 302", legal_domain)
+    hyp_toks, hyp_tags = domain_aware_tokenizer("charged u/s 302", legal_domain)
+    aligned_ref, aligned_hyp, _ = align_arrays(ref_toks, ref_tags, hyp_toks, hyp_tags)
+
+    report = token_error_rates(aligned_ref, aligned_hyp, domain_config=None)
+
+    assert report["LEGAL"]["insertions"] == 1
+
+
+def test_error_details_record_unknown_tags(legal_domain):
+    """token_error_details records every error under its token's own
+    tag, regardless of the domain_config passed at measurement time."""
+    from scribe import align_arrays, domain_aware_tokenizer, token_error_details
+
+    ref_toks, ref_tags = domain_aware_tokenizer("charged u/s 302", legal_domain)
+    hyp_toks, hyp_tags = domain_aware_tokenizer("charged us 302", legal_domain)
+    aligned_ref, aligned_hyp, _ = align_arrays(ref_toks, ref_tags, hyp_toks, hyp_tags)
+
+    details = token_error_details(aligned_ref, aligned_hyp, domain_config=None)
+    categories = {d["category"] for d in details}
+    assert "LEGAL" in categories

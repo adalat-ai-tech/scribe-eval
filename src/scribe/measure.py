@@ -29,6 +29,11 @@ def token_error_rates(
     Returns:
         Dictionary with error rates for each category
     """
+    # Seed the base (and configured domain) categories so they appear
+    # in the report even with zero tokens; any further tag found in the
+    # data gets its own category on first sight — dropping it would
+    # also shrink the combined denominator and silently deflate every
+    # other category's rate.
     categories = get_categories(domain_config)
     stats = init_stat_dict(categories)
 
@@ -36,13 +41,14 @@ def token_error_rates(
         # 1. Handle Insertions (Gap in Reference)
         if r_text == "**":
             # We categorize the insertion error based on what the ASR hallucinated
-            if h_tag in stats:
-                stats[h_tag]["insertions"] += 1
+            if h_tag not in stats:
+                stats.update(init_stat_dict([h_tag]))
+            stats[h_tag]["insertions"] += 1
             continue
 
         # All other cases (Match, Sub, Del) are categorized by the REFERENCE tag
         if r_tag not in stats:
-            continue
+            stats.update(init_stat_dict([r_tag]))
         curr = stats[r_tag]
 
         # 2. Handle Sandhi (Corrected Matches)
@@ -83,7 +89,7 @@ def token_error_rates(
     combined_total = calculate_combined_total(stats)
 
     report = {}
-    for cat in categories:
+    for cat in stats:
         s = stats[cat]
         errors = s["substitutions"] + s["insertions"] + s["deletions"]
 
@@ -133,25 +139,21 @@ def token_error_details(
             - "hyp_token": the hypothesis token text (None for deletions;
                            "word1 word2" for sandhi_split)
     """
-    categories = set(get_categories(domain_config))
+    # Categories come from the tags in the data — every aligned token
+    # is recorded under its own tag, matching token_error_rates.
     errors = []
 
     for (r_text, r_tag), (h_text, h_tag) in zip(aligned_ref, aligned_hyp):
         # 1. Handle Insertions (Gap in Reference)
         if r_text == "**":
-            if h_tag in categories:
-                errors.append(
-                    {
-                        "error_type": "insertion",
-                        "category": h_tag,
-                        "ref_token": None,
-                        "hyp_token": h_text,
-                    }
-                )
-            continue
-
-        # Skip unknown reference tags
-        if r_tag not in categories:
+            errors.append(
+                {
+                    "error_type": "insertion",
+                    "category": h_tag,
+                    "ref_token": None,
+                    "hyp_token": h_text,
+                }
+            )
             continue
 
         # 2. Handle Sandhi (Corrected Matches) — record them as their own type
