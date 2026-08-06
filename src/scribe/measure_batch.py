@@ -36,6 +36,24 @@ def _validate_record(record, ref_field, hyp_field) -> Optional[str]:
     return None
 
 
+def _iter_valid_records(records, ref_field, hyp_field, skip_bad_records):
+    """Yield the records that pass validation, applying the configured
+    bad-record policy: raise ValueError naming the 1-based record
+    number, or warn and skip when skip_bad_records is True. Lazy, so
+    sequential evaluation can stream generator inputs."""
+    for number, record in enumerate(records, start=1):
+        reason = _validate_record(record, ref_field, hyp_field)
+        if reason is None:
+            yield record
+        elif skip_bad_records:
+            warnings.warn(f"Skipping record {number}: {reason}", stacklevel=2)
+        else:
+            raise ValueError(
+                f"Record {number}: {reason}. "
+                f"Pass skip_bad_records=True to skip such records instead."
+            )
+
+
 def _evaluate_one(
     record,
     ref_field,
@@ -96,11 +114,13 @@ def evaluate_records(
     compute_sample_errors() is a thin JSONL file loader over this
     function.
 
-    Records are validated before evaluation: each must be a dict with
+    Records are validated as they are read: each must be a dict with
     both text fields present as strings. A bad record raises ValueError
     naming the record number and the reason (fail fast, so a data
     problem cannot silently distort metrics); pass skip_bad_records=True
-    to skip bad records with a warning instead.
+    to skip bad records with a warning instead. Sequential evaluation
+    streams the iterable — validation and evaluation happen record by
+    record, so generator inputs are never materialized up front.
 
     Args:
         records: Iterable of dicts, each holding at least the reference
@@ -129,20 +149,6 @@ def evaluate_records(
         List of result dictionaries with detailed reports
         (one per valid record)
     """
-    valid_records = []
-    for number, record in enumerate(records, start=1):
-        reason = _validate_record(record, ref_field, hyp_field)
-        if reason is None:
-            valid_records.append(record)
-        elif skip_bad_records:
-            warnings.warn(f"Skipping record {number}: {reason}", stacklevel=2)
-        else:
-            raise ValueError(
-                f"Record {number}: {reason}. "
-                f"Pass skip_bad_records=True to skip such records instead."
-            )
-    records = valid_records
-
     evaluate = partial(
         _evaluate_one,
         ref_field=ref_field,
@@ -154,16 +160,21 @@ def evaluate_records(
         collect_error_details=collect_error_details,
     )
 
+    valid = _iter_valid_records(records, ref_field, hyp_field, skip_bad_records)
+
     if workers is not None and workers > 1:
+        # The pool needs the full record list for chunking; only the
+        # parallel path materializes the iterable.
+        materialized = list(valid)
         # Per-sample cost varies by orders of magnitude (alignment is
         # quadratic in sample length), so small batches keep skewed
         # workloads balanced; ~32 chunks per worker amortizes IPC on
         # large record counts without starving anyone.
-        chunksize = max(1, len(records) // (workers * 32))
+        chunksize = max(1, len(materialized) // (workers * 32))
         with ProcessPoolExecutor(max_workers=workers) as pool:
-            return list(pool.map(evaluate, records, chunksize=chunksize))
+            return list(pool.map(evaluate, materialized, chunksize=chunksize))
 
-    return [evaluate(record) for record in records]
+    return [evaluate(record) for record in valid]
 
 
 def compute_sample_errors(

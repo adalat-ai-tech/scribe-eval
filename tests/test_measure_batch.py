@@ -418,3 +418,34 @@ def test_evaluate_records_skip_bad_records():
     with pytest.warns(UserWarning):
         results = evaluate_records(records, skip_bad_records=True)
     assert len(results) == 1
+
+
+def test_sequential_evaluation_streams_the_iterable(monkeypatch):
+    """Sequential evaluation must interleave with consumption: each
+    record is evaluated before the next one is pulled from a generator
+    (PR review issue: an up-front validation pass materialized the
+    whole input first, doubling memory and breaking the Iterable
+    contract)."""
+    import scribe.measure_batch as mb
+
+    evaluated = []
+    real_rates = mb.text_error_rates
+
+    def counting_rates(*args, **kwargs):
+        evaluated.append(1)
+        return real_rates(*args, **kwargs)
+
+    monkeypatch.setattr(mb, "text_error_rates", counting_rates)
+
+    evaluated_when_second_pulled = []
+
+    def gen():
+        yield {"transcript_cleaned": "a b", "prediction": "a b"}
+        evaluated_when_second_pulled.append(len(evaluated))
+        yield {"transcript_cleaned": "c d", "prediction": "c d"}
+
+    results = evaluate_records(gen())
+    assert len(results) == 2
+    # The first record must already be evaluated by the time the
+    # generator is asked for the second one.
+    assert evaluated_when_second_pulled == [1]
