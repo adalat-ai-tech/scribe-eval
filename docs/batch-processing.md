@@ -178,7 +178,7 @@ uv run examples/batch_evaluate.py \
 ### Output Files
 
 Always produced:
-- `evaluation-summary.txt` — formatted aggregate metrics table
+- `summary_report.txt` — formatted aggregate metrics table
 - `evaluation-detailed.jsonl` — per-sample breakdown (see below)
 
 With `--analysis`:
@@ -189,45 +189,58 @@ With `--analysis --chart`:
 
 ## Detailed JSONL Output Format
 
-Each line in the detailed output contains:
+Each line is the original input record with the evaluation added: all
+original fields are kept verbatim, `source_dataset` is canonicalized
+("unknown" when missing), and the per-category breakdown is nested
+under `detailed_report`. A real example:
 
 ```json
 {
-  "sample_id": 1,
+  "audio_id": "case-042",
+  "text": "charged u/s 302 IPC",
+  "pred_text": "charged u/s 303 IPC",
   "source_dataset": "adalat-ai/court-audio",
-  "reference": "charged u/s 302 IPC",
-  "hypothesis": "charged u/s 303 IPC",
-  "LEXICAL": {
-    "error_rate": 0.0,
-    "substitutions": 0,
-    "insertions": 0,
-    "deletions": 0,
-    "correct": 2,
-    "sandhi_hits": 0
-  },
-  "LEGAL": {
-    "error_rate": 0.0,
-    "substitutions": 0,
-    "insertions": 0,
-    "deletions": 0,
-    "correct": 1,
-    "sandhi_hits": 0
-  },
-  "NUMERAL": {
-    "error_rate": 0.2,
-    "substitutions": 1,
-    "insertions": 0,
-    "deletions": 0,
-    "correct": 0,
-    "sandhi_hits": 0
-  },
-  "PUNCT": {
-    "error_rate": 0.0,
-    "substitutions": 0,
-    "insertions": 0,
-    "deletions": 0,
-    "correct": 0,
-    "sandhi_hits": 0
+  "detailed_report": {
+    "LEXICAL": {
+      "error_rate": 0.0,
+      "substitutions": 0,
+      "insertions": 0,
+      "deletions": 0,
+      "correct": 1,
+      "total_ref": 1,
+      "sandhi_hits": 0,
+      "combined_total": 4
+    },
+    "PUNCT": {
+      "error_rate": 0.0,
+      "substitutions": 0,
+      "insertions": 0,
+      "deletions": 0,
+      "correct": 0,
+      "total_ref": 0,
+      "sandhi_hits": 0,
+      "combined_total": 4
+    },
+    "NUMERAL": {
+      "error_rate": 0.25,
+      "substitutions": 1,
+      "insertions": 0,
+      "deletions": 0,
+      "correct": 0,
+      "total_ref": 1,
+      "sandhi_hits": 0,
+      "combined_total": 4
+    },
+    "LEGAL": {
+      "error_rate": 0.0,
+      "substitutions": 0,
+      "insertions": 0,
+      "deletions": 0,
+      "correct": 2,
+      "total_ref": 2,
+      "sandhi_hits": 0,
+      "combined_total": 4
+    }
   }
 }
 ```

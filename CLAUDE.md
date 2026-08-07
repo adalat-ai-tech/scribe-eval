@@ -428,18 +428,15 @@ The script includes:
 
 ## Detailed JSONL Output Format
 
-When using `batch_evaluate.py` with the `output_file` parameter, detailed per-sample reports are saved as JSONL. Each line contains:
-- `sample_id`: Sequential sample number
-- `source_dataset`: Dataset identifier
-- `reference`: Original reference text
-- `hypothesis`: Original hypothesis text
-- `LEXICAL`, `LEGAL`, `NUMERAL`, `PUNCT`: Category-specific dictionaries with:
-  - `error_rate`: Normalized error rate (errors / total tokens)
-  - `substitutions`: Number of substitution errors
-  - `insertions`: Number of insertion errors
-  - `deletions`: Number of deletion errors
-  - `correct`: Number of correctly recognized tokens
-  - `sandhi_hits`: Number of Sandhi corrections detected (for LEXICAL category)
+When using `batch_evaluate.py` (or `compute_sample_errors` with `output_file`), detailed per-sample reports are saved as JSONL. Each line is the original input record with the evaluation added:
+- All original record fields, verbatim (e.g. `text`, `pred_text`, plus whatever else the input carried, such as `audio_id` or `duration`)
+- `source_dataset`: Canonical dataset identifier (copied from the configured dataset field; `"unknown"` when missing)
+- `detailed_report`: Dict mapping each category (`LEXICAL`, `NUMERAL`, `PUNCT`, plus the domain category, e.g. `LEGAL`) to:
+  - `error_rate`: Normalized error rate (errors / combined total tokens)
+  - `substitutions`, `insertions`, `deletions`, `correct`: Error and match counts
+  - `total_ref`: Reference tokens in this category
+  - `sandhi_hits`: Sandhi corrections detected
+  - `combined_total`: The shared denominator (total ref tokens across all categories)
 
 ## Dependencies
 
