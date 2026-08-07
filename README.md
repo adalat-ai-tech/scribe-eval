@@ -31,7 +31,7 @@ pip install -e '.[charts]'       # adds matplotlib charts
 ## Quick Start
 
 ```python
-from scribe import text_error_rates, DomainConfig
+from scribe import compute_cer_scribe, text_error_rates, DomainConfig
 
 ref = "charged u/s 302 IPC on 22.05.2023"
 hyp = "charged u/s 303 IPC on 22.05.2023"
@@ -41,6 +41,9 @@ report = text_error_rates(ref, hyp, DomainConfig.legal())
 print(f"ER_LEX: {report['LEXICAL']['error_rate']:.2%}")
 print(f"ER_DOMAIN: {report['LEGAL']['error_rate']:.2%}")
 print(f"ER_NUM: {report['NUMERAL']['error_rate']:.2%}")
+
+cer = compute_cer_scribe(ref, hyp, DomainConfig.legal())
+print(f"CER_SCRIBE: {cer['cer_scribe']:.2%}")
 ```
 
 ## Features
@@ -50,7 +53,7 @@ print(f"ER_NUM: {report['NUMERAL']['error_rate']:.2%}")
 - **Normalized error rates** — combined denominator prevents misleading metrics for sparse categories
 - **CER_SCRIBE** — character error rate on normalized token streams; format variants cost nothing, and it needs no sandhi machinery to be robust to agglutination
 - **Batch evaluation** — evaluate in-memory records (`evaluate_records`) or JSONL files with per-sample detail and dataset-level aggregation
-- **Interactive visualizer** — Streamlit UI with color-coded alignment, WER_SCRIBE/Accuracy metric tiles, category breakdown chart, frequent-error tables, and per-sample drill-down
+- **Interactive visualizer** — Streamlit UI with color-coded alignment, WER_SCRIBE/CER_SCRIBE/Accuracy metric tiles, category breakdown chart, frequent-error tables, and per-sample drill-down
 
 ## Token Categories
 
@@ -131,7 +134,7 @@ uv run ruff format src tests examples      # auto-format
 ```
 
 See [`docs/architecture.md`](docs/architecture.md) for the module map and a
-glossary of project-specific terminology (sandhi, combined denominator, WER_SCRIBE,
+glossary of project-specific terminology (sandhi, combined denominator, WER_SCRIBE, CER_SCRIBE,
 Accuracy, ...).
 
 ## Citation
