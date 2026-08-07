@@ -148,7 +148,7 @@ uv run examples/batch_evaluate.py --input data/predictions.jsonl --domain none
 # With domain config file (auto-detected: not a bundled name)
 uv run examples/batch_evaluate.py \
     --input data/predictions.jsonl \
-    --domain config/legal_terms.txt
+    --domain examples/sample_legal.txt
 
 # With detailed error analysis and category breakdown chart
 uv run examples/batch_evaluate.py \

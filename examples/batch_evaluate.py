@@ -319,6 +319,16 @@ Examples:
         )
         eval_seconds = time.perf_counter() - eval_start
 
+        # An all-skipped batch must not masquerade as a perfect
+        # evaluation (0.00% summary, exit 0).
+        if not results:
+            print(
+                "Error: no valid records evaluated — every record was skipped. "
+                "Metrics were not computed.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
         # 6. Aggregate metrics with dataset splits
         print("Computing aggregate metrics...")
         metrics = compute_aggregate_metrics(results)

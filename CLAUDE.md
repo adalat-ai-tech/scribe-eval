@@ -90,7 +90,7 @@ The visualizer provides:
    - Base categories: LEXICAL, NUMERAL, PUNCT (always present)
    - Optional domain categories via `DomainConfig` class
    - Factory methods for bundled domains: `DomainConfig.legal()`, `DomainConfig.medical()`, `DomainConfig.technical()`
-   - File-based configuration: `DomainConfig.from_file('config/custom.txt')`
+   - File-based configuration: `DomainConfig.from_file('examples/sample_legal.txt')`
    - Custom domains: list-based patterns or regex patterns
    - Domain entities are protected from punctuation splitting and tracked separately
    - Numeral patterns: dates (DD-MM-YYYY), times (HH:MM), currency with commas
@@ -231,7 +231,7 @@ legal_domain = DomainConfig.legal()
 tokens, tags = domain_aware_tokenizer("charged u/s 302 IPC", legal_domain)
 
 # Load from custom file
-custom_domain = DomainConfig.from_file("config/my_legal.txt")
+custom_domain = DomainConfig.from_file("examples/sample_legal.txt")
 tokens, tags = domain_aware_tokenizer("my text", custom_domain)
 
 # No domain (base categories only)
@@ -282,11 +282,11 @@ REGEX: CW[-\s]*\d+     # Matches CW1, CW 1, CW-1
 from scribe import DomainConfig, text_error_rates
 
 # Load from file (uses all metadata from file)
-legal_config = DomainConfig.from_file("config/legal_terms.txt")
+legal_config = DomainConfig.from_file("examples/sample_legal.txt")
 
 # Override specific parameters at runtime
 custom_config = DomainConfig.from_file(
-    "config/legal_terms.txt",
+    "examples/sample_legal.txt",
     category="LEGAL_CUSTOM",
     case_sensitive=True
 )
@@ -309,7 +309,7 @@ python batch_evaluate.py --input data/predictions.jsonl --domain none
 # File-based domain config
 python batch_evaluate.py \
     --input data/predictions.jsonl \
-    --domain config/legal_terms.txt
+    --domain examples/sample_legal.txt
 
 # Without --domain, uses the bundled legal domain by default
 python batch_evaluate.py --input data/predictions.jsonl
@@ -342,7 +342,7 @@ The file format enables flexible pattern matching that handles spacing and forma
 from scribe import DomainConfig, domain_aware_tokenizer
 
 # Load legal config with witness patterns
-legal = DomainConfig.from_file("config/legal_terms.txt")
+legal = DomainConfig.from_file("examples/sample_legal.txt")
 
 # All of these are recognized as LEGAL category:
 tokens1, tags1 = domain_aware_tokenizer("witness PW1 testified", legal)

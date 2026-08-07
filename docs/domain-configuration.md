@@ -27,7 +27,7 @@ report = text_error_rates(ref, hyp, domain)
 Load domain configs from files for version control and team sharing:
 
 ```python
-domain = DomainConfig.from_file("config/custom_legal.txt")
+domain = DomainConfig.from_file("examples/sample_legal.txt")
 report = text_error_rates(ref, hyp, domain)
 ```
 
@@ -77,7 +77,7 @@ Copy and modify these for your projects. The `config/` directory at the repo roo
 ```python
 # Override specific parameters when loading from file
 custom = DomainConfig.from_file(
-    "config/legal_terms.txt",
+    "examples/sample_legal.txt",
     category="LEGAL_CUSTOM",
     case_sensitive=True
 )
@@ -130,7 +130,7 @@ project/
 All three of these produce a `LEGAL` tag:
 
 ```python
-legal = DomainConfig.from_file("config/legal_terms.txt")
+legal = DomainConfig.from_file("examples/sample_legal.txt")
 
 tokens1, tags1 = domain_aware_tokenizer("witness PW1 testified", legal)
 tokens2, tags2 = domain_aware_tokenizer("witness PW 1 testified", legal)   # space
