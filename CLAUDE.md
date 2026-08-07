@@ -90,7 +90,7 @@ The visualizer provides:
    - Base categories: LEXICAL, NUMERAL, PUNCT (always present)
    - Optional domain categories via `DomainConfig` class
    - Factory methods for bundled domains: `DomainConfig.legal()`, `DomainConfig.medical()`, `DomainConfig.technical()`
-   - File-based configuration: `DomainConfig.from_file('config/custom.txt')`
+   - File-based configuration: `DomainConfig.from_file('examples/sample_legal.txt')`
    - Custom domains: list-based patterns or regex patterns
    - Domain entities are protected from punctuation splitting and tracked separately
    - Numeral patterns: dates (DD-MM-YYYY), times (HH:MM), currency with commas
@@ -181,7 +181,7 @@ The visualizer provides:
 
 - `src/scribe/`: Core library modules
   - `__init__.py`: Public API exports
-  - `config/`: Bundled domain configuration files (distributed with package)
+  - `config/`: Bundled domain terminology (distributed with the package; accessed via the factories `DomainConfig.legal()/medical()/technical()` or `--domain <name>`, never by path)
     - `__init__.py`
     - `legal_terms.txt`: Indian legal terminology
     - `medical_terms.txt`: Medical units and dosages
@@ -195,13 +195,12 @@ The visualizer provides:
   - `charts.py`: matplotlib chart generation (optional dependency); category breakdown and frequent error bar charts
   - `reporting.py`: Shared formatting functions for CLI and web UI; includes `format_contribution_table()` and `format_frequent_errors_table()`
   - `constants.py`: Category constants and helper functions
-- `config/`: User-facing example configs (not bundled)
-  - `README.md`: Documentation and templates for custom domain configs
-  - `*.txt`: Example configuration files for reference
 - `examples/`: Sample scripts and evaluation datasets
   - `text_alignment.py`: Visual alignment demonstration
   - `error_report.py`: Single-sample error report generation
   - `custom_domain_file.py`: Demonstrates factory methods, file-based, and inline domain configs
+  - `sample_legal.txt`: The domain config file format example — the file referenced wherever docs show an explicit `--domain <file>` / `from_file()` path
+  - `custom_domain.txt`: A second format example used by the demo scripts
   - `batch_evaluate.py`: Batch evaluation with detailed JSONL output
   - `visualizer/`: Streamlit interactive UI, exposed as the `scribe-visualizer` console script
     - `app.py`: The Streamlit application
@@ -231,7 +230,7 @@ legal_domain = DomainConfig.legal()
 tokens, tags = domain_aware_tokenizer("charged u/s 302 IPC", legal_domain)
 
 # Load from custom file
-custom_domain = DomainConfig.from_file("config/my_legal.txt")
+custom_domain = DomainConfig.from_file("examples/sample_legal.txt")
 tokens, tags = domain_aware_tokenizer("my text", custom_domain)
 
 # No domain (base categories only)
@@ -282,11 +281,11 @@ REGEX: CW[-\s]*\d+     # Matches CW1, CW 1, CW-1
 from scribe import DomainConfig, text_error_rates
 
 # Load from file (uses all metadata from file)
-legal_config = DomainConfig.from_file("config/legal_terms.txt")
+legal_config = DomainConfig.from_file("examples/sample_legal.txt")
 
 # Override specific parameters at runtime
 custom_config = DomainConfig.from_file(
-    "config/legal_terms.txt",
+    "examples/sample_legal.txt",
     category="LEGAL_CUSTOM",
     case_sensitive=True
 )
@@ -297,36 +296,47 @@ report = text_error_rates(ref, hyp, legal_config)
 
 ### Loading from CLI
 
-The `batch_evaluate.py` script supports loading domain configs from files:
+The `batch_evaluate.py` script takes a single `--domain` flag that accepts
+either a bundled domain name or a config file path (auto-detected;
+bundled names win, so a colliding file name needs a path prefix like `./legal`):
 
 ```bash
-# Use file-based domain config
+# Bundled domains via the factories
+python batch_evaluate.py --input data/predictions.jsonl --domain medical
+python batch_evaluate.py --input data/predictions.jsonl --domain none
+
+# File-based domain config
 python batch_evaluate.py \
     --input data/predictions.jsonl \
-    --domain-config config/legal_terms.txt
+    --domain examples/sample_legal.txt
 
-# Without --domain-config, uses DomainConfig.legal() by default
+# Without --domain, uses the bundled legal domain by default
 python batch_evaluate.py --input data/predictions.jsonl
 ```
 
-### Sample Configuration Files
+### Bundled Domains
 
-The `config/` directory contains pre-made configuration files:
+Three domains ship inside the package and are selected by name — via the
+factories (`DomainConfig.legal()`, `.medical()`, `.technical()`) or the CLI
+(`--domain legal|medical|technical`); their files are internal to the
+package and never referenced by path:
 
-- **`legal_terms.txt`**: Indian legal terminology with flexible witness designation patterns
+- **legal**: Indian legal terminology with flexible witness designation patterns
   - Literal terms: u/s, r/w, sec., art., v., vs., etc.
   - Regex patterns: `PW[-\s]*\d+` matches PW1, PW 1, PW-1 (prosecution witness)
   - Regex patterns: `CW[-\s]*\d+` matches CW1, CW 1, CW-1 (court witness)
   - Regex patterns: `Ext\.[-\s]*[A-Z]\d*` matches Ext.A, Ext. A1, Ext-B2 (exhibits)
 
-- **`medical_terms.txt`**: Medical units and dosages
+- **medical**: Medical units and dosages
   - Literal terms: mg, ml, cc, mcg, IU, kg, gm
   - Regex patterns: `\d+\s*mg` matches 500mg, 500 mg
 
-
-- **`technical_terms.txt`**: Technical abbreviations (case-sensitive)
+- **technical**: Technical abbreviations (case-sensitive)
   - Literal terms: API, SDK, CLI, JSON, HTTP, HTTPS
   - Regex patterns: `v\d+\.\d+(?:\.\d+)?` matches v1.0, v2.3.4
+
+To write your own domain, copy `examples/sample_legal.txt` as a template
+and pass its path to `--domain` or `DomainConfig.from_file()`.
 
 ### Pattern Matching Examples
 
@@ -336,7 +346,7 @@ The file format enables flexible pattern matching that handles spacing and forma
 from scribe import DomainConfig, domain_aware_tokenizer
 
 # Load legal config with witness patterns
-legal = DomainConfig.from_file("config/legal_terms.txt")
+legal = DomainConfig.from_file("examples/sample_legal.txt")
 
 # All of these are recognized as LEGAL category:
 tokens1, tags1 = domain_aware_tokenizer("witness PW1 testified", legal)
@@ -351,25 +361,26 @@ assert "LEGAL" in tags3
 
 ### File Location Conventions
 
-- **Project configs**: Store in `config/` directory at repository root
-- **User configs**: Store in `~/.config/scribe/` for personal configurations
-- **Dataset-specific configs**: Store alongside dataset in data directory
+Suggestions for organizing *your own* custom domain files in *your*
+evaluation project (SCRIBE reads whatever path you pass; nothing below is
+required or auto-discovered):
 
-Example directory structure:
+- **Project configs**: a `config/` directory in your project for domain files shared across datasets
+- **Dataset-specific configs**: alongside the dataset in its data directory
+- **Personal configs**: any stable location works (e.g. `~/.config/scribe/`) — plain files, passed by path
+
+Example layout of a user's evaluation project:
 ```
-project/
-├── config/                     # Shared domain configs
-│   ├── legal_terms.txt
-│   ├── medical_terms.txt
-│   └── custom_domain.txt
+my-asr-eval/
+├── config/                     # Shared custom domain configs
+│   ├── court_terms.txt         # (bundled legal/medical need no file — use --domain legal)
+│   └── station_names.txt
 ├── data/
 │   ├── court-transcripts/
 │   │   ├── predictions.jsonl
-│   │   └── legal_terms.txt    # Dataset-specific overrides
+│   │   └── court_terms.txt     # Dataset-specific overrides
 │   └── medical-records/
 │       └── predictions.jsonl
-└── examples/
-    └── batch_evaluate.py
 ```
 
 ## JSONL Input Format
@@ -393,11 +404,13 @@ python batch_evaluate.py --help
 --ref-field              Field name for reference text (default: transcript_cleaned)
 --hyp-field              Field name for hypothesis text (default: prediction)
 --dataset-field          Field name for dataset identifier (default: source_dataset)
---domain-config          Path to domain config file (e.g., config/legal_terms.txt)
+--domain                 Bundled domain name (legal, medical, technical, none) or path to a domain config file (default: legal)
 --no-normalize           Disable token normalization (strict matching)
 --analysis               Enable detailed error analysis (WER_SCRIBE, category contributions, frequent errors)
 --top-n N                Number of top frequent errors to display (default: 10)
 --chart                  Save error analysis charts as PNG (requires --analysis and matplotlib)
+--workers N              Worker processes for parallel evaluation (default: 1)
+--skip-bad-records       Skip invalid lines/records with a warning instead of stopping
 ```
 
 **Analysis output** (when `--analysis` is passed):

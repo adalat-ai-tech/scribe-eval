@@ -27,7 +27,7 @@ report = text_error_rates(ref, hyp, domain)
 Load domain configs from files for version control and team sharing:
 
 ```python
-domain = DomainConfig.from_file("config/custom_legal.txt")
+domain = DomainConfig.from_file("examples/sample_legal.txt")
 report = text_error_rates(ref, hyp, domain)
 ```
 
@@ -63,21 +63,27 @@ REGEX: Ext\.[-\s]*[A-Z]\d*  # Matches Ext.A, Ext. B2
 - **Regex patterns**: Prefix with `REGEX:`, supports full regex syntax
 - **Comments**: Lines starting with `#`, or inline text after `#`
 
-### Bundled Config Files
+### Bundled Domains
 
-Sample config files are included in `src/scribe/config/`:
-- `legal_terms.txt` — Indian legal terminology
-- `medical_terms.txt` — Medical units and dosages
-- `technical_terms.txt` — Technical abbreviations (case-sensitive)
+Three domains ship inside the package and are selected by name — via the
+factories (`DomainConfig.legal()`, `.medical()`, `.technical()`) or the
+CLI (`--domain legal|medical|technical`); their files are internal and
+never referenced by path:
 
-Copy and modify these for your projects. The `config/` directory at the repo root contains additional example files with inline documentation.
+- **legal** — Indian legal terminology
+- **medical** — Medical units and dosages
+- **technical** — Technical abbreviations (case-sensitive)
+
+To write your own domain, copy `examples/sample_legal.txt` (a fully
+commented format example) and pass its path to `--domain` or
+`DomainConfig.from_file()`.
 
 ### Overriding Parameters at Runtime
 
 ```python
 # Override specific parameters when loading from file
 custom = DomainConfig.from_file(
-    "config/legal_terms.txt",
+    "examples/sample_legal.txt",
     category="LEGAL_CUSTOM",
     case_sensitive=True
 )
@@ -108,19 +114,23 @@ report = text_error_rates(ref, hyp, None)
 
 ## File Location Conventions
 
-- **Project configs**: `config/` directory at the repository root
-- **Personal configs**: `~/.config/scribe-eval/`
-- **Dataset-specific configs**: Alongside the dataset in the data directory
+Suggestions for organizing *your own* custom domain files in *your*
+evaluation project (SCRIBE reads whatever path you pass; nothing here is
+required or auto-discovered):
+
+- **Project configs**: a `config/` directory in your project for domain files shared across datasets
+- **Dataset-specific configs**: alongside the dataset in its data directory
+- **Personal configs**: any stable location works (e.g. `~/.config/scribe-eval/`) — plain files, passed by path
 
 ```
-project/
+my-asr-eval/
 ├── config/
-│   ├── legal_terms.txt
-│   └── medical_terms.txt
+│   ├── court_terms.txt         # (bundled legal/medical need no file — use --domain legal)
+│   └── station_names.txt
 ├── data/
 │   ├── court-transcripts/
 │   │   ├── predictions.jsonl
-│   │   └── legal_terms.txt    # Dataset-specific overrides
+│   │   └── court_terms.txt    # Dataset-specific overrides
 │   └── medical-records/
 │       └── predictions.jsonl
 ```
@@ -130,7 +140,7 @@ project/
 All three of these produce a `LEGAL` tag:
 
 ```python
-legal = DomainConfig.from_file("config/legal_terms.txt")
+legal = DomainConfig.from_file("examples/sample_legal.txt")
 
 tokens1, tags1 = domain_aware_tokenizer("witness PW1 testified", legal)
 tokens2, tags2 = domain_aware_tokenizer("witness PW 1 testified", legal)   # space
