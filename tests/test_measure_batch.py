@@ -12,23 +12,23 @@ def sample_jsonl(tmp_path):
     """Write a tiny JSONL file with two datasets of two samples each."""
     records = [
         {
-            "transcript_cleaned": "the case is closed.",
-            "prediction": "the case is closed.",
+            "text": "the case is closed.",
+            "pred_text": "the case is closed.",
             "source_dataset": "dataset-a",
         },
         {
-            "transcript_cleaned": "charged u/s 302 IPC",
-            "prediction": "charged u/s 303 IPC",
+            "text": "charged u/s 302 IPC",
+            "pred_text": "charged u/s 303 IPC",
             "source_dataset": "dataset-a",
         },
         {
-            "transcript_cleaned": "amount paid was Rs. 10,500",
-            "prediction": "amount paid was Rs. 10,500",
+            "text": "amount paid was Rs. 10,500",
+            "pred_text": "amount paid was Rs. 10,500",
             "source_dataset": "dataset-b",
         },
         {
-            "transcript_cleaned": "hearing on 22.05.2023",
-            "prediction": "hearing on 23.05.2023",
+            "text": "hearing on 22.05.2023",
+            "pred_text": "hearing on 23.05.2023",
             "source_dataset": "dataset-b",
         },
     ]
@@ -122,8 +122,8 @@ def test_custom_dataset_field_propagates_to_by_dataset(tmp_path):
     """A custom source_dataset_field must still group by_dataset
     (regression: all datasets collapsed into 'unknown')."""
     records = [
-        {"transcript_cleaned": "one two", "prediction": "one two", "ds": "set-a"},
-        {"transcript_cleaned": "three four", "prediction": "three four", "ds": "set-b"},
+        {"text": "one two", "pred_text": "one two", "ds": "set-a"},
+        {"text": "three four", "pred_text": "three four", "ds": "set-b"},
     ]
     path = tmp_path / "custom_ds.jsonl"
     with path.open("w", encoding="utf-8") as f:
@@ -142,7 +142,7 @@ def test_aggregation_includes_domain_categories_from_data(tmp_path, legal_domain
     category was silently dropped, reporting 0 errors and deflating
     every other category's rate)."""
     records = [
-        {"transcript_cleaned": "charged u/s 302", "prediction": "charged us 302"},
+        {"text": "charged u/s 302", "pred_text": "charged us 302"},
     ]
     path = tmp_path / "legal.jsonl"
     path.write_text(json.dumps(records[0]) + "\n", encoding="utf-8")
@@ -166,8 +166,8 @@ def test_aggregate_error_rate_recomputed_from_summed_counts(tmp_path):
     combined denominator — never averaged per-sample rates. Two samples,
     8 LEXICAL tokens total, exactly 1 substitution => WER 1/8."""
     records = [
-        {"transcript_cleaned": "one two three four", "prediction": "one two three four"},
-        {"transcript_cleaned": "one two three four", "prediction": "one two tree four"},
+        {"text": "one two three four", "pred_text": "one two three four"},
+        {"text": "one two three four", "pred_text": "one two tree four"},
     ]
     path = tmp_path / "rates.jsonl"
     with path.open("w", encoding="utf-8") as f:
@@ -188,9 +188,9 @@ def test_sandhi_hits_summed_across_samples_and_datasets(tmp_path):
     ref = "ഇന്ന് അല്ലെങ്കിൽ നാളെയാകട്ടെ"
     hyp = "ഇന്നല്ലെങ്കിൽ നാളെ ആകട്ടെ"
     records = [
-        {"transcript_cleaned": ref, "prediction": hyp, "source_dataset": "d1"},
-        {"transcript_cleaned": ref, "prediction": hyp, "source_dataset": "d1"},
-        {"transcript_cleaned": ref, "prediction": hyp, "source_dataset": "d2"},
+        {"text": ref, "pred_text": hyp, "source_dataset": "d1"},
+        {"text": ref, "pred_text": hyp, "source_dataset": "d1"},
+        {"text": ref, "pred_text": hyp, "source_dataset": "d2"},
     ]
     path = tmp_path / "sandhi.jsonl"
     with path.open("w", encoding="utf-8") as f:
@@ -208,9 +208,9 @@ def test_non_string_dataset_ids_do_not_break_aggregation(tmp_path):
     with an unhashable-type TypeError (PR review issue); non-string ids
     are stringified for grouping."""
     records = [
-        {"transcript_cleaned": "one two", "prediction": "one two", "ds": 7},
-        {"transcript_cleaned": "three four", "prediction": "three four", "ds": ["a", "b"]},
-        {"transcript_cleaned": "five six", "prediction": "five six", "ds": {"k": "v"}},
+        {"text": "one two", "pred_text": "one two", "ds": 7},
+        {"text": "three four", "pred_text": "three four", "ds": ["a", "b"]},
+        {"text": "five six", "pred_text": "five six", "ds": {"k": "v"}},
     ]
     path = tmp_path / "odd_ids.jsonl"
     with path.open("w", encoding="utf-8") as f:
@@ -230,11 +230,11 @@ def test_falsy_dataset_ids_are_real_values(tmp_path):
     not collapse into 'unknown' (PR review issue); only a missing, null,
     or empty field falls back to 'unknown'."""
     records = [
-        {"transcript_cleaned": "a b", "prediction": "a b", "ds": 0},
-        {"transcript_cleaned": "c d", "prediction": "c d", "ds": False},
-        {"transcript_cleaned": "e f", "prediction": "e f", "ds": ""},
-        {"transcript_cleaned": "g h", "prediction": "g h", "ds": None},
-        {"transcript_cleaned": "i j", "prediction": "i j"},
+        {"text": "a b", "pred_text": "a b", "ds": 0},
+        {"text": "c d", "pred_text": "c d", "ds": False},
+        {"text": "e f", "pred_text": "e f", "ds": ""},
+        {"text": "g h", "pred_text": "g h", "ds": None},
+        {"text": "i j", "pred_text": "i j"},
     ]
     path = tmp_path / "falsy_ids.jsonl"
     with path.open("w", encoding="utf-8") as f:
@@ -261,7 +261,7 @@ def test_evaluate_records_matches_file_pipeline(sample_jsonl, legal_domain):
 def test_evaluate_records_does_not_mutate_input_records():
     """Callers keep ownership of their dicts: results are copies, and
     the report/canonical keys are never written into the inputs."""
-    records = [{"transcript_cleaned": "one two", "prediction": "one too"}]
+    records = [{"text": "one two", "pred_text": "one too"}]
     snapshot = [dict(r) for r in records]
 
     results = evaluate_records(records)
@@ -274,7 +274,7 @@ def test_evaluate_records_does_not_mutate_input_records():
 def test_evaluate_records_accepts_a_generator():
     """Any iterable works, not just lists (e.g. streaming from a file
     or a training loop)."""
-    gen = ({"transcript_cleaned": t, "prediction": t} for t in ("a b", "c d"))
+    gen = ({"text": t, "pred_text": t} for t in ("a b", "c d"))
     results = evaluate_records(gen)
     assert len(results) == 2
     assert all("detailed_report" in r for r in results)
@@ -285,9 +285,9 @@ def test_evaluate_records_canonicalizes_dataset_ids():
     custom field name honoured, non-strings stringified, only
     missing/null/empty falls back to 'unknown'."""
     records = [
-        {"transcript_cleaned": "a b", "prediction": "a b", "ds": 7},
-        {"transcript_cleaned": "c d", "prediction": "c d", "ds": 0},
-        {"transcript_cleaned": "e f", "prediction": "e f"},
+        {"text": "a b", "pred_text": "a b", "ds": 7},
+        {"text": "c d", "pred_text": "c d", "ds": 0},
+        {"text": "e f", "pred_text": "e f"},
     ]
     results = evaluate_records(records, source_dataset_field="ds")
     assert [r["source_dataset"] for r in results] == ["7", "0", "unknown"]
@@ -318,8 +318,8 @@ def test_malformed_jsonl_fails_with_file_and_line_number(tmp_path):
     path = _write_lines(
         tmp_path,
         [
-            json.dumps({"transcript_cleaned": "a b", "prediction": "a b"}),
-            '{"transcript_cleaned": "broken',
+            json.dumps({"text": "a b", "pred_text": "a b"}),
+            '{"text": "broken',
         ],
     )
     with pytest.raises(ValueError, match=r"line 2.*invalid JSON"):
@@ -332,9 +332,9 @@ def test_blank_lines_are_not_records(tmp_path):
     path = _write_lines(
         tmp_path,
         [
-            json.dumps({"transcript_cleaned": "a b", "prediction": "a b"}),
+            json.dumps({"text": "a b", "pred_text": "a b"}),
             "",
-            json.dumps({"transcript_cleaned": "c d", "prediction": "c d"}),
+            json.dumps({"text": "c d", "pred_text": "c d"}),
             "   ",
         ],
     )
@@ -348,11 +348,11 @@ def test_missing_text_field_fails_with_line_number(tmp_path):
     path = _write_lines(
         tmp_path,
         [
-            json.dumps({"transcript_cleaned": "a b", "prediction": "a b"}),
-            json.dumps({"transcript_cleaned": "c d"}),
+            json.dumps({"text": "a b", "pred_text": "a b"}),
+            json.dumps({"text": "c d"}),
         ],
     )
-    with pytest.raises(ValueError, match=r"line 2.*'prediction'"):
+    with pytest.raises(ValueError, match=r"line 2.*'pred_text'"):
         compute_sample_errors(str(path))
 
 
@@ -362,9 +362,9 @@ def test_null_text_field_fails_instead_of_scoring_empty(tmp_path):
     empty transcript and counted every hypothesis token as insertion)."""
     path = _write_lines(
         tmp_path,
-        [json.dumps({"transcript_cleaned": None, "prediction": "a b"})],
+        [json.dumps({"text": None, "pred_text": "a b"})],
     )
-    with pytest.raises(ValueError, match=r"line 1.*'transcript_cleaned'.*null"):
+    with pytest.raises(ValueError, match=r"line 1.*'text'.*null"):
         compute_sample_errors(str(path))
 
 
@@ -372,9 +372,9 @@ def test_non_string_text_field_fails(tmp_path):
     """Numbers/objects in a text field are data errors, not text."""
     path = _write_lines(
         tmp_path,
-        [json.dumps({"transcript_cleaned": "a b", "prediction": 42})],
+        [json.dumps({"text": "a b", "pred_text": 42})],
     )
-    with pytest.raises(ValueError, match=r"line 1.*'prediction'.*int"):
+    with pytest.raises(ValueError, match=r"line 1.*'pred_text'.*int"):
         compute_sample_errors(str(path))
 
 
@@ -384,10 +384,10 @@ def test_skip_bad_records_warns_and_evaluates_the_rest(tmp_path):
     path = _write_lines(
         tmp_path,
         [
-            json.dumps({"transcript_cleaned": "a b", "prediction": "a b"}),
+            json.dumps({"text": "a b", "pred_text": "a b"}),
             "not json at all",
-            json.dumps({"transcript_cleaned": None, "prediction": "x"}),
-            json.dumps({"transcript_cleaned": "c d", "prediction": "c d"}),
+            json.dumps({"text": None, "pred_text": "x"}),
+            json.dumps({"text": "c d", "pred_text": "c d"}),
         ],
     )
     with pytest.warns(UserWarning) as caught:
@@ -401,18 +401,18 @@ def test_skip_bad_records_warns_and_evaluates_the_rest(tmp_path):
 def test_evaluate_records_validation_names_the_record_number():
     """The in-memory API reports the 1-based record number."""
     records = [
-        {"transcript_cleaned": "a b", "prediction": "a b"},
-        {"transcript_cleaned": "c d"},
+        {"text": "a b", "pred_text": "a b"},
+        {"text": "c d"},
     ]
-    with pytest.raises(ValueError, match=r"Record 2.*'prediction'"):
+    with pytest.raises(ValueError, match=r"Record 2.*'pred_text'"):
         evaluate_records(records)
 
 
 def test_evaluate_records_skip_bad_records():
     """skip_bad_records=True on the in-memory API warns and continues."""
     records = [
-        {"transcript_cleaned": "a b", "prediction": "a b"},
-        {"transcript_cleaned": "c d", "prediction": None},
+        {"text": "a b", "pred_text": "a b"},
+        {"text": "c d", "pred_text": None},
         "not a dict",
     ]
     with pytest.warns(UserWarning):
@@ -440,12 +440,21 @@ def test_sequential_evaluation_streams_the_iterable(monkeypatch):
     evaluated_when_second_pulled = []
 
     def gen():
-        yield {"transcript_cleaned": "a b", "prediction": "a b"}
+        yield {"text": "a b", "pred_text": "a b"}
         evaluated_when_second_pulled.append(len(evaluated))
-        yield {"transcript_cleaned": "c d", "prediction": "c d"}
+        yield {"text": "c d", "pred_text": "c d"}
 
     results = evaluate_records(gen())
     assert len(results) == 2
     # The first record must already be evaluated by the time the
     # generator is asked for the second one.
     assert evaluated_when_second_pulled == [1]
+
+
+def test_default_field_names_follow_nemo_convention():
+    """The default reference/hypothesis fields are text/pred_text (the
+    NeMo manifest convention) — records using them evaluate without any
+    field-name arguments."""
+    records = [{"text": "one two", "pred_text": "one too"}]
+    results = evaluate_records(records)
+    assert results[0]["detailed_report"]["LEXICAL"]["substitutions"] == 1

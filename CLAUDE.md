@@ -386,8 +386,8 @@ my-asr-eval/
 ## JSONL Input Format
 
 Batch evaluation expects JSONL files with these fields:
-- `transcript_cleaned`: Reference text (ground truth)
-- `prediction`: Hypothesis text (ASR output)
+- `text`: Reference text (ground truth; NeMo manifest convention)
+- `pred_text`: Hypothesis text (ASR output)
 - `source_dataset`: Dataset identifier (optional, defaults to "unknown")
 
 ### Batch Evaluation CLI Arguments
@@ -401,8 +401,8 @@ python batch_evaluate.py --help
 # Common options:
 -i, --input              Input JSONL file path (default: ./dictation-eval/predictions.jsonl)
 -o, --output-dir         Output directory for results (default: ./dictation-eval)
---ref-field              Field name for reference text (default: transcript_cleaned)
---hyp-field              Field name for hypothesis text (default: prediction)
+--ref-field              Field name for reference text (default: text)
+--hyp-field              Field name for hypothesis text (default: pred_text)
 --dataset-field          Field name for dataset identifier (default: source_dataset)
 --domain                 Bundled domain name (legal, medical, technical, none) or path to a domain config file (default: legal)
 --no-normalize           Disable token normalization (strict matching)
@@ -461,8 +461,8 @@ The Streamlit visualizer (`src/scribe/visualizer/app.py`) uses session state to 
 **Stored in session state:**
 - `detailed_results`: List of per-sample error dictionaries (limited to 100 most recent)
 - `jiwer_stats`: Dict with `wer`, `cer`, `subs`, `ins`, `dels` from jiwer for the batch
-- `ref_col`: Field name used for reference text (e.g., "transcript_cleaned")
-- `hyp_col`: Field name used for hypothesis text (e.g., "prediction")
+- `ref_col`: Field name used for reference text (e.g., "text")
+- `hyp_col`: Field name used for hypothesis text (e.g., "pred_text")
 - `agg_metrics`: Output of `compute_aggregate_metrics()` — drives the overall and per-dataset tables
 - `all_error_details`: Flat list of per-token error records from `aggregate_error_details()` — cached so the top-N slider recomputes without rerunning the batch
 - `analysis_summary`: Output of `compute_error_summary()` keyed by current top-N — recomputed cheaply from `all_error_details` when top-N changes

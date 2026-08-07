@@ -8,8 +8,8 @@ Each line in the JSONL file must have:
 
 | Field | Default key | Description |
 |---|---|---|
-| Reference text | `transcript_cleaned` | Ground truth transcription |
-| Hypothesis text | `prediction` | ASR model output |
+| Reference text | `text` | Ground truth transcription (NeMo manifest convention) |
+| Hypothesis text | `pred_text` | ASR model output |
 | Dataset ID | `source_dataset` | Optional; groups per-dataset metrics |
 
 ## Python API
@@ -51,8 +51,8 @@ loop); input dicts are never mutated.
 from scribe import evaluate_records, compute_aggregate_metrics
 
 records = [
-    {"transcript_cleaned": "charged u/s 302", "prediction": "charged us 302"},
-    {"transcript_cleaned": "hearing on 22.05.2023", "prediction": "hearing on 22.05.2023"},
+    {"text": "charged u/s 302", "pred_text": "charged us 302"},
+    {"text": "hearing on 22.05.2023", "pred_text": "hearing on 22.05.2023"},
 ]
 
 results = evaluate_records(records, domain_config=DomainConfig.legal())
@@ -164,8 +164,8 @@ uv run examples/batch_evaluate.py \
 |---|---|---|
 | `-i`, `--input` | bundled `examples/predictions.jsonl` | Input JSONL file |
 | `-o`, `--output-dir` | `examples/output/` | Output directory (defaults alongside the script) |
-| `--ref-field` | `transcript_cleaned` | Reference field name |
-| `--hyp-field` | `prediction` | Hypothesis field name |
+| `--ref-field` | `text` | Reference field name |
+| `--hyp-field` | `pred_text` | Hypothesis field name |
 | `--dataset-field` | `source_dataset` | Dataset identifier field |
 | `--domain` | `legal` | Bundled domain name (`legal`, `medical`, `technical`, `none`) or path to a domain config file |
 | `--no-normalize` | *(normalization enabled)* | Disable token normalization |

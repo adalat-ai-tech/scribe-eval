@@ -95,8 +95,8 @@ def _evaluate_one(
 
 def evaluate_records(
     records,
-    ref_field="transcript_cleaned",
-    hyp_field="prediction",
+    ref_field="text",
+    hyp_field="pred_text",
     source_dataset_field="source_dataset",
     domain_config: Optional[DomainConfig] = None,
     normalize: bool = True,
@@ -126,8 +126,9 @@ def evaluate_records(
         records: Iterable of dicts, each holding at least the reference
             and hypothesis text fields. Input dicts are not mutated;
             each result is a shallow copy with the report keys added.
-        ref_field: Field name for reference text
-        hyp_field: Field name for hypothesis text
+        ref_field: Field name for reference text (default "text",
+            following the NeMo manifest convention)
+        hyp_field: Field name for hypothesis text (default "pred_text")
         source_dataset_field: Field name for dataset identifier; its value
             is copied to the canonical "source_dataset" key on each result
             ("unknown" when missing) so aggregation can group by dataset
@@ -180,8 +181,8 @@ def evaluate_records(
 def compute_sample_errors(
     input_file,
     output_file=None,
-    ref_field="transcript_cleaned",
-    hyp_field="prediction",
+    ref_field="text",
+    hyp_field="pred_text",
     source_dataset_field="source_dataset",
     domain_config: Optional[DomainConfig] = None,
     normalize: bool = True,
