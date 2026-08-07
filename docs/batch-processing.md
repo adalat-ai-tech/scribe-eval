@@ -189,10 +189,14 @@ With `--analysis --chart`:
 
 ## Detailed JSONL Output Format
 
-Each line is the original input record with the evaluation added: all
-original fields are kept verbatim, `source_dataset` is canonicalized
-("unknown" when missing), and the per-category breakdown is nested
-under `detailed_report`. A real example:
+Each line is the original input record with the evaluation added. Two
+keys are reserved and written by evaluation — `source_dataset` is
+canonicalized (copied from the configured dataset field, stringified,
+"unknown" when missing) and `detailed_report` holds the per-category
+breakdown; input fields with those names are replaced. Every other
+original field is preserved verbatim. (In-memory results may also carry
+a reserved `error_details` key when `collect_error_details=True`; it is
+never written to the JSONL.) A real example:
 
 ```json
 {
