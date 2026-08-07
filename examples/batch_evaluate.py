@@ -216,13 +216,13 @@ Examples:
     )
     parser.add_argument(
         "--ref-field",
-        default="transcript_cleaned",
-        help="Field name for reference text (default: transcript_cleaned)",
+        default="text",
+        help="Field name for reference text (default: text, NeMo manifest convention)",
     )
     parser.add_argument(
         "--hyp-field",
-        default="prediction",
-        help="Field name for hypothesis text (default: prediction)",
+        default="pred_text",
+        help="Field name for hypothesis text (default: pred_text)",
     )
     parser.add_argument(
         "--dataset-field",

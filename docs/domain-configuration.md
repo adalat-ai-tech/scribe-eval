@@ -2,6 +2,12 @@
 
 scribe-eval supports flexible domain-aware tokenization via the `DomainConfig` class. Domain entities are extracted before general tokenization to prevent incorrect splitting (e.g., `u/s` stays as one token) and are tracked separately in error metrics.
 
+SCRIBE evaluates **one domain at a time** — every entry point takes a
+single `DomainConfig`, and that domain's error rate is always labelled
+**ER_DOMAIN** in reports. (If batches measured with *different* domains
+are aggregated together, each domain category is reported under its own
+name so none is misattributed.)
+
 ## Factory Methods (Bundled Domains)
 
 Three pre-configured domains are bundled with the package:

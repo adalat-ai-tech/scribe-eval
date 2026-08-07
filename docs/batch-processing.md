@@ -8,8 +8,8 @@ Each line in the JSONL file must have:
 
 | Field | Default key | Description |
 |---|---|---|
-| Reference text | `transcript_cleaned` | Ground truth transcription |
-| Hypothesis text | `prediction` | ASR model output |
+| Reference text | `text` | Ground truth transcription (NeMo manifest convention) |
+| Hypothesis text | `pred_text` | ASR model output |
 | Dataset ID | `source_dataset` | Optional; groups per-dataset metrics |
 
 ## Python API
@@ -51,8 +51,8 @@ loop); input dicts are never mutated.
 from scribe import evaluate_records, compute_aggregate_metrics
 
 records = [
-    {"transcript_cleaned": "charged u/s 302", "prediction": "charged us 302"},
-    {"transcript_cleaned": "hearing on 22.05.2023", "prediction": "hearing on 22.05.2023"},
+    {"text": "charged u/s 302", "pred_text": "charged us 302"},
+    {"text": "hearing on 22.05.2023", "pred_text": "hearing on 22.05.2023"},
 ]
 
 results = evaluate_records(records, domain_config=DomainConfig.legal())
@@ -164,8 +164,8 @@ uv run examples/batch_evaluate.py \
 |---|---|---|
 | `-i`, `--input` | bundled `examples/predictions.jsonl` | Input JSONL file |
 | `-o`, `--output-dir` | `examples/output/` | Output directory (defaults alongside the script) |
-| `--ref-field` | `transcript_cleaned` | Reference field name |
-| `--hyp-field` | `prediction` | Hypothesis field name |
+| `--ref-field` | `text` | Reference field name |
+| `--hyp-field` | `pred_text` | Hypothesis field name |
 | `--dataset-field` | `source_dataset` | Dataset identifier field |
 | `--domain` | `legal` | Bundled domain name (`legal`, `medical`, `technical`, `none`) or path to a domain config file |
 | `--no-normalize` | *(normalization enabled)* | Disable token normalization |
@@ -178,7 +178,7 @@ uv run examples/batch_evaluate.py \
 ### Output Files
 
 Always produced:
-- `evaluation-summary.txt` — formatted aggregate metrics table
+- `summary_report.txt` — formatted aggregate metrics table
 - `evaluation-detailed.jsonl` — per-sample breakdown (see below)
 
 With `--analysis`:
@@ -189,45 +189,62 @@ With `--analysis --chart`:
 
 ## Detailed JSONL Output Format
 
-Each line in the detailed output contains:
+Each line is the original input record with the evaluation added. Two
+keys are reserved and written by evaluation — `source_dataset` is
+canonicalized (copied from the configured dataset field, stringified,
+"unknown" when missing) and `detailed_report` holds the per-category
+breakdown; input fields with those names are replaced. Every other
+original field is preserved verbatim. (In-memory results may also carry
+a reserved `error_details` key when `collect_error_details=True`; it is
+never written to the JSONL.) A real example:
 
 ```json
 {
-  "sample_id": 1,
+  "audio_id": "case-042",
+  "text": "charged u/s 302 IPC",
+  "pred_text": "charged u/s 303 IPC",
   "source_dataset": "adalat-ai/court-audio",
-  "reference": "charged u/s 302 IPC",
-  "hypothesis": "charged u/s 303 IPC",
-  "LEXICAL": {
-    "error_rate": 0.0,
-    "substitutions": 0,
-    "insertions": 0,
-    "deletions": 0,
-    "correct": 2,
-    "sandhi_hits": 0
-  },
-  "LEGAL": {
-    "error_rate": 0.0,
-    "substitutions": 0,
-    "insertions": 0,
-    "deletions": 0,
-    "correct": 1,
-    "sandhi_hits": 0
-  },
-  "NUMERAL": {
-    "error_rate": 0.2,
-    "substitutions": 1,
-    "insertions": 0,
-    "deletions": 0,
-    "correct": 0,
-    "sandhi_hits": 0
-  },
-  "PUNCT": {
-    "error_rate": 0.0,
-    "substitutions": 0,
-    "insertions": 0,
-    "deletions": 0,
-    "correct": 0,
-    "sandhi_hits": 0
+  "detailed_report": {
+    "LEXICAL": {
+      "error_rate": 0.0,
+      "substitutions": 0,
+      "insertions": 0,
+      "deletions": 0,
+      "correct": 1,
+      "total_ref": 1,
+      "sandhi_hits": 0,
+      "combined_total": 4
+    },
+    "PUNCT": {
+      "error_rate": 0.0,
+      "substitutions": 0,
+      "insertions": 0,
+      "deletions": 0,
+      "correct": 0,
+      "total_ref": 0,
+      "sandhi_hits": 0,
+      "combined_total": 4
+    },
+    "NUMERAL": {
+      "error_rate": 0.25,
+      "substitutions": 1,
+      "insertions": 0,
+      "deletions": 0,
+      "correct": 0,
+      "total_ref": 1,
+      "sandhi_hits": 0,
+      "combined_total": 4
+    },
+    "LEGAL": {
+      "error_rate": 0.0,
+      "substitutions": 0,
+      "insertions": 0,
+      "deletions": 0,
+      "correct": 2,
+      "total_ref": 2,
+      "sandhi_hits": 0,
+      "combined_total": 4
+    }
   }
 }
 ```

@@ -58,10 +58,12 @@ print(f"ER_NUM: {report['NUMERAL']['error_rate']:.2%}")
 | LEXICAL | base | ER_LEX | General words (Indic and English) |
 | NUMERAL | base | ER_NUM | Numbers, dates, times (302, 22.05.2023, 10:30) |
 | PUNCT | base | ER_PUNCT | Punctuation marks |
-| LEGAL | domain | ER_DOMAIN | Indian legal terminology (u/s, r/w, PW1, Ext.A) |
-| MEDICAL | domain | ER_DOMAIN | Medical units and dosages (mg, ml, 500mg) |
-| TECH | domain | ER_DOMAIN | Technical abbreviations (API, SDK, v1.0) |
-| Custom | domain | ER_DOMAIN | Define your own with lists or regex patterns |
+| LEGAL / MEDICAL / TECH / custom | domain | ER_DOMAIN | Domain terminology — bundled or your own |
+
+One domain is active per evaluation: pass a single `DomainConfig`
+(a bundled factory like `DomainConfig.legal()` or your own file via
+`DomainConfig.from_file`); its error rate always reports as **ER_DOMAIN**.
+See [docs/domain-configuration.md](docs/domain-configuration.md).
 
 ## Domain Configuration
 

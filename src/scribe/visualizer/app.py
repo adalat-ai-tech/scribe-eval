@@ -495,10 +495,14 @@ with tab_json:
                             key for rec in records if isinstance(rec, dict) for key in rec.keys()
                         )
                     )
-                    def_ref = (
-                        keys.index("transcript_cleaned") if "transcript_cleaned" in keys else 0
+                    # Prefer the default field names (NeMo manifest
+                    # convention), falling back to the legacy names.
+                    def_ref = next(
+                        (keys.index(k) for k in ("text", "transcript_cleaned") if k in keys), 0
                     )
-                    def_hyp = keys.index("prediction") if "prediction" in keys else 0
+                    def_hyp = next(
+                        (keys.index(k) for k in ("pred_text", "prediction") if k in keys), 0
+                    )
                 except (KeyError, IndexError) as e:
                     st.error(f"Error accessing record fields: {e}")
                     keys = []

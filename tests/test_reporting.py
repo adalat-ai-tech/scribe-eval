@@ -181,10 +181,10 @@ def test_format_dataset_table_takes_aggregate_shape(tmp_path, legal_domain):
         "\n".join(
             [
                 json.dumps(
-                    {"transcript_cleaned": "a b", "prediction": "a b", "source_dataset": "ds1"}
+                    {"text": "a b", "pred_text": "a b", "source_dataset": "ds1"}
                 ),
                 json.dumps(
-                    {"transcript_cleaned": "x y", "prediction": "x z", "source_dataset": "ds2"}
+                    {"text": "x y", "pred_text": "x z", "source_dataset": "ds2"}
                 ),
             ]
         )
@@ -209,7 +209,7 @@ def test_write_summary_to_file_creates_a_readable_file(tmp_path, legal_domain):
 
     inp = tmp_path / "predictions.jsonl"
     inp.write_text(
-        json.dumps({"transcript_cleaned": "a b", "prediction": "a b", "source_dataset": "ds1"})
+        json.dumps({"text": "a b", "pred_text": "a b", "source_dataset": "ds1"})
         + "\n",
         encoding="utf-8",
     )
