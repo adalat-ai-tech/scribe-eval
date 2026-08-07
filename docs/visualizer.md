@@ -24,11 +24,11 @@ Enter reference and hypothesis text directly. The view updates automatically on 
   - Red: substitution, insertion, or deletion
   - Blue: Sandhi correction (merged/split Indic word)
 - **WER_SCRIBE** and **Accuracy** as metric tiles (hover for the composite definition and a note on why WER_SCRIBE + Accuracy ≠ 100% when insertions or Sandhis are present)
-- Category decomposition caption: `Lexical Tokens X% + Legal Tokens Y% + ... = WER_SCRIBE%`
+- Category decomposition caption: `Lexical Tokens X% + Legal Tokens Y% + ... = WER_SCRIBE%  ·  N sandhi matches`
 - **Jiwer WER and CER** shown side-by-side for baseline comparison
 - **Error Analysis** expander:
-  - Category contributions table (Ref Tokens, Exact Match, Accuracy, Sub, Del, Ins, Error Rate, Impact on Total)
-  - Category breakdown chart (stacked bar: token matches left, WER_SCRIBE contribution right)
+  - Category contributions table (Ref Tokens, Match, Accuracy, Sub, Del, Ins, Error Rate, Impact on Total)
+  - Category breakdown chart: a report-card layout — one row per category with a normalized outcome-share bar (match / sub / del / ins as wash fills with strong edge strips), the match/error counts beneath it, a large accuracy figure, and the category's contribution to WER_SCRIBE as a dot-and-stem mark; an All-tokens row closes the card
 - **Frequent Errors** expander: top-N substitutions, deletions, insertions, sandhi merges, sandhi splits across five sub-tabs (the two sandhi tabs are populated only when sandhi detection is enabled and the language has agglutinative compounds)
 
 ### Batch Dataset Analysis
@@ -36,7 +36,7 @@ Enter reference and hypothesis text directly. The view updates automatically on 
 Upload a JSONL file (or use the default path) to get aggregate metrics across multiple samples.
 
 - Same **WER_SCRIBE + Accuracy** and **Jiwer WER + CER** metric tiles as Single Sample
-- Category decomposition caption and Sandhis count
+- Category decomposition caption (including the sandhi match count)
 - Category contributions table and breakdown chart
 - Frequent errors tables with adjustable top-N (changing top-N does not rerun the batch)
 - Per-dataset breakdown table

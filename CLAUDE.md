@@ -73,7 +73,7 @@ The visualizer provides:
 - **Single Sample Analysis Tab**: Auto-renders alignment and metrics when both fields are non-empty; no button press required
 - **Batch Dataset Analysis**: Upload JSONL files for aggregate metrics across datasets
 - **WER_SCRIBE + Accuracy metric tiles**: Both shown with equal visual weight; tooltips explain the composite definition and why WER_SCRIBE + Accuracy ≠ 100% when insertions or Sandhis are present
-- **Category breakdown chart**: Stacked bar showing Exact Match / Sub / Del / Ins per category plus WER_SCRIBE contribution panel
+- **Category breakdown chart**: Typographic report-card — per-category normalized outcome bar (Match / Sub / Del / Ins), large accuracy figure, and WER_SCRIBE contribution as a dot-and-stem
 - **Frequent errors tables**: Top-N substitutions, deletions, insertions in sub-tabs (tables only)
 - **Individual Record Inspection**: Drill down into specific samples from batch results
 - **Session State**: Maintains last 100 batch results; analysis summary cached separately for instant top-N slider updates without rerunning batch
@@ -135,10 +135,11 @@ The visualizer provides:
 
 6. **Charts** (`src/scribe/charts.py`)
    - Requires `matplotlib` (optional dependency; raises ImportError with install instructions if missing)
-   - `category_breakdown_chart(contributions, output_path=None, title=...)`: 2-panel figure
-     - **Left panel** (wide): Stacked horizontal bar — Exact Match (green) / Substitutions (red) / Deletions (amber) / Insertions (blue) per category + TOTAL row. Accuracy % annotated inside bar (or outside for small bars).
-     - **Right panel**: Category contribution to the composite rate — same stacked colors showing (S+I+D)/total_ref_tokens per category + TOTAL. Dynamic title: "Category Contribution to X.X% WER_SCRIBE"
-     - Category order: Lexical Tokens → Domain Tokens → Numeral Tokens → Punctuation Tokens, TOTAL at bottom
+   - `category_breakdown_chart(contributions, output_path=None, title=...)`: typographic report-card figure in the editorial design system (paper canvas, muted palette, no axes/legend box)
+     - One row per category + "All tokens": 100%-normalized outcome bar (Match / Substitutions / Deletions / Insertions) readable regardless of category size, ref-token count, "N match · N sub · N del · N ins" stat line, large ink accuracy figure, and contribution to WER_SCRIBE as an accent dot-and-stem
+     - Header: accent tick, left-aligned serif title, tokens + WER_SCRIBE subtitle, inline color key; footnote states the normalization and combined denominator
+     - Token-less categories render a dashed "nothing to measure" line
+     - Category order: Lexical → Domain → Numeral → Punctuation, All tokens at bottom
 
 7. **Reporting** (`src/scribe/reporting.py`)
    - Shared formatting functions used across CLI and web UI
@@ -146,7 +147,7 @@ The visualizer provides:
    - `extract_error_rates()`: Extract raw numeric error rates (er_lex/er_domain/er_num/er_punct/sandhi) for UI components
    - `format_dataset_table()`: Create dataset-level summary tables
    - `format_error_counts_table()`: Format error counts by category
-   - `format_contribution_table(contributions)`: Category breakdown table with columns: Category, Ref Tokens, Exact Match, Accuracy, Sub, Del, Ins, Errors, Error Rate (S+I+D/category_ref), Impact on Total (S+I+D/total_ref); percentage cells read N/A for token-less categories
+   - `format_contribution_table(contributions)`: Category breakdown table with columns: Category, Ref Tokens, Match, Accuracy, Sub, Del, Ins, Errors, Error Rate (S+I+D/category_ref), Impact on Total (S+I+D/total_ref); percentage cells read N/A for token-less categories
    - `format_category_chips(contributions, domain_display)`: "Lexical Tokens 5.40%" chips in canonical order; token-less categories omitted (used by the visualizer captions)
    - `format_frequent_errors_table(freq_data, error_type, top_n)`: Frequent error table rows; substitutions include Rank/Category/Reference/Hypothesis/Count, deletions/insertions include Rank/Category/Token/Count
    - `format_alignment_table()`: Visual alignment display with match indicators
@@ -171,7 +172,7 @@ The visualizer provides:
 - **Error Rate**: `(S+I+D) / category_ref_tokens` — how accurately the model handles this category in isolation
 - **Impact on Total**: `(S+I+D) / total_ref_tokens` — how much this category contributes to the overall WER_SCRIBE score
 
-**Standard Terminology**: Token categories display as "Lexical Tokens", "Domain Tokens", "Numeral Tokens", "Punctuation Tokens". Match columns use "Exact Match" and "Accuracy" (not "Correct" or "Match%").
+**Standard Terminology**: Token categories display as "Lexical Tokens", "Domain Tokens", "Numeral Tokens", "Punctuation Tokens". Match columns use "Match" and "Accuracy" (not "Correct", "Exact Match", or "Match%") — a match includes normalized and sandhi matches, not only exact string equality.
 
 **Error Detail Records**: `token_error_details()` emits one dict per aligned token pair: `{"error_type": "substitution"|"insertion"|"deletion", "category": tag, "ref_token": str|None, "hyp_token": str|None}`. Sandhi (MERGE:/SPLIT:) matches are skipped. These records power the frequent-error analysis without storing data in JSONL output.
 

@@ -96,35 +96,169 @@ def extract_jiwer_aligned_pairs(ref_text, hyp_text):
 
 
 def inject_custom_css():
+    """Editorial design system: warm paper surfaces, ink text, a single
+    deep-indigo accent, Fraunces display type over Source Sans 3, and
+    Noto Sans Malayalam/Kannada in the token-text stack so Indic
+    alignment views render properly."""
     st.markdown(
         """
     <style>
-        .scroll-container { overflow-x: auto; white-space: nowrap; padding-bottom: 15px; width: 100%; border: 1px solid #eee; border-radius: 8px; background: #fafafa; }
-        table.alignment-table { border-collapse: separate; border-spacing: 8px; margin: 10px; }
-        td.token-cell { border-radius: 6px; padding: 8px 12px; text-align: center; min-width: 80px; font-family: sans-serif; vertical-align: middle; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .top-text { font-size: 1em; font-weight: bold; color: #666; border-bottom: 1px solid rgba(0,0,0,0.1);}
-        .bot-text { font-size: 1em; margin-bottom: 4px; padding-bottom: 2px; color: #000; }
-        .tag-label { font-size: 0.65em; font-weight: bold; text-transform: uppercase; opacity: 0.5; margin-top: 4px; display: block;}
+        @import url('https://fonts.googleapis.com/css2?family=Geist:wght@500;600&family=Inter:wght@400;600&family=Noto+Sans+Malayalam:wght@400;600&family=Noto+Sans+Kannada:wght@400;600&display=swap');
 
-        .s-correct { background-color: #d1e7dd; color: #0f5132; }
-        .s-sub     { background-color: #f8d7da; color: #842029; }
-        .s-ins, .s-del { background-color: #ffe0b2; color: #7d4e00; }
-        .s-merge   { background-color: #e0e7ff; color: #3730a3; border: 2px solid #6366f1 !important; }
+        :root {
+            --paper: #F9F9F9;
+            --paper-2: #F2F2F1;
+            --hairline: #DEDDD9;
+            --ink: #171717;
+            --ink-muted: #605D53;
+            --brand: #FDB72E;
+            --brand-wash: #FCEEC9;
+            --ok: #3E8E5A;
+            --ok-wash: #D9EBDF;
+            --err: #D64545;
+            --err-wash: #F6D9D9;
+            --del: #B4551D;
+            --del-wash: #F0DCC8;
+            --ins: #3B6FD4;
+            --ins-wash: #D9E4F7;
+            --display: 'Geist', 'Inter', -apple-system, sans-serif;
+            --sans: 'Inter', 'Noto Sans Malayalam',
+                'Noto Sans Kannada', -apple-system, sans-serif;
+            --token: 'Inter', 'Noto Sans Malayalam', 'Noto Sans Kannada', sans-serif;
+        }
 
-        .t-LEXICAL { border: 3px solid #a3cfbb; }
-        .t-NUMERAL { border: 3px solid #d32f2f; }
-        .t-PUNCT   { border: 3px dashed #9c27b0; }
-        .t-LEGAL   { border: 4px solid #1a237e; box-shadow: 0 0 8px rgba(26, 35, 126, 0.4); }
-        .t-MEDICAL { border: 4px solid #00695c; box-shadow: 0 0 8px rgba(0, 105, 92, 0.4); }
-        .t-TECH    { border: 4px solid #4527a0; box-shadow: 0 0 8px rgba(69, 39, 160, 0.4); }
+        html, body, .stApp, [data-testid="stSidebar"] {
+            font-family: var(--sans);
+            color: var(--ink);
+        }
+        .stApp { background-color: var(--paper); }
+        [data-testid="stSidebar"] {
+            background-color: var(--paper-2);
+            border-right: 1px solid var(--hairline);
+        }
 
-        .jiwer-table td.token-cell { border: 2px solid #bbb; }
+        /* Headings: grotesque display in the main pane */
+        .stApp h1, .stApp h2, .stApp h3 {
+            font-family: var(--display);
+            font-weight: 600;
+            color: var(--ink);
+            letter-spacing: -0.01em;
+        }
 
-        .metrics-container { border: 1px solid rgba(128, 128, 128, 0.3); border-radius: 10px; padding: 15px; background-color: rgba(250, 250, 250, 0.8); color: rgba(0, 0, 0, 0.87); }
-        .metric-value { font-size: 24px; font-weight: bold; color: #1e88e5; }
-        .metric-legal { color: #1a237e; margin: 10px 0; }
-        .jiwer-metric { color: #9c27b0; }
-        .metric-secondary { font-size: 20px; color: rgba(0, 0, 0, 0.8); }
+        /* Sidebar headers become small-caps editorial labels */
+        [data-testid="stSidebar"] h2 {
+            font-family: var(--sans);
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: var(--ink-muted);
+            margin-bottom: 0.2rem;
+        }
+        [data-testid="stSidebar"] hr { border-color: var(--hairline); }
+
+        /* Masthead */
+        .masthead {
+            padding: 0.4rem 0 0.9rem 0;
+            border-bottom: 2px solid var(--ink);
+            margin-bottom: 1.4rem;
+        }
+        .masthead .wordmark {
+            font-family: var(--display);
+            font-size: 2.6rem;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+            color: var(--ink);
+            line-height: 1.1;
+        }
+        .masthead .tagline {
+            font-family: var(--sans);
+            font-size: 0.95rem;
+            color: var(--ink-muted);
+            margin-top: 0.15rem;
+        }
+        .masthead .tagline .rule-accent { color: var(--brand); }
+        .masthead .wordmark::before {
+            content: "";
+            display: block;
+            width: 44px;
+            height: 5px;
+            background: var(--brand);
+            margin-bottom: 0.55rem;
+        }
+
+        /* Tabs: quiet underline navigation */
+        .stTabs [data-baseweb="tab-list"] { gap: 1.6rem; border-bottom: 1px solid var(--hairline); }
+        .stTabs [data-baseweb="tab"] {
+            font-family: var(--sans);
+            font-weight: 600;
+            color: var(--ink-muted);
+            background: transparent;
+        }
+        .stTabs [aria-selected="true"] {
+            color: var(--ink);
+            border-bottom: 3px solid var(--brand);
+        }
+
+        /* Expanders and inputs on paper surfaces */
+        [data-testid="stExpander"] {
+            border: 1px solid var(--hairline);
+            border-radius: 4px;
+            background: var(--paper);
+        }
+
+        /* Alignment views (full editorial restyle lands in the next pass) */
+        .scroll-container {
+            overflow-x: auto; white-space: nowrap; padding-bottom: 12px;
+            width: 100%; border: 1px solid var(--hairline);
+            border-radius: 4px; background: #FFFDFA;
+        }
+        table.alignment-table { border-collapse: separate; border-spacing: 6px; margin: 10px; }
+        td.token-cell {
+            border-radius: 3px; padding: 8px 12px; text-align: center;
+            min-width: 80px; font-family: var(--token); vertical-align: middle;
+        }
+        .top-text {
+            font-size: 1em; font-weight: 600; color: var(--ink-muted);
+            border-bottom: 1px solid var(--hairline);
+        }
+        .bot-text { font-size: 1em; margin-bottom: 4px; padding-bottom: 2px; color: var(--ink); }
+        .tag-label {
+            font-size: 0.62em; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.08em; opacity: 0.55; margin-top: 4px; display: block;
+        }
+
+        .s-correct { background-color: var(--ok-wash); color: #24593A; }
+        .s-sub     { background-color: var(--err-wash); color: #8C2B2B; }
+        .s-del     { background-color: var(--del-wash); color: #7A3A12; }
+        .s-ins     { background-color: var(--ins-wash); color: #24479B; }
+        .s-merge {
+            background-color: var(--brand-wash); color: var(--ink);
+            border: 1px solid var(--brand) !important;
+        }
+
+        /* Category: neutral underline for base categories; the brand
+           marigold marks the domain category only. */
+        .t-LEXICAL, .t-NUMERAL { border: 1px solid var(--hairline); }
+        .t-PUNCT {
+            border: 1px solid var(--hairline);
+            border-bottom: 2px dashed var(--ink-muted);
+        }
+        .t-LEGAL, .t-MEDICAL, .t-TECH {
+            border: 1px solid var(--hairline);
+            border-bottom: 3px solid var(--brand);
+        }
+
+        .jiwer-table td.token-cell { border: 1px solid var(--hairline); }
+
+        .metrics-container {
+            border: 1px solid var(--hairline); border-radius: 4px;
+            padding: 15px; background-color: var(--paper); color: var(--ink);
+        }
+        .metric-value { font-size: 24px; font-weight: 600; color: var(--ink); }
+        .metric-legal { color: var(--ink); margin: 10px 0; }
+        .jiwer-metric { color: var(--ink-muted); }
+        .metric-secondary { font-size: 20px; color: var(--ink); }
     </style>
     """,
         unsafe_allow_html=True,
@@ -201,7 +335,7 @@ def render_category_analysis(summary, domain_config):
     if HAS_CHARTS:
         fig = category_breakdown_chart(summary["contributions"], output_path=None)
         if fig is not None:
-            st.pyplot(fig, width="stretch")
+            st.pyplot(fig, width="content")
     else:
         st.info("Install matplotlib to see the category breakdown chart: `uv add matplotlib`")
 
@@ -271,8 +405,10 @@ def render_analysis(ref_text, hyp_text, weights, domain_config, normalize=True, 
             "Insertions and Sandhi corrections affects the reference token count."
         ),
     )
-    st.caption(" + ".join(category_chips) + f"  =  {wer_scribe_frac:.2%}")
-    st.caption(f"Sandhis: {rates['sandhi']}")
+    st.caption(
+        " + ".join(category_chips)
+        + f"  =  {wer_scribe_frac:.2%}   ·   {rates['sandhi']} sandhi matches"
+    )
     st.markdown(generate_alignment_html(a_ref, a_hyp, normalize), unsafe_allow_html=True)
 
     st.markdown("---")
@@ -285,7 +421,7 @@ def render_analysis(ref_text, hyp_text, weights, domain_config, normalize=True, 
     st.markdown(generate_jiwer_alignment_html(ref_text, hyp_text), unsafe_allow_html=True)
 
     st.markdown("---")
-    with st.expander("🔬 Error Analysis (single sample)", expanded=False):
+    with st.expander("Error Analysis (single sample)", expanded=False):
         rows = format_contribution_table(contributions)
         st.markdown("**Category breakdown**")
         st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
@@ -297,7 +433,7 @@ def render_analysis(ref_text, hyp_text, weights, domain_config, normalize=True, 
                 title="ASR Error Analysis by Category (single sample)",
             )
             if fig is not None:
-                st.pyplot(fig, width="stretch")
+                st.pyplot(fig, width="content")
         else:
             st.info("Install matplotlib to see the category breakdown chart: `uv add matplotlib`")
 
@@ -351,12 +487,24 @@ def clear_session_keys():
 
 
 # --- UI CONFIG ---
-st.set_page_config(layout="wide", page_title="SCRIBE: ASR Error Analysis")
-st.title("🔍 SCRIBE: ASR Error Analysis")
+st.set_page_config(layout="wide", page_title="SCRIBE — ASR Error Analysis")
 inject_custom_css()
+st.markdown(
+    """
+    <div class="masthead">
+      <div class="wordmark">SCRIBE</div>
+      <div class="tagline">
+        Diagnostic evaluation for Indic &amp; domain-specific ASR
+        <span class="rule-accent">&nbsp;·&nbsp;</span>
+        lexical, numeral, punctuation and domain error rates with sandhi awareness
+      </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 # --- SIDEBAR ---
-st.sidebar.header("🏷️ Domain")
+st.sidebar.header("Domain")
 with st.sidebar.expander("Domain Configuration", expanded=True):
     domain_choice = st.selectbox(
         "Domain",
@@ -371,7 +519,7 @@ with st.sidebar.expander("Domain Configuration", expanded=True):
 domain_config = build_domain_config(domain_choice, uploaded_domain_file)
 
 st.sidebar.divider()
-st.sidebar.header("🔧 Penalty Tuning")
+st.sidebar.header("Penalty Tuning")
 weights = {}
 with st.sidebar.expander("Category Penalties", expanded=False):
     weights["gap_penalty"] = st.slider(
@@ -403,14 +551,14 @@ with st.sidebar.expander("Agglutination & Sandhi", expanded=False):
     )
 
 st.sidebar.divider()
-st.sidebar.header("🔄 Token Normalization")
+st.sidebar.header("Token Normalization")
 normalize_enabled = st.sidebar.checkbox(
     "Enable Normalization",
     value=True,
     help="Treat date/currency format variations as matches (22.05.2023 = 22/05/2023, 10,500 = 10500).",
 )
 
-st.sidebar.header("🔀 Sandhi Detection")
+st.sidebar.header("Sandhi Detection")
 use_sandhi_enabled = st.sidebar.checkbox(
     "Enable Sandhi Detection",
     value=True,
@@ -418,7 +566,7 @@ use_sandhi_enabled = st.sidebar.checkbox(
 )
 
 st.sidebar.divider()
-st.sidebar.header("📈 Error Analysis")
+st.sidebar.header("Error Analysis")
 top_n = st.sidebar.slider(
     "Top N frequent errors",
     5,
@@ -428,7 +576,7 @@ top_n = st.sidebar.slider(
 )
 
 st.sidebar.divider()
-st.sidebar.header("🗑️ Session Management")
+st.sidebar.header("Session")
 if st.sidebar.button("Clear Session Data"):
     clear_session_keys()
     st.rerun()
@@ -467,7 +615,7 @@ with tab_json:
     default_path = Path(__file__).resolve().parents[3] / "examples" / "predictions.jsonl"
 
     with col_config:
-        st.markdown("### 📂 Load Data")
+        st.markdown("### Load Data")
         upload_opt = st.radio("Source", ["Default Path", "Upload File"], horizontal=True)
         data_content = None
 
@@ -516,7 +664,7 @@ with tab_json:
 
     with col_batch:
         if records:
-            st.markdown("### 📊 Dataset Evaluation")
+            st.markdown("### Dataset Evaluation")
             if st.button("Run Batch Evaluation", type="primary"):
                 # In-memory evaluation; bad records (missing/null/
                 # non-string text fields) are skipped rather than
@@ -609,7 +757,7 @@ with tab_json:
             )
 
         st.divider()
-        st.markdown("## 📈 Overall Metrics")
+        st.markdown("## Overall Metrics")
         overall_rates = extract_error_rates(agg["overall"])
         overall_chips = build_category_chips(summary["contributions"], domain_config)
         overall_wer_scribe = summary["wer_scribe"]
@@ -634,8 +782,11 @@ with tab_json:
                 "and Sandhi corrections are tracked separately."
             ),
         )
-        st.caption(" + ".join(overall_chips) + f"  =  {overall_wer_scribe:.2%}")
-        st.caption(f"Sandhis: {overall_rates['sandhi']}  ·  Total Ref Tokens: {total_ref:,}")
+        st.caption(
+            " + ".join(overall_chips)
+            + f"  =  {overall_wer_scribe:.2%}   ·   {overall_rates['sandhi']} sandhi matches"
+            + f"   ·   {total_ref:,} ref tokens"
+        )
 
         st.markdown("---")
 
@@ -648,7 +799,7 @@ with tab_json:
         )
 
         st.divider()
-        st.markdown("## 📊 Per-Dataset Breakdown")
+        st.markdown("## Per-Dataset Breakdown")
         table_data = format_dataset_table(agg)
         table_data = [row for row in table_data if row["Dataset"] != "OVERALL"]
         if table_data:
@@ -657,17 +808,17 @@ with tab_json:
             st.caption("No per-dataset split available (all samples in a single batch).")
 
         st.divider()
-        st.markdown("## 🧩 Category Analysis")
+        st.markdown("## Category Analysis")
         render_category_analysis(summary, domain_config)
 
         st.divider()
-        st.markdown("## 🔎 Frequent Errors")
+        st.markdown("## Frequent Errors")
         st.caption(f"Showing top {top_n} (adjust via sidebar).")
         render_frequent_errors(summary, top_n)
 
     if "detailed_results" in st.session_state:
         st.divider()
-        st.markdown("## 🔍 Individual Record Inspection")
+        st.markdown("## Individual Record Inspection")
         res_list = st.session_state["detailed_results"]
         saved_ref_col = st.session_state.get("ref_col", "reference")
         saved_hyp_col = st.session_state.get("hyp_col", "hypothesis")

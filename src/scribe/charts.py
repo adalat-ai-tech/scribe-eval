@@ -12,6 +12,7 @@ try:
 
     matplotlib.use("Agg")  # Non-interactive backend for CLI/file output
     import matplotlib.pyplot as plt
+    from matplotlib.patches import Rectangle
 
     HAS_MATPLOTLIB = True
 except ImportError:
@@ -25,11 +26,27 @@ def _check_matplotlib():
         )
 
 
-# Segment colors (consistent across all charts)
-COLOR_CORRECT = "#4CAF50"  # Green
-COLOR_SUBSTITUTION = "#E53935"  # Red
-COLOR_DELETION = "#FFC107"  # Amber/Yellow
-COLOR_INSERTION = "#1E88E5"  # Blue
+# Editorial palette — matches the visualizer design system
+# (.streamlit theme + inject_custom_css tokens).
+PAPER = "#F0EFEC"  # toned-down canvas so segment colors sit softer
+INK = "#171717"
+INK_MUTED = "#605D53"
+HAIRLINE = "#DEDDD9"
+ACCENT = "#FDB72E"  # Adalat marigold — marks only, never text
+
+# Outcome colors (identical to the visualizer alignment cells):
+# each outcome renders as a soft wash fill with a strong edge strip,
+# echoing the cell tint + underline motif.
+COLOR_CORRECT = "#3E8E5A"  # match green
+COLOR_SUBSTITUTION = "#D64545"  # substitution red
+COLOR_DELETION = "#B4551D"  # deletion burnt orange
+COLOR_INSERTION = "#3B6FD4"  # insertion blue
+WASH_CORRECT = "#D9EBDF"
+WASH_SUBSTITUTION = "#F6D9D9"
+WASH_DELETION = "#F0DCC8"
+WASH_INSERTION = "#D9E4F7"
+
+SANS = "sans-serif"
 
 
 def category_breakdown_chart(
@@ -38,12 +55,15 @@ def category_breakdown_chart(
     title: str = "ASR Error Analysis by Category",
 ) -> Optional[object]:
     """
-    Generate a multi-panel figure with category breakdown and error rates.
+    Generate a typographic report-card figure of the category breakdown.
 
-    Three panels:
-      Left (wide):   Stacked bar — correct/sub/del/ins counts per category + TOTAL
-      Right-top:     Cat ER% — (S+I+D) / category_ref_tokens per category
-      Right-bottom:  ER% of Total — (S+I+D) / total_ref_tokens per category
+    One row per category (plus TOTAL): a 100%-normalized outcome bar
+    (exact match / substitutions / deletions / insertions — readable
+    regardless of how few tokens the category has), a large accuracy
+    figure, a token/error stat line, and the category's contribution to
+    WER_SCRIBE as a dot-and-stem mark. Left-aligned title block with an
+    accent tick, inline color key, and a footnote replace axes, grids
+    and legends.
 
     Args:
         contributions: From compute_category_contributions(). Each entry has
@@ -55,199 +75,207 @@ def category_breakdown_chart(
         matplotlib Figure object, or None if saved to file.
     """
     _check_matplotlib()
-    from matplotlib.gridspec import GridSpec
 
     # Display names for categories
     category_display = {
-        "LEXICAL": "Lexical Tokens",
-        "PUNCT": "Punctuation Tokens",
-        "NUMERAL": "Numeral Tokens",
+        "LEXICAL": "Lexical",
+        "PUNCT": "Punctuation",
+        "NUMERAL": "Numeral",
     }
 
-    # Fixed display order: Lexical, Domain, Numeral, Punctuation
-    # Domain categories are anything not in the base set
+    # Fixed display order: Lexical, Domain, Numeral, Punctuation.
+    # A single domain category displays as "Domain"; with several
+    # (mixed aggregates), each keeps its category name.
     base_cats = {"LEXICAL", "NUMERAL", "PUNCT"}
     domain_cats = [c for c in contributions if c not in base_cats]
-
-    # A single domain category displays as "Domain Tokens"; with several
-    # (mixed aggregates), each keeps its category name so distinct
-    # counts remain distinguishable.
     if len(domain_cats) > 1:
         for c in domain_cats:
-            category_display[c] = f"{c} Tokens"
-
+            category_display[c] = c
     ordered_cats = ["LEXICAL"] + domain_cats + ["NUMERAL", "PUNCT"]
-    # Only include categories that exist in contributions
     ordered_cats = [c for c in ordered_cats if c in contributions]
 
-    total_correct = 0
-    total_subs = 0
-    total_dels = 0
-    total_ins = 0
+    rows = []  # (name, correct, sub, del, ins)
+    totals = [0, 0, 0, 0]
     total_ref = 0
-
-    cat_rows = []  # per-category rows (without TOTAL)
     for cat in ordered_cats:
         d = contributions[cat]
-        display_name = category_display.get(cat, "Domain Tokens")
-        cat_rows.append(
-            (display_name, d["correct"], d["substitutions"], d["deletions"], d["insertions"])
+        rows.append(
+            (
+                category_display.get(cat, "Domain"),
+                d["correct"],
+                d["substitutions"],
+                d["deletions"],
+                d["insertions"],
+            )
         )
-        total_correct += d["correct"]
-        total_subs += d["substitutions"]
-        total_dels += d["deletions"]
-        total_ins += d["insertions"]
+        for k, key in enumerate(("correct", "substitutions", "deletions", "insertions")):
+            totals[k] += d[key]
         total_ref += d["ref_tokens"]
+    total_row = ("All tokens", *totals)
+    wer_scribe_pct = (totals[1] + totals[2] + totals[3]) / total_ref * 100 if total_ref > 0 else 0.0
 
-    # Left panel: TOTAL at bottom → reversed y-axis means TOTAL first in list
-    # then categories in reverse so Word ends up at top
-    rows = [("TOTAL", total_correct, total_subs, total_dels, total_ins)] + cat_rows[::-1]
+    def contribution_pct(row):
+        return ((row[2] + row[3] + row[4]) / total_ref * 100) if total_ref > 0 else 0.0
 
-    labels = [r[0] for r in rows]
-    correct = [r[1] for r in rows]
-    subs = [r[2] for r in rows]
-    dels = [r[3] for r in rows]
-    ins = [r[4] for r in rows]
-    n = len(labels)
-    y_pos = range(n)
+    max_contrib = max([contribution_pct(r) for r in rows] + [wer_scribe_pct, 0.1])
 
-    # --- Figure layout: left panel (wide) + right panel (contribution) ---
-    fig_h = max(4, n * 1.0)
-    # constrained layout handles GridSpec + suptitle + custom artists
-    # cleanly; avoids the tight_layout "axes not compatible" warning.
-    fig = plt.figure(figsize=(18, fig_h), layout="constrained")
-    gs = GridSpec(1, 2, width_ratios=[3, 1], figure=fig)
+    # ---- Canvas: one axes in 0..1 coordinates, everything hand-placed ----
+    n_rows = len(rows) + 1  # + TOTAL
+    row_h = 1.05
+    header_h = 2.75
+    footer_h = 0.7
+    fig_h = header_h + n_rows * row_h + footer_h
+    fig = plt.figure(figsize=(13, fig_h), dpi=72)
+    fig.set_facecolor(PAPER)
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, fig_h)
+    ax.axis("off")
 
-    ax1 = fig.add_subplot(gs[0, 0])  # Left: stacked bar
-    ax3 = fig.add_subplot(gs[0, 1])  # Right: contribution
+    # Column geometry (x, in axes fraction)
+    X_NAME = 0.045
+    X_BAR0, X_BAR1 = 0.21, 0.60
+    X_ACC = 0.665
+    X_DOT0, X_DOT1 = 0.735, 0.92
+    X_RIGHT = 0.955
 
-    # ========== Panel 1: Stacked bar chart (left) ==========
-    ax1.barh(y_pos, correct, label="Exact Match", color=COLOR_CORRECT)
-    ax1.barh(y_pos, subs, left=correct, label="Substitutions", color=COLOR_SUBSTITUTION)
-    ax1.barh(
-        y_pos,
-        dels,
-        left=[c + s for c, s in zip(correct, subs)],
-        label="Deletions",
-        color=COLOR_DELETION,
+    def txt(x, y, s, size, color=INK, weight="normal", family=SANS, ha="left", va="center"):
+        ax.text(x, y, s, fontsize=size, color=color, fontweight=weight, family=family, ha=ha, va=va)
+
+    # ---- Header block ----
+    y = fig_h - 0.42
+    ax.add_patch(Rectangle((X_NAME, y + 0.13), 0.045, 0.075, color=ACCENT))
+    txt(X_NAME, y - 0.28, title, 21, weight="bold")
+    txt(
+        X_NAME,
+        y - 0.80,
+        f"{total_ref:,} reference tokens   ·   WER_SCRIBE {wer_scribe_pct:.1f}%",
+        12.5,
+        color=INK_MUTED,
     )
-    ax1.barh(
-        y_pos,
-        ins,
-        left=[c + s + d for c, s, d in zip(correct, subs, dels)],
-        label="Insertions",
-        color=COLOR_INSERTION,
-    )
 
-    # Reference count markers
-    for i, row in enumerate(rows):
-        ref_count = row[1] + row[2] + row[3]
-        if row[4] > 0:
-            ax1.plot(ref_count, i, marker="|", color="black", markersize=15, markeredgewidth=1.5)
+    # Inline color key (wash swatch with the strong edge, like the bars)
+    key_y = y - 1.28
+    key_x = X_NAME
+    for label, color, wash in (
+        ("Match", COLOR_CORRECT, WASH_CORRECT),
+        ("Substitutions", COLOR_SUBSTITUTION, WASH_SUBSTITUTION),
+        ("Deletions", COLOR_DELETION, WASH_DELETION),
+        ("Insertions", COLOR_INSERTION, WASH_INSERTION),
+    ):
+        ax.add_patch(Rectangle((key_x, key_y - 0.045), 0.011, 0.10, color=wash))
+        ax.add_patch(Rectangle((key_x, key_y - 0.045), 0.011, 0.028, color=color))
+        txt(key_x + 0.017, key_y, label, 10.5, color=INK)
+        key_x += 0.017 + 0.012 * len(label) + 0.025
 
-    ax1.set_yticks(y_pos)
-    ax1.set_yticklabels(labels, fontsize=11)
-    ax1.set_xlabel("Token Count", fontsize=11)
-    ax1.set_title("Token Matches and Errors", fontsize=13, fontweight="bold")
-    ax1.legend(loc="center right", fontsize=9)
+    # Column captions
+    cap_y = key_y - 0.62
+    txt(X_BAR0, cap_y, "OUTCOME SHARE WITHIN CATEGORY", 8.5, color=INK_MUTED)
+    txt(X_ACC, cap_y, "ACCURACY", 8.5, color=INK_MUTED)
+    txt(X_DOT0, cap_y, "CONTRIBUTION TO WER_SCRIBE", 8.5, color=INK_MUTED)
+    ax.plot([X_NAME, X_RIGHT], [cap_y - 0.18, cap_y - 0.18], color=INK, linewidth=1.4)
 
-    # Percentage annotations
-    max_total = max(r[1] + r[2] + r[3] + r[4] for r in rows) if rows else 1
-    for i, row in enumerate(rows):
-        _, cor, sub, dl, ins_count = row
+    # ---- Category rows ----
+    def draw_row(y_mid, row, emphasize=False):
+        name, cor, sub, dl, ins = row
+        touched = cor + sub + dl + ins
         ref = cor + sub + dl
-        total = ref + ins_count
-        if ref > 0:
-            pct = cor / ref * 100
-            if cor > max_total * 0.08:
-                ax1.text(
-                    cor / 2,
-                    i,
-                    f"{pct:.0f}%",
-                    ha="center",
-                    va="center",
-                    fontsize=9,
-                    fontweight="bold",
-                    color="white",
-                )
-            else:
-                ax1.text(
-                    total + max_total * 0.02,
-                    i,
-                    f"{pct:.0f}% accuracy",
-                    ha="left",
-                    va="center",
-                    fontsize=8,
-                    color="#333",
-                )
-        ax1.text(
-            total + max_total * 0.005,
-            i + 0.25,
-            str(total),
-            ha="left",
-            va="center",
-            fontsize=8,
-            color="#999",
+        acc = (cor / ref * 100) if ref > 0 else None
+
+        name_size = 13.5 if emphasize else 12.5
+        txt(X_NAME, y_mid + 0.10, name, name_size, weight="bold" if emphasize else "600")
+        txt(
+            X_NAME,
+            y_mid - 0.24,
+            f"{ref:,} ref tokens" if ref else "no ref tokens",
+            9.5,
+            color=INK_MUTED,
         )
 
-    # Separator between TOTAL (index 0) and category rows
-    ax1.axhline(y=0.5, color="gray", linewidth=0.8, linestyle="--")
+        # Normalized outcome bar: wash fill + strong edge strip per
+        # segment — the same tint-and-underline motif as the alignment
+        # cells in the visualizer.
+        bar_h = 0.30
+        edge_h = 0.065
+        if touched > 0:
+            x = X_BAR0
+            for count, color, wash in (
+                (cor, COLOR_CORRECT, WASH_CORRECT),
+                (sub, COLOR_SUBSTITUTION, WASH_SUBSTITUTION),
+                (dl, COLOR_DELETION, WASH_DELETION),
+                (ins, COLOR_INSERTION, WASH_INSERTION),
+            ):
+                w = (count / touched) * (X_BAR1 - X_BAR0)
+                if w > 0:
+                    ax.add_patch(
+                        Rectangle((x, y_mid - bar_h / 2), w, bar_h, color=wash, linewidth=0)
+                    )
+                    ax.add_patch(
+                        Rectangle(
+                            (x, y_mid - bar_h / 2), w, edge_h, color=color, linewidth=0
+                        )
+                    )
+                    x += w
+            txt(
+                X_BAR0,
+                y_mid - bar_h / 2 - 0.17,
+                f"{cor:,} match · {sub} sub · {dl} del · {ins} ins",
+                8.5,
+                color=INK_MUTED,
+                va="top",
+            )
+        else:
+            ax.plot(
+                [X_BAR0, X_BAR1],
+                [y_mid, y_mid],
+                color=HAIRLINE,
+                linewidth=1.2,
+                linestyle=(0, (2, 3)),
+            )
+            txt(X_BAR0, y_mid - 0.32, "nothing to measure", 8.5, color=INK_MUTED, va="top")
 
-    # ========== Panel 2: Category Contribution (right) ==========
-    # Right panel rows: TOTAL at bottom (index 0), then categories reversed
-    right_cat_rows = cat_rows[::-1]
-    total_row = ("TOTAL", total_correct, total_subs, total_dels, total_ins)
-    right_rows = [total_row] + right_cat_rows
-    right_labels = [r[0] for r in right_rows]
-    right_y = range(len(right_labels))
+        # Accuracy figure — the row's headline number, full ink
+        txt(X_ACC, y_mid, f"{acc:.0f}%" if acc is not None else "—", 15, weight="bold")
 
-    # (S+I+D) / total_ref_tokens
-    er_of_total = []
-    for r in right_rows:
-        errors = r[2] + r[3] + r[4]
-        er_of_total.append((errors / total_ref * 100) if total_ref > 0 else 0)
+        # Contribution dot-and-stem
+        contrib = contribution_pct(row)
+        frac = contrib / max_contrib if max_contrib > 0 else 0
+        x_end = X_DOT0 + frac * (X_DOT1 - X_DOT0)
+        ax.plot([X_DOT0, X_DOT1], [y_mid, y_mid], color=HAIRLINE, linewidth=1.0)
+        ax.plot([X_DOT0, x_end], [y_mid, y_mid], color=INK, linewidth=1.6)
+        ax.plot([x_end], [y_mid], marker="o", markersize=8, color=ACCENT,
+                markeredgecolor=INK, markeredgewidth=0.8)
+        txt(x_end + 0.012, y_mid, f"{contrib:.1f}%", 11.5, weight="600")
 
-    # Stacked sub/del/ins with matching colors
-    tot_sub_pct = []
-    tot_del_pct = []
-    tot_ins_pct = []
-    for r in right_rows:
-        tot_sub_pct.append((r[2] / total_ref * 100) if total_ref > 0 else 0)
-        tot_del_pct.append((r[3] / total_ref * 100) if total_ref > 0 else 0)
-        tot_ins_pct.append((r[4] / total_ref * 100) if total_ref > 0 else 0)
+    y_cursor = fig_h - header_h - row_h / 2
+    for row in rows:
+        draw_row(y_cursor, row)
+        y_cursor -= row_h
 
-    ax3.barh(right_y, tot_sub_pct, color=COLOR_SUBSTITUTION)
-    ax3.barh(right_y, tot_del_pct, left=tot_sub_pct, color=COLOR_DELETION)
-    ax3.barh(
-        right_y,
-        tot_ins_pct,
-        left=[s + d for s, d in zip(tot_sub_pct, tot_del_pct)],
-        color=COLOR_INSERTION,
+    # TOTAL row under a heavier rule
+    ax.plot(
+        [X_NAME, X_RIGHT],
+        [y_cursor + row_h / 2 - 0.02, y_cursor + row_h / 2 - 0.02],
+        color=INK,
+        linewidth=1.0,
     )
-    ax3.set_yticks(right_y)
-    ax3.set_yticklabels(right_labels, fontsize=10)
-    ax3.set_xlabel("%", fontsize=10)
-    total_er_pct = er_of_total[0]  # TOTAL row is index 0
-    ax3.set_title(
-        f"Category Contribution to {total_er_pct:.1f}% WER_SCRIBE",
-        fontsize=11,
-        fontweight="bold",
+    draw_row(y_cursor, total_row, emphasize=True)
+
+    # ---- Footer ----
+    foot_y = y_cursor - row_h / 2 - 0.18
+    ax.plot([X_NAME, X_RIGHT], [foot_y + 0.14, foot_y + 0.14], color=HAIRLINE, linewidth=1.0)
+    txt(
+        X_NAME,
+        foot_y - 0.08,
+        "Bars are normalized within each category; error rates use the combined "
+        "denominator (all reference tokens). Generated by scribe-eval.",
+        8.5,
+        color=INK_MUTED,
+        va="top",
     )
-    ax3.set_xlim(0, max(er_of_total + [10]) * 1.2)
-
-    for i, val in enumerate(er_of_total):
-        ax3.text(val + 0.3, i, f"{val:.1f}%", va="center", fontsize=9)
-
-    # Separator between TOTAL and category rows
-    ax3.axhline(y=0.5, color="gray", linewidth=0.8, linestyle="--")
-
-    # Constrained layout (set on the figure above) handles suptitle
-    # placement automatically; let it position the title inside the
-    # reserved top region rather than at y=1.02.
-    fig.suptitle(title, fontsize=15, fontweight="bold")
 
     if output_path:
-        fig.savefig(output_path, bbox_inches="tight", dpi=150)
+        fig.savefig(output_path, bbox_inches="tight", dpi=96, facecolor=fig.get_facecolor())
         plt.close(fig)
         return None
     return fig
