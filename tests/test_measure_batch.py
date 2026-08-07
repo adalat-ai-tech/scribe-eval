@@ -429,13 +429,13 @@ def test_sequential_evaluation_streams_the_iterable(monkeypatch):
     import scribe.measure_batch as mb
 
     evaluated = []
-    real_rates = mb.text_error_rates
+    real_rates = mb.token_error_rates
 
     def counting_rates(*args, **kwargs):
         evaluated.append(1)
         return real_rates(*args, **kwargs)
 
-    monkeypatch.setattr(mb, "text_error_rates", counting_rates)
+    monkeypatch.setattr(mb, "token_error_rates", counting_rates)
 
     evaluated_when_second_pulled = []
 
@@ -458,3 +458,52 @@ def test_default_field_names_follow_nemo_convention():
     records = [{"text": "one two", "pred_text": "one too"}]
     results = evaluate_records(records)
     assert results[0]["detailed_report"]["LEXICAL"]["substitutions"] == 1
+
+
+def test_batch_reports_match_direct_text_error_rates(sample_jsonl, legal_domain):
+    """_evaluate_one runs the pipeline stages itself (to share one
+    tokenization across metrics); its per-sample reports must stay
+    identical to direct text_error_rates calls."""
+    from scribe import text_error_rates
+
+    results = compute_sample_errors(str(sample_jsonl), domain_config=legal_domain)
+    with sample_jsonl.open(encoding="utf-8") as f:
+        records = [json.loads(line) for line in f]
+
+    for rec, res in zip(records, results):
+        direct = text_error_rates(rec["text"], rec["pred_text"], legal_domain)
+        assert res["detailed_report"] == direct
+
+
+def test_cer_block_present_and_micro_averaged():
+    """Each result carries a reserved cer block; aggregates sum char
+    counts and divide once (micro-average), never averaging rates.
+
+    Hand-computed: s1 'ab cd'->'ab cd' (0 errors / 5 chars),
+    s2 'ab'->'ax' (1 error / 2 chars) => overall CER 1/7, not the
+    rate-average (0 + 0.5)/2."""
+    records = [
+        {"text": "ab cd", "pred_text": "ab cd", "source_dataset": "d1"},
+        {"text": "ab", "pred_text": "ax", "source_dataset": "d2"},
+    ]
+    results = evaluate_records(records)
+    assert results[0]["cer_scribe"]["char_errors"] == 0
+    assert results[1]["cer_scribe"]["char_errors"] == 1
+
+    agg = compute_aggregate_metrics(results)
+    cer = agg["cer_scribe"]
+    assert cer["overall"]["char_errors"] == 1
+    assert cer["overall"]["ref_chars"] == 7
+    assert cer["overall"]["cer_scribe"] == pytest.approx(1 / 7)
+    assert cer["by_dataset"]["d2"]["cer_scribe"] == pytest.approx(1 / 2)
+
+
+def test_aggregates_without_cer_blocks_omit_the_key():
+    """Results built without cer blocks (older shape, hand-assembled
+    aggregates) do not produce a cer entry — reporting then omits the
+    CER column."""
+    from scribe import text_error_rates
+
+    report = text_error_rates("a b", "a b", None)
+    agg = compute_aggregate_metrics([{"detailed_report": report, "source_dataset": "x"}])
+    assert "cer_scribe" not in agg

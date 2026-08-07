@@ -5,13 +5,15 @@ from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 from typing import Optional
 
+from .align import align_arrays
 from .constants import (
     calculate_combined_total,
     init_stat_dict,
 )
 from .domain_config import DomainConfig
-from .measure import text_error_details, text_error_rates
+from .measure import _cer_scribe_from_tokens, token_error_details, token_error_rates
 from .reporting import format_summary_lines
+from .tokenize import domain_aware_tokenizer
 
 
 def _validate_record(record, ref_field, hyp_field) -> Optional[str]:
@@ -84,11 +86,20 @@ def _evaluate_one(
     ref = data[ref_field]
     hyp = data[hyp_field]
 
-    report = text_error_rates(ref, hyp, domain_config, normalize, use_sandhi)
-    data["detailed_report"] = report
+    # Run the pipeline stages explicitly so one tokenization pass feeds
+    # the token metrics, the character error rate, and (when requested)
+    # the error details.
+    ref_tokens, ref_tags = domain_aware_tokenizer(ref, domain_config)
+    hyp_tokens, hyp_tags = domain_aware_tokenizer(hyp, domain_config)
+    aligned_ref, aligned_hyp, _ = align_arrays(
+        ref_tokens, ref_tags, hyp_tokens, hyp_tags, use_sandhi=use_sandhi
+    )
+
+    data["detailed_report"] = token_error_rates(aligned_ref, aligned_hyp, domain_config, normalize)
+    data["cer_scribe"] = _cer_scribe_from_tokens(ref_tokens, ref_tags, hyp_tokens, hyp_tags, normalize)
 
     if collect_error_details:
-        data["error_details"] = text_error_details(ref, hyp, domain_config, normalize, use_sandhi)
+        data["error_details"] = token_error_details(aligned_ref, aligned_hyp, normalize)
 
     return data
 
@@ -360,10 +371,47 @@ def compute_aggregate_metrics(
             }
         return metrics
 
-    return {
+    result = {
         "overall": calculate_rates(overall_agg),
         "by_dataset": {ds: calculate_rates(stats) for ds, stats in dataset_aggs.items()},
     }
+
+    # CER_SCRIBE aggregates (micro-averaged: summed counts, divided
+    # once). Carried under a separate "cer_scribe" key — never inside the category
+    # metrics, where an unknown key would read as a domain category.
+    def _zero():
+        return {
+            "char_errors": 0,
+            "ref_chars": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+        }
+
+    cer_overall = _zero()
+    cer_datasets = defaultdict(_zero)
+    has_cer = False
+    for res in sample_results:
+        block = res.get("cer_scribe")
+        if not block:
+            continue
+        has_cer = True
+        ds = res.get("source_dataset", "unknown")
+        for target in (cer_overall, cer_datasets[ds]):
+            for key in ("char_errors", "ref_chars", "substitutions", "deletions", "insertions"):
+                target[key] += block[key]
+
+    if has_cer:
+
+        def _with_rate(counts):
+            return {**counts, "cer_scribe": counts["char_errors"] / max(1, counts["ref_chars"])}
+
+        result["cer_scribe"] = {
+            "overall": _with_rate(cer_overall),
+            "by_dataset": {ds: _with_rate(c) for ds, c in cer_datasets.items()},
+        }
+
+    return result
 
 
 def print_evaluation_summary(agg_results) -> None:

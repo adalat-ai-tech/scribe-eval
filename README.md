@@ -48,6 +48,7 @@ print(f"ER_NUM: {report['NUMERAL']['error_rate']:.2%}")
 - **Domain-aware tokenization** — shield domain terms from punctuation splitting; track errors separately
 - **Sandhi correction detection** — identifies merged/split words common in Indic ASR
 - **Normalized error rates** — combined denominator prevents misleading metrics for sparse categories
+- **CER_SCRIBE** — character error rate on normalized token streams; format variants cost nothing, and it needs no sandhi machinery to be robust to agglutination
 - **Batch evaluation** — evaluate in-memory records (`evaluate_records`) or JSONL files with per-sample detail and dataset-level aggregation
 - **Interactive visualizer** — Streamlit UI with color-coded alignment, WER_SCRIBE/Accuracy metric tiles, category breakdown chart, frequent-error tables, and per-sample drill-down
 

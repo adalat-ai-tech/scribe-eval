@@ -53,6 +53,7 @@ def category_breakdown_chart(
     contributions: dict[str, dict],
     output_path: Optional[str] = None,
     title: str = "ASR Error Analysis by Category",
+    cer_scribe: Optional[float] = None,
 ) -> Optional[object]:
     """
     Generate a typographic report-card figure of the category breakdown.
@@ -70,6 +71,8 @@ def category_breakdown_chart(
             correct, substitutions, deletions, insertions, ref_tokens.
         output_path: If provided, save as PNG/PDF. If None, return figure.
         title: Overall figure title
+        cer_scribe: Optional CER_SCRIBE rate shown in the header
+            subtitle beside WER_SCRIBE
 
     Returns:
         matplotlib Figure object, or None if saved to file.
@@ -146,13 +149,10 @@ def category_breakdown_chart(
     y = fig_h - 0.42
     ax.add_patch(Rectangle((X_NAME, y + 0.13), 0.045, 0.075, color=ACCENT))
     txt(X_NAME, y - 0.28, title, 21, weight="bold")
-    txt(
-        X_NAME,
-        y - 0.80,
-        f"{total_ref:,} reference tokens   ·   WER_SCRIBE {wer_scribe_pct:.1f}%",
-        12.5,
-        color=INK_MUTED,
-    )
+    subtitle = f"{total_ref:,} reference tokens   ·   WER_SCRIBE {wer_scribe_pct:.1f}%"
+    if cer_scribe is not None:
+        subtitle += f"   ·   CER_SCRIBE {cer_scribe * 100:.1f}%"
+    txt(X_NAME, y - 0.80, subtitle, 12.5, color=INK_MUTED)
 
     # Inline color key (wash swatch with the strong edge, like the bars)
     key_y = y - 1.28

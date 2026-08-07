@@ -73,7 +73,7 @@ def resolve_domain(value: str):
     )
 
 
-def print_analysis(summary, domain_config, top_n):
+def print_analysis(summary, domain_config, top_n, cer_scribe=None):
     """Print detailed error analysis to console."""
     print("\n" + "=" * 85)
     print("DETAILED ERROR ANALYSIS")
@@ -82,7 +82,10 @@ def print_analysis(summary, domain_config, top_n):
     # 1. Overall rates
     wer_scribe = summary["wer_scribe"]
     correct_pct = summary["total_correct_pct"]
-    print(f"\nOverall: {correct_pct:.1f}% correct | {wer_scribe:.2%} WER_SCRIBE")
+    line = f"\nOverall: {correct_pct:.1f}% correct | {wer_scribe:.2%} WER_SCRIBE"
+    if cer_scribe is not None:
+        line += f" | {cer_scribe:.2%} CER_SCRIBE"
+    print(line)
 
     # 2. Category Breakdown (correct/sub/del/ins per category)
     print("\n--- Token Breakdown by Category ---")
@@ -127,7 +130,7 @@ def print_analysis(summary, domain_config, top_n):
     print("\n" + "=" * 85)
 
 
-def save_analysis_to_file(summary, output_path, domain_config, top_n):
+def save_analysis_to_file(summary, output_path, domain_config, top_n, cer_scribe=None):
     """Save analysis report to a text file."""
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("DETAILED ERROR ANALYSIS\n")
@@ -135,7 +138,10 @@ def save_analysis_to_file(summary, output_path, domain_config, top_n):
 
         wer_scribe = summary["wer_scribe"]
         correct_pct = summary["total_correct_pct"]
-        f.write(f"\nOverall: {correct_pct:.1f}% correct | {wer_scribe:.2%} WER_SCRIBE\n")
+        line = f"\nOverall: {correct_pct:.1f}% correct | {wer_scribe:.2%} WER_SCRIBE"
+        if cer_scribe is not None:
+            line += f" | {cer_scribe:.2%} CER_SCRIBE"
+        f.write(line + "\n")
 
         f.write("\n--- Token Breakdown by Category ---\n")
         contrib_rows = format_contribution_table(summary["contributions"])
@@ -351,11 +357,14 @@ Examples:
             summary = compute_error_summary(metrics["overall"], all_error_details, top_n=args.top_n)
 
             # Print to console
-            print_analysis(summary, domain_config, args.top_n)
+            overall_cer = metrics.get("cer_scribe", {}).get("overall", {}).get("cer_scribe")
+            print_analysis(summary, domain_config, args.top_n, cer_scribe=overall_cer)
 
             # Save analysis report
             analysis_output = output_dir / "analysis_report.txt"
-            save_analysis_to_file(summary, str(analysis_output), domain_config, args.top_n)
+            save_analysis_to_file(
+                summary, str(analysis_output), domain_config, args.top_n, cer_scribe=overall_cer
+            )
             print(f"Analysis report saved to: {analysis_output}")
 
             # Save charts if requested
@@ -364,7 +373,11 @@ Examples:
                     from scribe.charts import category_breakdown_chart
 
                     breakdown_path = str(output_dir / "category_breakdown.png")
-                    category_breakdown_chart(summary["contributions"], output_path=breakdown_path)
+                    category_breakdown_chart(
+                        summary["contributions"],
+                        output_path=breakdown_path,
+                        cer_scribe=overall_cer,
+                    )
                     print(f"Category breakdown chart saved to: {breakdown_path}")
 
                 except ImportError:
