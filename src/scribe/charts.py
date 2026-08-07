@@ -28,19 +28,24 @@ def _check_matplotlib():
 
 # Editorial palette — matches the visualizer design system
 # (.streamlit theme + inject_custom_css tokens).
-PAPER = "#FAF7F2"
-INK = "#1C1B1A"
-INK_MUTED = "#6B675F"
-HAIRLINE = "#DDD6C9"
-ACCENT = "#3A3D8F"
+PAPER = "#F0EFEC"  # toned-down canvas so segment colors sit softer
+INK = "#171717"
+INK_MUTED = "#605D53"
+HAIRLINE = "#DEDDD9"
+ACCENT = "#FDB72E"  # Adalat marigold — marks only, never text
 
-# Segment colors (consistent across all charts)
-COLOR_CORRECT = "#4A7C59"  # muted green
-COLOR_SUBSTITUTION = "#A6453C"  # muted brick
-COLOR_DELETION = "#B07D2E"  # muted ochre
-COLOR_INSERTION = "#56679A"  # muted slate indigo
+# Outcome colors (identical to the visualizer alignment cells):
+# each outcome renders as a soft wash fill with a strong edge strip,
+# echoing the cell tint + underline motif.
+COLOR_CORRECT = "#3E8E5A"  # match green
+COLOR_SUBSTITUTION = "#D64545"  # substitution red
+COLOR_DELETION = "#B4551D"  # deletion burnt orange
+COLOR_INSERTION = "#3B6FD4"  # insertion blue
+WASH_CORRECT = "#D9EBDF"
+WASH_SUBSTITUTION = "#F6D9D9"
+WASH_DELETION = "#F0DCC8"
+WASH_INSERTION = "#D9E4F7"
 
-SERIF = "serif"
 SANS = "sans-serif"
 
 
@@ -120,7 +125,7 @@ def category_breakdown_chart(
     header_h = 2.75
     footer_h = 0.7
     fig_h = header_h + n_rows * row_h + footer_h
-    fig = plt.figure(figsize=(13, fig_h), dpi=110)
+    fig = plt.figure(figsize=(13, fig_h), dpi=72)
     fig.set_facecolor(PAPER)
     ax = fig.add_axes([0, 0, 1, 1])
     ax.set_xlim(0, 1)
@@ -140,7 +145,7 @@ def category_breakdown_chart(
     # ---- Header block ----
     y = fig_h - 0.42
     ax.add_patch(Rectangle((X_NAME, y + 0.13), 0.045, 0.075, color=ACCENT))
-    txt(X_NAME, y - 0.28, title, 21, weight="bold", family=SERIF)
+    txt(X_NAME, y - 0.28, title, 21, weight="bold")
     txt(
         X_NAME,
         y - 0.80,
@@ -149,16 +154,17 @@ def category_breakdown_chart(
         color=INK_MUTED,
     )
 
-    # Inline color key
+    # Inline color key (wash swatch with the strong edge, like the bars)
     key_y = y - 1.28
     key_x = X_NAME
-    for label, color in (
-        ("Match", COLOR_CORRECT),
-        ("Substitutions", COLOR_SUBSTITUTION),
-        ("Deletions", COLOR_DELETION),
-        ("Insertions", COLOR_INSERTION),
+    for label, color, wash in (
+        ("Match", COLOR_CORRECT, WASH_CORRECT),
+        ("Substitutions", COLOR_SUBSTITUTION, WASH_SUBSTITUTION),
+        ("Deletions", COLOR_DELETION, WASH_DELETION),
+        ("Insertions", COLOR_INSERTION, WASH_INSERTION),
     ):
-        ax.add_patch(Rectangle((key_x, key_y - 0.045), 0.011, 0.10, color=color))
+        ax.add_patch(Rectangle((key_x, key_y - 0.045), 0.011, 0.10, color=wash))
+        ax.add_patch(Rectangle((key_x, key_y - 0.045), 0.011, 0.028, color=color))
         txt(key_x + 0.017, key_y, label, 10.5, color=INK)
         key_x += 0.017 + 0.012 * len(label) + 0.025
 
@@ -186,20 +192,28 @@ def category_breakdown_chart(
             color=INK_MUTED,
         )
 
-        # Normalized outcome bar (share of touched tokens)
+        # Normalized outcome bar: wash fill + strong edge strip per
+        # segment — the same tint-and-underline motif as the alignment
+        # cells in the visualizer.
         bar_h = 0.30
+        edge_h = 0.065
         if touched > 0:
             x = X_BAR0
-            for count, color in (
-                (cor, COLOR_CORRECT),
-                (sub, COLOR_SUBSTITUTION),
-                (dl, COLOR_DELETION),
-                (ins, COLOR_INSERTION),
+            for count, color, wash in (
+                (cor, COLOR_CORRECT, WASH_CORRECT),
+                (sub, COLOR_SUBSTITUTION, WASH_SUBSTITUTION),
+                (dl, COLOR_DELETION, WASH_DELETION),
+                (ins, COLOR_INSERTION, WASH_INSERTION),
             ):
                 w = (count / touched) * (X_BAR1 - X_BAR0)
                 if w > 0:
                     ax.add_patch(
-                        Rectangle((x, y_mid - bar_h / 2), w, bar_h, color=color, linewidth=0)
+                        Rectangle((x, y_mid - bar_h / 2), w, bar_h, color=wash, linewidth=0)
+                    )
+                    ax.add_patch(
+                        Rectangle(
+                            (x, y_mid - bar_h / 2), w, edge_h, color=color, linewidth=0
+                        )
                     )
                     x += w
             txt(
@@ -228,8 +242,9 @@ def category_breakdown_chart(
         frac = contrib / max_contrib if max_contrib > 0 else 0
         x_end = X_DOT0 + frac * (X_DOT1 - X_DOT0)
         ax.plot([X_DOT0, X_DOT1], [y_mid, y_mid], color=HAIRLINE, linewidth=1.0)
-        ax.plot([X_DOT0, x_end], [y_mid, y_mid], color=ACCENT, linewidth=2.2)
-        ax.plot([x_end], [y_mid], marker="o", markersize=7, color=ACCENT)
+        ax.plot([X_DOT0, x_end], [y_mid, y_mid], color=INK, linewidth=1.6)
+        ax.plot([x_end], [y_mid], marker="o", markersize=8, color=ACCENT,
+                markeredgecolor=INK, markeredgewidth=0.8)
         txt(x_end + 0.012, y_mid, f"{contrib:.1f}%", 11.5, weight="600")
 
     y_cursor = fig_h - header_h - row_h / 2
@@ -260,7 +275,7 @@ def category_breakdown_chart(
     )
 
     if output_path:
-        fig.savefig(output_path, bbox_inches="tight", dpi=150, facecolor=fig.get_facecolor())
+        fig.savefig(output_path, bbox_inches="tight", dpi=96, facecolor=fig.get_facecolor())
         plt.close(fig)
         return None
     return fig

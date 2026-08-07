@@ -103,23 +103,28 @@ def inject_custom_css():
     st.markdown(
         """
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Source+Sans+3:wght@400;600&family=Noto+Sans+Malayalam:wght@400;600&family=Noto+Sans+Kannada:wght@400;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Geist:wght@500;600&family=Inter:wght@400;600&family=Noto+Sans+Malayalam:wght@400;600&family=Noto+Sans+Kannada:wght@400;600&display=swap');
 
         :root {
-            --paper: #FAF7F2;
-            --paper-2: #F1EDE5;
-            --hairline: #DDD6C9;
-            --ink: #1C1B1A;
-            --ink-muted: #6B675F;
-            --accent: #3A3D8F;
-            --accent-wash: #EEEFF7;
-            --ok: #4A7C59;
-            --err: #A6453C;
-            --warn: #B07D2E;
-            --serif: 'Fraunces', Georgia, serif;
-            --sans: 'Source Sans 3', 'Noto Sans Malayalam',
+            --paper: #F9F9F9;
+            --paper-2: #F2F2F1;
+            --hairline: #DEDDD9;
+            --ink: #171717;
+            --ink-muted: #605D53;
+            --brand: #FDB72E;
+            --brand-wash: #FCEEC9;
+            --ok: #3E8E5A;
+            --ok-wash: #D9EBDF;
+            --err: #D64545;
+            --err-wash: #F6D9D9;
+            --del: #B4551D;
+            --del-wash: #F0DCC8;
+            --ins: #3B6FD4;
+            --ins-wash: #D9E4F7;
+            --display: 'Geist', 'Inter', -apple-system, sans-serif;
+            --sans: 'Inter', 'Noto Sans Malayalam',
                 'Noto Sans Kannada', -apple-system, sans-serif;
-            --token: 'Source Sans 3', 'Noto Sans Malayalam', 'Noto Sans Kannada', sans-serif;
+            --token: 'Inter', 'Noto Sans Malayalam', 'Noto Sans Kannada', sans-serif;
         }
 
         html, body, .stApp, [data-testid="stSidebar"] {
@@ -132,12 +137,12 @@ def inject_custom_css():
             border-right: 1px solid var(--hairline);
         }
 
-        /* Headings: serif display in the main pane */
+        /* Headings: grotesque display in the main pane */
         .stApp h1, .stApp h2, .stApp h3 {
-            font-family: var(--serif);
+            font-family: var(--display);
             font-weight: 600;
             color: var(--ink);
-            letter-spacing: 0;
+            letter-spacing: -0.01em;
         }
 
         /* Sidebar headers become small-caps editorial labels */
@@ -159,7 +164,7 @@ def inject_custom_css():
             margin-bottom: 1.4rem;
         }
         .masthead .wordmark {
-            font-family: var(--serif);
+            font-family: var(--display);
             font-size: 2.6rem;
             font-weight: 600;
             letter-spacing: 0.01em;
@@ -172,7 +177,15 @@ def inject_custom_css():
             color: var(--ink-muted);
             margin-top: 0.15rem;
         }
-        .masthead .tagline .rule-accent { color: var(--accent); }
+        .masthead .tagline .rule-accent { color: var(--brand); }
+        .masthead .wordmark::before {
+            content: "";
+            display: block;
+            width: 44px;
+            height: 5px;
+            background: var(--brand);
+            margin-bottom: 0.55rem;
+        }
 
         /* Tabs: quiet underline navigation */
         .stTabs [data-baseweb="tab-list"] { gap: 1.6rem; border-bottom: 1px solid var(--hairline); }
@@ -182,7 +195,10 @@ def inject_custom_css():
             color: var(--ink-muted);
             background: transparent;
         }
-        .stTabs [aria-selected="true"] { color: var(--accent); }
+        .stTabs [aria-selected="true"] {
+            color: var(--ink);
+            border-bottom: 3px solid var(--brand);
+        }
 
         /* Expanders and inputs on paper surfaces */
         [data-testid="stExpander"] {
@@ -212,23 +228,25 @@ def inject_custom_css():
             letter-spacing: 0.08em; opacity: 0.55; margin-top: 4px; display: block;
         }
 
-        .s-correct { background-color: #EDF2EC; color: #2F4A38; }
-        .s-sub     { background-color: #F4E6E3; color: #6E2F28; }
-        .s-ins, .s-del { background-color: #F4ECDC; color: #6B4C1B; }
+        .s-correct { background-color: var(--ok-wash); color: #24593A; }
+        .s-sub     { background-color: var(--err-wash); color: #8C2B2B; }
+        .s-del     { background-color: var(--del-wash); color: #7A3A12; }
+        .s-ins     { background-color: var(--ins-wash); color: #24479B; }
         .s-merge {
-            background-color: var(--accent-wash); color: var(--accent);
-            border: 1px solid var(--accent) !important;
+            background-color: var(--brand-wash); color: var(--ink);
+            border: 1px solid var(--brand) !important;
         }
 
-        .t-LEXICAL { border: 1px solid var(--hairline); border-bottom: 3px solid var(--ok); }
-        .t-NUMERAL { border: 1px solid var(--hairline); border-bottom: 3px solid var(--err); }
+        /* Category: neutral underline for base categories; the brand
+           marigold marks the domain category only. */
+        .t-LEXICAL, .t-NUMERAL { border: 1px solid var(--hairline); }
         .t-PUNCT {
             border: 1px solid var(--hairline);
-            border-bottom: 3px dashed var(--ink-muted);
+            border-bottom: 2px dashed var(--ink-muted);
         }
         .t-LEGAL, .t-MEDICAL, .t-TECH {
             border: 1px solid var(--hairline);
-            border-bottom: 3px solid var(--accent);
+            border-bottom: 3px solid var(--brand);
         }
 
         .jiwer-table td.token-cell { border: 1px solid var(--hairline); }
@@ -237,8 +255,8 @@ def inject_custom_css():
             border: 1px solid var(--hairline); border-radius: 4px;
             padding: 15px; background-color: var(--paper); color: var(--ink);
         }
-        .metric-value { font-size: 24px; font-weight: 600; color: var(--accent); }
-        .metric-legal { color: var(--accent); margin: 10px 0; }
+        .metric-value { font-size: 24px; font-weight: 600; color: var(--ink); }
+        .metric-legal { color: var(--ink); margin: 10px 0; }
         .jiwer-metric { color: var(--ink-muted); }
         .metric-secondary { font-size: 20px; color: var(--ink); }
     </style>
@@ -317,7 +335,7 @@ def render_category_analysis(summary, domain_config):
     if HAS_CHARTS:
         fig = category_breakdown_chart(summary["contributions"], output_path=None)
         if fig is not None:
-            st.pyplot(fig, width="stretch")
+            st.pyplot(fig, width="content")
     else:
         st.info("Install matplotlib to see the category breakdown chart: `uv add matplotlib`")
 
@@ -387,8 +405,10 @@ def render_analysis(ref_text, hyp_text, weights, domain_config, normalize=True, 
             "Insertions and Sandhi corrections affects the reference token count."
         ),
     )
-    st.caption(" + ".join(category_chips) + f"  =  {wer_scribe_frac:.2%}")
-    st.caption(f"Sandhis: {rates['sandhi']}")
+    st.caption(
+        " + ".join(category_chips)
+        + f"  =  {wer_scribe_frac:.2%}   ·   {rates['sandhi']} sandhi matches"
+    )
     st.markdown(generate_alignment_html(a_ref, a_hyp, normalize), unsafe_allow_html=True)
 
     st.markdown("---")
@@ -413,7 +433,7 @@ def render_analysis(ref_text, hyp_text, weights, domain_config, normalize=True, 
                 title="ASR Error Analysis by Category (single sample)",
             )
             if fig is not None:
-                st.pyplot(fig, width="stretch")
+                st.pyplot(fig, width="content")
         else:
             st.info("Install matplotlib to see the category breakdown chart: `uv add matplotlib`")
 
@@ -762,8 +782,11 @@ with tab_json:
                 "and Sandhi corrections are tracked separately."
             ),
         )
-        st.caption(" + ".join(overall_chips) + f"  =  {overall_wer_scribe:.2%}")
-        st.caption(f"Sandhis: {overall_rates['sandhi']}  ·  Total Ref Tokens: {total_ref:,}")
+        st.caption(
+            " + ".join(overall_chips)
+            + f"  =  {overall_wer_scribe:.2%}   ·   {overall_rates['sandhi']} sandhi matches"
+            + f"   ·   {total_ref:,} ref tokens"
+        )
 
         st.markdown("---")
 
