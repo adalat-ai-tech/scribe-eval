@@ -120,6 +120,9 @@ from .reporting import (
     format_alignment_table as format_alignment_table,
 )
 from .reporting import (
+    format_category_chips as format_category_chips,
+)
+from .reporting import (
     format_contribution_table as format_contribution_table,
 )
 from .reporting import (

@@ -55,7 +55,7 @@ aligned_ref, aligned_hyp, _ = align_arrays(t1, g1, t2, g2)
 
 # 3. measure (rates and per-token error records)
 rates   = token_error_rates(aligned_ref, aligned_hyp, domain)
-details = token_error_details(aligned_ref, aligned_hyp, domain)
+details = token_error_details(aligned_ref, aligned_hyp)
 # details: [{"error_type": "substitution", "category": "NUMERAL",
 #            "ref_token": "302", "hyp_token": "303"}, ...]
 ```

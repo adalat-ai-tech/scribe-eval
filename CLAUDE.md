@@ -103,9 +103,9 @@ The visualizer provides:
    - Configurable weights via DEFAULT_WEIGHTS dict
 
 3. **Measurement** (`src/scribe/measure.py`)
-   - `token_error_rates(aligned_ref, aligned_hyp, domain_config=None, normalize=True)`: Computes category-specific error rates from aligned tokens; sandhi handling is decided at alignment time (it counts the MERGE:/SPLIT: markers align_arrays emitted)
+   - `token_error_rates(aligned_ref, aligned_hyp, domain_config=None, normalize=True)`: Computes category-specific error rates from aligned tokens; sandhi handling is decided at alignment time (it counts the MERGE:/SPLIT: markers align_arrays emitted). Categories are data-driven: base (and configured domain) categories are pre-seeded, and any further tag found in the aligned tokens is counted under its own category — never silently dropped from the counts or the combined denominator
    - `text_error_rates(ref_text, hyp_text, domain_config=None, normalize=True, use_sandhi=True)`: End-to-end pipeline from raw text to error metrics
-   - `token_error_details(aligned_ref, aligned_hyp, domain_config=None, normalize=True)`: Returns flat list of individual error records (substitution/insertion/deletion) per aligned token pair — used for frequent-error analysis
+   - `token_error_details(aligned_ref, aligned_hyp, normalize=True)`: Returns flat list of individual error records (substitution/insertion/deletion) per aligned token pair — used for frequent-error analysis; categories come from the aligned tags, no domain config needed
    - `text_error_details(ref_text, hyp_text, domain_config=None, normalize=True, use_sandhi=True)`: End-to-end pipeline from raw text to error detail records
    - `use_sandhi=False` disables Sandhi split/merge detection — useful for non-agglutinative languages
    - **Normalized error rates**: Uses combined denominator (sum of all category totals) across all categories to prevent misleading sparse-category metrics
@@ -146,7 +146,8 @@ The visualizer provides:
    - `extract_error_rates()`: Extract raw numeric error rates (er_lex/er_domain/er_num/er_punct/sandhi) for UI components
    - `format_dataset_table()`: Create dataset-level summary tables
    - `format_error_counts_table()`: Format error counts by category
-   - `format_contribution_table(contributions)`: Category breakdown table with columns: Category, Ref Tokens, Exact Match, Accuracy, Sub, Del, Ins, Errors, Error Rate (S+I+D/category_ref), Impact on Total (S+I+D/total_ref)
+   - `format_contribution_table(contributions)`: Category breakdown table with columns: Category, Ref Tokens, Exact Match, Accuracy, Sub, Del, Ins, Errors, Error Rate (S+I+D/category_ref), Impact on Total (S+I+D/total_ref); percentage cells read N/A for token-less categories
+   - `format_category_chips(contributions, domain_display)`: "Lexical Tokens 5.40%" chips in canonical order; token-less categories omitted (used by the visualizer captions)
    - `format_frequent_errors_table(freq_data, error_type, top_n)`: Frequent error table rows; substitutions include Rank/Category/Reference/Hypothesis/Count, deletions/insertions include Rank/Category/Token/Count
    - `format_alignment_table()`: Visual alignment display with match indicators
    - `format_alignment_dict()`: Shared error detection logic returning structured data
@@ -163,6 +164,8 @@ The visualizer provides:
 **Category-Specific Gap Penalties**: Punctuation errors receive lighter penalties than word/legal/numeral errors in the alignment scoring, reflecting their lower semantic importance.
 
 **Shared Reporting Module**: The `reporting.py` module eliminates code duplication between CLI tools and the Streamlit web UI by providing common formatting functions. This ensures consistent output presentation across all interfaces.
+
+**N/A Means Nothing To Measure**: In formatted tables (`format_metrics_dict`, summary lines, `format_contribution_table` percentage cells), a category with zero reference tokens and zero errors renders as "N/A" — 0.00% never means "nothing was tested". Category chips (`format_category_chips`) omit such categories entirely, since the chips caption is a sum equal to WER_SCRIBE. A hallucination-only category (insertions with no reference tokens) still shows its rate/chip. The domain config's role at measurement time is intent declaration: its category is seeded into per-sample reports so the ER_DOMAIN column appears (as N/A) even when the data contains no domain tokens.
 
 **Two Error Rate Columns**: Category analysis tables expose two complementary rates:
 - **Error Rate**: `(S+I+D) / category_ref_tokens` — how accurately the model handles this category in isolation

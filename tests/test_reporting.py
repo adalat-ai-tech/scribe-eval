@@ -30,11 +30,13 @@ def test_format_metrics_dict_returns_expected_keys(legal_domain):
     report = _basic_report(legal_domain)
     formatted = format_metrics_dict(report)
     assert isinstance(formatted, dict)
-    # Headline rate keys are formatted as percent strings.
-    for key in ("ER_LEX", "ER_NUM", "ER_PUNCT", "ER_DOMAIN", "WER_SCRIBE"):
+    # Categories with tokens are percent strings; the fixture has no
+    # punctuation, so ER_PUNCT reads N/A (not a fake-perfect 0.00%).
+    for key in ("ER_LEX", "ER_NUM", "ER_DOMAIN", "WER_SCRIBE"):
         assert key in formatted
         assert isinstance(formatted[key], str)
         assert formatted[key].endswith("%")
+    assert formatted["ER_PUNCT"] == "N/A"
     assert "Sandhi" in formatted
     assert "Total" in formatted
 
@@ -48,6 +50,33 @@ def test_format_metrics_dict_without_domain_config():
         assert key in formatted
     assert "ER_DOMAIN" not in formatted
     assert "LER" not in formatted
+
+
+def test_seeded_domain_with_no_tokens_reports_na(tmp_path, legal_domain):
+    """The domain config declares intent: measuring with the legal
+    config on text containing no legal tokens still produces the
+    ER_DOMAIN column — rendered N/A, not a fake-perfect 0.00%."""
+    report = text_error_rates("the case is closed", "the case was closed", legal_domain)
+
+    formatted = format_metrics_dict(report)
+    assert formatted["ER_DOMAIN"] == "N/A"
+
+    agg = {"overall": report, "by_dataset": {"court": report}}
+    out = tmp_path / "summary.txt"
+    write_summary_to_file(agg, str(out))
+    content = out.read_text(encoding="utf-8")
+    # The column exists (intent visible) and its cells read N/A.
+    assert "ER_DOMAIN" in content
+
+
+def test_hallucinated_category_shows_rate_not_na(legal_domain):
+    """A category with zero reference tokens but real errors (the ASR
+    hallucinated a legal term) shows its rate — N/A is only for
+    nothing-to-measure-and-nothing-happened."""
+    report = text_error_rates("charged 302", "charged u/s 302", legal_domain)
+    formatted = format_metrics_dict(report)
+    assert formatted["ER_DOMAIN"] != "N/A"
+    assert formatted["ER_DOMAIN"].endswith("%")
 
 
 def test_wer_scribe_column_is_sum_of_category_rates(tmp_path, legal_domain):
@@ -78,7 +107,7 @@ def test_write_summary_to_file_without_domain_config(tmp_path):
     """write_summary_to_file must produce a complete table when called
     with domain_config=None (regression: it raised KeyError on the
     domain label). With no domain category in the data there is no
-    domain column."""
+    domain column; token-less base categories render N/A."""
     report = text_error_rates("the case is closed", "the case was closed", None)
     agg = {"overall": report, "by_dataset": {"test-set": report}}
     out = tmp_path / "summary.txt"
@@ -87,9 +116,11 @@ def test_write_summary_to_file_without_domain_config(tmp_path):
     assert "OVERALL" in content
     assert "test-set" in content
     assert "ER_LEX" in content
-    # No domain data -> no domain column, no filler values.
+    # No domain data -> no domain column.
     assert "ER_DOMAIN" not in content
-    assert "N/A" not in content
+    # The fixture has no numerals and no punctuation: those columns
+    # read N/A in both rows (2 categories x 2 rows).
+    assert content.count("N/A") == 4
 
 
 def test_summary_domain_column_inferred_from_data(tmp_path, legal_domain):
@@ -285,9 +316,100 @@ def test_mixed_aggregate_summary_shows_per_dataset_domain_rates(legal_domain, me
     court_row = next(line for line in lines if line.startswith("court"))
     clinic_row = next(line for line in lines if line.startswith("clinic"))
 
-    # court has 1 LEGAL sub in 3 tokens -> 33.33% under LEGAL, N/A under MEDICAL
+    # court has 1 LEGAL sub in 3 tokens -> 33.33% under LEGAL;
+    # N/A under MEDICAL (absent) and ER_PUNCT (no punctuation).
     assert "33.33%" in court_row
-    assert court_row.count("N/A") == 1
-    # clinic has 1 MEDICAL sub in 3 tokens -> 33.33% under MEDICAL, N/A under LEGAL
+    assert court_row.count("N/A") == 2
+    # clinic has 1 MEDICAL sub in 3 tokens -> 33.33% under MEDICAL;
+    # N/A under LEGAL (absent), ER_NUM (500mg is MEDICAL, so no
+    # plain numerals), and ER_PUNCT (no punctuation).
     assert "33.33%" in clinic_row
-    assert clinic_row.count("N/A") == 1
+    assert clinic_row.count("N/A") == 3
+
+
+def test_contribution_table_na_for_token_less_categories(legal_domain):
+    """A category with no reference tokens and no errors shows N/A in
+    its percentage cells — 0.0% Accuracy would read as "all missed"
+    while 0.0% Error Rate reads as "perfect"; the truth is nothing was
+    measured. Counts stay visible."""
+    from scribe import compute_category_contributions
+
+    # No punctuation in this sample.
+    report = text_error_rates("charged u/s 302 IPC", "charged us 302 IPC", legal_domain)
+    rows = format_contribution_table(compute_category_contributions(report))
+    punct_row = next(r for r in rows if r["Category"] == "Punctuation Tokens")
+    assert punct_row["Ref Tokens"] == 0
+    assert punct_row["Accuracy"] == "N/A"
+    assert punct_row["Error Rate"] == "N/A"
+    assert punct_row["Impact on Total"] == "N/A"
+    # Categories with tokens keep their numbers.
+    domain_row = next(r for r in rows if r["Category"] == "Domain Tokens")
+    assert domain_row["Accuracy"].endswith("%")
+
+
+def test_contribution_table_hallucinated_category_shows_impact_only(legal_domain):
+    """A hallucination-only category (errors, no reference tokens):
+    Accuracy and Error Rate divide by the category's own ref count and
+    are undefined — N/A. Impact on Total divides by ALL ref tokens and
+    stays meaningful, so it shows a number alongside the error count."""
+    from scribe import compute_category_contributions
+
+    report = text_error_rates("charged 302", "charged u/s 302", legal_domain)
+    rows = format_contribution_table(compute_category_contributions(report))
+    domain_row = next(r for r in rows if r["Category"] == "Domain Tokens")
+    assert domain_row["Ref Tokens"] == 0
+    assert domain_row["Ins"] == 1
+    assert domain_row["Accuracy"] == "N/A"
+    assert domain_row["Error Rate"] == "N/A"
+    assert domain_row["Impact on Total"].endswith("%")
+
+
+def test_category_chips_omit_token_less_categories(legal_domain):
+    """The chips caption is a sum (chips = WER_SCRIBE): categories with
+    nothing to measure are omitted rather than shown as 0.00%."""
+    from scribe import compute_category_contributions, format_category_chips
+
+    # No punctuation in this sample.
+    report = text_error_rates("charged u/s 302 IPC", "charged us 302 IPC", legal_domain)
+    chips = format_category_chips(
+        compute_category_contributions(report), domain_display="Legal Tokens"
+    )
+    assert any(c.startswith("Lexical Tokens") for c in chips)
+    assert any(c.startswith("Legal Tokens") for c in chips)
+    assert any(c.startswith("Numeral Tokens") for c in chips)
+    assert not any(c.startswith("Punctuation Tokens") for c in chips)
+
+
+def test_category_chips_distinguish_multiple_domain_categories(legal_domain, medical_domain):
+    """With several domain categories in one aggregate, each chip keeps
+    its category name — a single domain_display applied to all would
+    misattribute every contribution after the first (PR review issue)."""
+    from scribe import compute_category_contributions, format_category_chips
+
+    legal_report = text_error_rates("charged u/s 302", "charged us 302", legal_domain)
+    medical_report = text_error_rates("dose 500mg daily", "dose 500 daily", medical_domain)
+    agg = compute_aggregate_metrics(
+        [
+            {"detailed_report": legal_report, "source_dataset": "x"},
+            {"detailed_report": medical_report, "source_dataset": "x"},
+        ]
+    )
+    chips = format_category_chips(
+        compute_category_contributions(agg["overall"]), domain_display="Legal Tokens"
+    )
+    assert any(c.startswith("LEGAL Tokens") for c in chips)
+    assert any(c.startswith("MEDICAL Tokens") for c in chips)
+    # The single-domain display name is not applied to either.
+    assert not any(c.startswith("Legal Tokens ") for c in chips)
+
+
+def test_category_chips_keep_hallucinated_categories(legal_domain):
+    """A hallucination-only category contributes real errors to the
+    sum, so its chip stays."""
+    from scribe import compute_category_contributions, format_category_chips
+
+    report = text_error_rates("charged 302", "charged u/s 302", legal_domain)
+    chips = format_category_chips(
+        compute_category_contributions(report), domain_display="Legal Tokens"
+    )
+    assert any(c.startswith("Legal Tokens") for c in chips)

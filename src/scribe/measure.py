@@ -20,15 +20,28 @@ def token_error_rates(
     sandhi detection, pass use_sandhi=False to align_arrays() (or to the
     text_error_rates() end-to-end pipeline).
 
+    Counting is data-driven — every tag found in the aligned tokens is
+    counted under its own category. The domain_config's role here is a
+    declaration of intent: its category (like the base categories) is
+    seeded into the report so it appears even when the data contains no
+    such tokens ("you asked about this domain; there was nothing to
+    measure" — rendered as N/A by the reporting layer).
+
     Args:
         aligned_ref: list of (text, tag) tuples
         aligned_hyp: list of (text, tag) tuples
-        domain_config: Domain configuration (None for no domain)
+        domain_config: Declares the domain category that must appear in
+            the report even with zero tokens (None for no domain)
         normalize: If True, check normalized equality for matches (default: True)
 
     Returns:
         Dictionary with error rates for each category
     """
+    # Seed the base (and configured domain) categories so they appear
+    # in the report even with zero tokens; any further tag found in the
+    # data gets its own category on first sight — dropping it would
+    # also shrink the combined denominator and silently deflate every
+    # other category's rate.
     categories = get_categories(domain_config)
     stats = init_stat_dict(categories)
 
@@ -36,13 +49,14 @@ def token_error_rates(
         # 1. Handle Insertions (Gap in Reference)
         if r_text == "**":
             # We categorize the insertion error based on what the ASR hallucinated
-            if h_tag in stats:
-                stats[h_tag]["insertions"] += 1
+            if h_tag not in stats:
+                stats.update(init_stat_dict([h_tag]))
+            stats[h_tag]["insertions"] += 1
             continue
 
         # All other cases (Match, Sub, Del) are categorized by the REFERENCE tag
         if r_tag not in stats:
-            continue
+            stats.update(init_stat_dict([r_tag]))
         curr = stats[r_tag]
 
         # 2. Handle Sandhi (Corrected Matches)
@@ -83,7 +97,7 @@ def token_error_rates(
     combined_total = calculate_combined_total(stats)
 
     report = {}
-    for cat in categories:
+    for cat in stats:
         s = stats[cat]
         errors = s["substitutions"] + s["insertions"] + s["deletions"]
 
@@ -107,7 +121,6 @@ def token_error_rates(
 def token_error_details(
     aligned_ref,
     aligned_hyp,
-    domain_config: Optional[DomainConfig] = None,
     normalize: bool = True,
 ) -> list[dict]:
     """
@@ -115,12 +128,14 @@ def token_error_details(
 
     Walks the same aligned pairs as token_error_rates() but records each
     error or sandhi correction as a structured dict instead of just counting.
-    Correct matches are excluded.
+    Correct matches are excluded. Categories are the tags carried by the
+    aligned tokens themselves — every error is recorded under its token's
+    tag; no domain configuration is needed here (it was applied at
+    tokenization time).
 
     Args:
         aligned_ref: list of (text, tag) tuples
         aligned_hyp: list of (text, tag) tuples
-        domain_config: Domain configuration (None for no domain)
         normalize: If True, check normalized equality for matches
 
     Returns:
@@ -133,25 +148,21 @@ def token_error_details(
             - "hyp_token": the hypothesis token text (None for deletions;
                            "word1 word2" for sandhi_split)
     """
-    categories = set(get_categories(domain_config))
+    # Categories come from the tags in the data — every aligned token
+    # is recorded under its own tag, matching token_error_rates.
     errors = []
 
     for (r_text, r_tag), (h_text, h_tag) in zip(aligned_ref, aligned_hyp):
         # 1. Handle Insertions (Gap in Reference)
         if r_text == "**":
-            if h_tag in categories:
-                errors.append(
-                    {
-                        "error_type": "insertion",
-                        "category": h_tag,
-                        "ref_token": None,
-                        "hyp_token": h_text,
-                    }
-                )
-            continue
-
-        # Skip unknown reference tags
-        if r_tag not in categories:
+            errors.append(
+                {
+                    "error_type": "insertion",
+                    "category": h_tag,
+                    "ref_token": None,
+                    "hyp_token": h_text,
+                }
+            )
             continue
 
         # 2. Handle Sandhi (Corrected Matches) — record them as their own type
@@ -236,7 +247,7 @@ def text_error_details(
     t1, g1 = domain_aware_tokenizer(ref_text, domain_config)
     t2, g2 = domain_aware_tokenizer(hyp_text, domain_config)
     aligned_ref, aligned_hyp, _ = align_arrays(t1, g1, t2, g2, use_sandhi=use_sandhi)
-    return token_error_details(aligned_ref, aligned_hyp, domain_config, normalize)
+    return token_error_details(aligned_ref, aligned_hyp, normalize)
 
 
 def text_error_rates(
