@@ -189,6 +189,21 @@ and punctuation-heavy text. With `normalize=True` (the default),
 CER_SCRIBE additionally stops charging for date/currency format
 variants — that difference is by design, not drift.
 
+### Reading WER_SCRIBE and CER_SCRIBE together
+
+The two metrics measure the same predictions at different granularities,
+and their *disagreement* is diagnostic:
+
+| Pattern | Typical cause |
+|---|---|
+| WER_SCRIBE ≈ 0, CER_SCRIBE > 0, sandhi hits > 0 | Segmentation differences: token-level matching forgives merges/splits as sandhi, while the characters record each junction. Real example from the bundled sample file — one dataset scores WER_SCRIBE 0.00% with CER_SCRIBE 3.09% and 1 sandhi match. |
+| WER_SCRIBE high, CER_SCRIBE low | Near-miss recognition: many tokens each wrong by a character or two — every one counts fully at token level but barely at character level. Common for very long Indic words. |
+| WER_SCRIBE ≈ CER_SCRIBE, both high | Gross errors: whole words substituted, deleted, or hallucinated. |
+
+A model improving CER_SCRIBE while WER_SCRIBE stalls is getting the
+sounds right but not the word forms; the reverse suggests token-level
+luck on top of noisy characters. Report both.
+
 ### Analyse — frequent errors and sandhi events
 
 ```python
