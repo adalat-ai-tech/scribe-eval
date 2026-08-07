@@ -27,7 +27,7 @@ Enter reference and hypothesis text directly. The view updates automatically on 
 - Category decomposition caption: `Lexical Tokens X% + Legal Tokens Y% + ... = WER_SCRIBE%`
 - **Jiwer WER and CER** shown side-by-side for baseline comparison
 - **Error Analysis** expander:
-  - Category contributions table (Ref Tokens, Exact Match, Accuracy, Sub, Del, Ins, Error Rate, Impact on Total)
+  - Category contributions table (Ref Tokens, Match, Accuracy, Sub, Del, Ins, Error Rate, Impact on Total)
   - Category breakdown chart (stacked bar: token matches left, WER_SCRIBE contribution right)
 - **Frequent Errors** expander: top-N substitutions, deletions, insertions, sandhi merges, sandhi splits across five sub-tabs (the two sandhi tabs are populated only when sandhi detection is enabled and the language has agglutinative compounds)
 

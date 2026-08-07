@@ -296,7 +296,7 @@ def format_contribution_table(contributions: Dict) -> List[Dict]:
             {
                 "Category": display_name,
                 "Ref Tokens": ref,
-                "Exact Match": data["correct"],
+                "Match": data["correct"],
                 "Accuracy": f"{data['correct_pct']:.1f}%" if ref > 0 else "N/A",
                 "Sub": data["substitutions"],
                 "Del": data["deletions"],
@@ -318,7 +318,7 @@ def format_contribution_table(contributions: Dict) -> List[Dict]:
         {
             "Category": "TOTAL",
             "Ref Tokens": total_ref,
-            "Exact Match": total_correct,
+            "Match": total_correct,
             "Accuracy": f"{total_correct_pct:.1f}%",
             "Sub": total_subs,
             "Del": total_dels,
