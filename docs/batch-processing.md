@@ -141,10 +141,14 @@ uv run examples/batch_evaluate.py \
     --ref-field reference \
     --hyp-field hypothesis
 
-# With domain config file
+# Bundled domain by name, or none
+uv run examples/batch_evaluate.py --input data/predictions.jsonl --domain medical
+uv run examples/batch_evaluate.py --input data/predictions.jsonl --domain none
+
+# With domain config file (auto-detected: not a bundled name)
 uv run examples/batch_evaluate.py \
     --input data/predictions.jsonl \
-    --domain-config config/legal_terms.txt
+    --domain config/legal_terms.txt
 
 # With detailed error analysis and category breakdown chart
 uv run examples/batch_evaluate.py \
@@ -163,11 +167,13 @@ uv run examples/batch_evaluate.py \
 | `--ref-field` | `transcript_cleaned` | Reference field name |
 | `--hyp-field` | `prediction` | Hypothesis field name |
 | `--dataset-field` | `source_dataset` | Dataset identifier field |
-| `--domain-config` | *(uses `DomainConfig.legal()`)* | Path to domain config file |
+| `--domain` | `legal` | Bundled domain name (`legal`, `medical`, `technical`, `none`) or path to a domain config file |
 | `--no-normalize` | *(normalization enabled)* | Disable token normalization |
 | `--analysis` | *(off)* | Enable detailed error analysis (contributions, frequent errors) |
 | `--top-n N` | `10` | Number of top frequent errors to display |
 | `--chart` | *(off)* | Save `category_breakdown.png` (requires `--analysis` and `matplotlib`) |
+| `--workers N` | `1` | Worker processes for parallel evaluation |
+| `--skip-bad-records` | *(fail fast)* | Skip invalid lines/records with a warning each instead of stopping |
 
 ### Output Files
 

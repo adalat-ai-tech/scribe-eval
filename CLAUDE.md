@@ -297,15 +297,21 @@ report = text_error_rates(ref, hyp, legal_config)
 
 ### Loading from CLI
 
-The `batch_evaluate.py` script supports loading domain configs from files:
+The `batch_evaluate.py` script takes a single `--domain` flag that accepts
+either a bundled domain name or a config file path (auto-detected;
+bundled names win, so a colliding file name needs a path prefix like `./legal`):
 
 ```bash
-# Use file-based domain config
+# Bundled domains via the factories
+python batch_evaluate.py --input data/predictions.jsonl --domain medical
+python batch_evaluate.py --input data/predictions.jsonl --domain none
+
+# File-based domain config
 python batch_evaluate.py \
     --input data/predictions.jsonl \
-    --domain-config config/legal_terms.txt
+    --domain config/legal_terms.txt
 
-# Without --domain-config, uses DomainConfig.legal() by default
+# Without --domain, uses the bundled legal domain by default
 python batch_evaluate.py --input data/predictions.jsonl
 ```
 
@@ -393,11 +399,13 @@ python batch_evaluate.py --help
 --ref-field              Field name for reference text (default: transcript_cleaned)
 --hyp-field              Field name for hypothesis text (default: prediction)
 --dataset-field          Field name for dataset identifier (default: source_dataset)
---domain-config          Path to domain config file (e.g., config/legal_terms.txt)
+--domain                 Bundled domain name (legal, medical, technical, none) or path to a domain config file (default: legal)
 --no-normalize           Disable token normalization (strict matching)
 --analysis               Enable detailed error analysis (WER_SCRIBE, category contributions, frequent errors)
 --top-n N                Number of top frequent errors to display (default: 10)
 --chart                  Save error analysis charts as PNG (requires --analysis and matplotlib)
+--workers N              Worker processes for parallel evaluation (default: 1)
+--skip-bad-records       Skip invalid lines/records with a warning instead of stopping
 ```
 
 **Analysis output** (when `--analysis` is passed):

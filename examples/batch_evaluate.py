@@ -11,6 +11,7 @@ the composite WER_SCRIBE, category contributions, and frequent error patterns.
 import argparse
 import os
 import sys
+import time
 from pathlib import Path
 
 from tabulate import tabulate
@@ -48,6 +49,28 @@ def validate_input_file(input_file: str) -> Path:
     if path.stat().st_size == 0:
         raise ValueError(f"Input file is empty: {input_file}")
     return path
+
+
+BUNDLED_DOMAINS = {
+    "legal": DomainConfig.legal,
+    "medical": DomainConfig.medical,
+    "technical": DomainConfig.technical,
+    "none": lambda: None,
+}
+
+
+def resolve_domain(value: str):
+    """Resolve --domain: a bundled name (case-insensitive) wins, anything
+    else must be a domain config file path. Returns None for 'none'."""
+    key = value.lower()
+    if key in BUNDLED_DOMAINS:
+        return BUNDLED_DOMAINS[key]()
+    if os.path.exists(value):
+        return DomainConfig.from_file(value)
+    raise ValueError(
+        f"--domain {value!r} is neither a bundled domain "
+        f"({', '.join(sorted(BUNDLED_DOMAINS))}) nor an existing config file"
+    )
 
 
 def print_analysis(summary, domain_config, top_n):
@@ -212,10 +235,12 @@ Examples:
         help="Disable token normalization (strict matching)",
     )
     parser.add_argument(
-        "--domain-config",
-        default=None,
-        help="Path to domain config file (e.g., config/legal_terms.txt). "
-        "If not provided, uses DomainConfig.legal().",
+        "--domain",
+        default="legal",
+        help="Bundled domain name (legal, medical, technical, none) or "
+        "path to a domain config file (default: legal). A file whose "
+        "name collides with a bundled name can be forced with a path "
+        "prefix, e.g. ./legal",
     )
     parser.add_argument(
         "--analysis",
@@ -239,6 +264,15 @@ Examples:
         default=1,
         help="Worker processes for parallel evaluation (default: 1, sequential)",
     )
+    parser.add_argument(
+        "--skip-bad-records",
+        action="store_true",
+        help=(
+            "Skip invalid JSONL lines and records with missing/null/non-string "
+            "text fields (with a warning each) instead of stopping at the "
+            "first bad one"
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -247,30 +281,16 @@ Examples:
         print(f"Validating input file: {args.input}")
         input_path = validate_input_file(args.input)
 
-        # 2. Load domain configuration
-        domain_config = DomainConfig.legal()  # Default
-        if args.domain_config:
-            try:
-                print(f"Loading domain config from: {args.domain_config}")
-                domain_config = DomainConfig.from_file(args.domain_config)
-                print(
-                    f"Loaded domain config: {domain_config.name} "
-                    f"(category: {domain_config.category})"
-                )
-            except FileNotFoundError:
-                print(
-                    f"Error: Domain config file not found: {args.domain_config}",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-            except (ValueError, Exception) as e:
-                print(f"Error loading domain config: {e}", file=sys.stderr)
-                sys.exit(1)
+        # 2. Resolve the domain: bundled name first, then file path
+        try:
+            domain_config = resolve_domain(args.domain)
+        except (ValueError, Exception) as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+        if domain_config is None:
+            print("Domain: none (base categories only)")
         else:
-            print(
-                f"Using default domain config: {domain_config.name} "
-                f"(category: {domain_config.category})"
-            )
+            print(f"Domain: {domain_config.name} (category: {domain_config.category})")
 
         # 3. Create output directory
         output_dir = Path(args.output_dir)
@@ -284,6 +304,7 @@ Examples:
         # 5. Run analysis with optional field names
         print(f"\nProcessing {input_path.name}...")
         print(f"Token normalization: {'disabled' if args.no_normalize else 'enabled'}")
+        eval_start = time.perf_counter()
         results = compute_sample_errors(
             str(input_path),
             output_file=str(detailed_output),
@@ -294,7 +315,9 @@ Examples:
             normalize=not args.no_normalize,
             collect_error_details=args.analysis,
             workers=args.workers,
+            skip_bad_records=args.skip_bad_records,
         )
+        eval_seconds = time.perf_counter() - eval_start
 
         # 6. Aggregate metrics with dataset splits
         print("Computing aggregate metrics...")
@@ -340,13 +363,18 @@ Examples:
                         file=sys.stderr,
                     )
 
-        print("\nEvaluation complete!")
+        print(
+            f"\nEvaluation completed in {eval_seconds:.1f}s "
+            f"({len(results)} samples, workers={args.workers})"
+        )
 
     except FileNotFoundError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
+        if "skip_bad_records=True" in str(e):
+            print("Hint: from this CLI, pass --skip-bad-records", file=sys.stderr)
         sys.exit(1)
     except KeyError as e:
         print(f"Error: Missing required field in input data: {e}", file=sys.stderr)
