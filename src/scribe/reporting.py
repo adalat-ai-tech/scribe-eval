@@ -357,6 +357,13 @@ def format_category_chips(contributions: Dict, domain_display: str = "Domain Tok
     }
     base_cats = set(display_names)
     domain_cats = [c for c in contributions if c not in base_cats]
+    # A single domain category uses the caller's display name; with
+    # several (mixed aggregates) each keeps its category name so no
+    # contribution is misattributed — same rule as the contribution
+    # table.
+    if len(domain_cats) > 1:
+        for cat in domain_cats:
+            display_names[cat] = f"{cat} Tokens"
     ordered_cats = [
         c for c in [CAT_LEXICAL] + domain_cats + [CAT_NUMERAL, CAT_PUNCT] if c in contributions
     ]

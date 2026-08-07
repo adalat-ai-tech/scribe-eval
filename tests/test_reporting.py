@@ -380,6 +380,29 @@ def test_category_chips_omit_token_less_categories(legal_domain):
     assert not any(c.startswith("Punctuation Tokens") for c in chips)
 
 
+def test_category_chips_distinguish_multiple_domain_categories(legal_domain, medical_domain):
+    """With several domain categories in one aggregate, each chip keeps
+    its category name — a single domain_display applied to all would
+    misattribute every contribution after the first (PR review issue)."""
+    from scribe import compute_category_contributions, format_category_chips
+
+    legal_report = text_error_rates("charged u/s 302", "charged us 302", legal_domain)
+    medical_report = text_error_rates("dose 500mg daily", "dose 500 daily", medical_domain)
+    agg = compute_aggregate_metrics(
+        [
+            {"detailed_report": legal_report, "source_dataset": "x"},
+            {"detailed_report": medical_report, "source_dataset": "x"},
+        ]
+    )
+    chips = format_category_chips(
+        compute_category_contributions(agg["overall"]), domain_display="Legal Tokens"
+    )
+    assert any(c.startswith("LEGAL Tokens") for c in chips)
+    assert any(c.startswith("MEDICAL Tokens") for c in chips)
+    # The single-domain display name is not applied to either.
+    assert not any(c.startswith("Legal Tokens ") for c in chips)
+
+
 def test_category_chips_keep_hallucinated_categories(legal_domain):
     """A hallucination-only category contributes real errors to the
     sum, so its chip stays."""
