@@ -181,7 +181,7 @@ The visualizer provides:
 
 - `src/scribe/`: Core library modules
   - `__init__.py`: Public API exports
-  - `config/`: Bundled domain configuration files (distributed with package)
+  - `config/`: Bundled domain terminology (distributed with the package; accessed via the factories `DomainConfig.legal()/medical()/technical()` or `--domain <name>`, never by path)
     - `__init__.py`
     - `legal_terms.txt`: Indian legal terminology
     - `medical_terms.txt`: Medical units and dosages
@@ -195,13 +195,12 @@ The visualizer provides:
   - `charts.py`: matplotlib chart generation (optional dependency); category breakdown and frequent error bar charts
   - `reporting.py`: Shared formatting functions for CLI and web UI; includes `format_contribution_table()` and `format_frequent_errors_table()`
   - `constants.py`: Category constants and helper functions
-- `config/`: User-facing example configs (not bundled)
-  - `README.md`: Documentation and templates for custom domain configs
-  - `*.txt`: Example configuration files for reference
 - `examples/`: Sample scripts and evaluation datasets
   - `text_alignment.py`: Visual alignment demonstration
   - `error_report.py`: Single-sample error report generation
   - `custom_domain_file.py`: Demonstrates factory methods, file-based, and inline domain configs
+  - `sample_legal.txt`: The domain config file format example — the file referenced wherever docs show an explicit `--domain <file>` / `from_file()` path
+  - `custom_domain.txt`: A second format example used by the demo scripts
   - `batch_evaluate.py`: Batch evaluation with detailed JSONL output
   - `visualizer/`: Streamlit interactive UI, exposed as the `scribe-visualizer` console script
     - `app.py`: The Streamlit application
@@ -315,24 +314,29 @@ python batch_evaluate.py \
 python batch_evaluate.py --input data/predictions.jsonl
 ```
 
-### Sample Configuration Files
+### Bundled Domains
 
-The `config/` directory contains pre-made configuration files:
+Three domains ship inside the package and are selected by name — via the
+factories (`DomainConfig.legal()`, `.medical()`, `.technical()`) or the CLI
+(`--domain legal|medical|technical`); their files are internal to the
+package and never referenced by path:
 
-- **`legal_terms.txt`**: Indian legal terminology with flexible witness designation patterns
+- **legal**: Indian legal terminology with flexible witness designation patterns
   - Literal terms: u/s, r/w, sec., art., v., vs., etc.
   - Regex patterns: `PW[-\s]*\d+` matches PW1, PW 1, PW-1 (prosecution witness)
   - Regex patterns: `CW[-\s]*\d+` matches CW1, CW 1, CW-1 (court witness)
   - Regex patterns: `Ext\.[-\s]*[A-Z]\d*` matches Ext.A, Ext. A1, Ext-B2 (exhibits)
 
-- **`medical_terms.txt`**: Medical units and dosages
+- **medical**: Medical units and dosages
   - Literal terms: mg, ml, cc, mcg, IU, kg, gm
   - Regex patterns: `\d+\s*mg` matches 500mg, 500 mg
 
-
-- **`technical_terms.txt`**: Technical abbreviations (case-sensitive)
+- **technical**: Technical abbreviations (case-sensitive)
   - Literal terms: API, SDK, CLI, JSON, HTTP, HTTPS
   - Regex patterns: `v\d+\.\d+(?:\.\d+)?` matches v1.0, v2.3.4
+
+To write your own domain, copy `examples/sample_legal.txt` as a template
+and pass its path to `--domain` or `DomainConfig.from_file()`.
 
 ### Pattern Matching Examples
 
@@ -357,25 +361,26 @@ assert "LEGAL" in tags3
 
 ### File Location Conventions
 
-- **Project configs**: Store in `config/` directory at repository root
-- **User configs**: Store in `~/.config/scribe/` for personal configurations
-- **Dataset-specific configs**: Store alongside dataset in data directory
+Suggestions for organizing *your own* custom domain files in *your*
+evaluation project (SCRIBE reads whatever path you pass; nothing below is
+required or auto-discovered):
 
-Example directory structure:
+- **Project configs**: a `config/` directory in your project for domain files shared across datasets
+- **Dataset-specific configs**: alongside the dataset in its data directory
+- **Personal configs**: any stable location works (e.g. `~/.config/scribe/`) — plain files, passed by path
+
+Example layout of a user's evaluation project:
 ```
-project/
-├── config/                     # Shared domain configs
-│   ├── legal_terms.txt
-│   ├── medical_terms.txt
-│   └── custom_domain.txt
+my-asr-eval/
+├── config/                     # Shared custom domain configs
+│   ├── court_terms.txt         # (bundled legal/medical need no file — use --domain legal)
+│   └── station_names.txt
 ├── data/
 │   ├── court-transcripts/
 │   │   ├── predictions.jsonl
-│   │   └── legal_terms.txt    # Dataset-specific overrides
+│   │   └── court_terms.txt     # Dataset-specific overrides
 │   └── medical-records/
 │       └── predictions.jsonl
-└── examples/
-    └── batch_evaluate.py
 ```
 
 ## JSONL Input Format
