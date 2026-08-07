@@ -1,8 +1,11 @@
 from typing import Optional
 
+from Levenshtein import editops
+
 from .align import align_arrays
 from .constants import calculate_combined_total, get_categories, init_stat_dict
 from .domain_config import DomainConfig
+from .normalize import normalize_token
 from .tokenize import domain_aware_tokenizer
 
 
@@ -273,3 +276,71 @@ def text_error_rates(
     t2, g2 = domain_aware_tokenizer(hyp_text, domain_config)
     aligned_ref, aligned_hyp, _ = align_arrays(t1, g1, t2, g2, use_sandhi=use_sandhi)
     return token_error_rates(aligned_ref, aligned_hyp, domain_config, normalize)
+
+
+def _cer_scribe_from_tokens(ref_tokens, ref_tags, hyp_tokens, hyp_tags, normalize=True) -> dict:
+    """Character error rate over already-tokenized streams (the batch
+    pipeline reuses its tokenization through this)."""
+    if normalize:
+        ref_str = " ".join(normalize_token(tok, tag) for tok, tag in zip(ref_tokens, ref_tags))
+        hyp_str = " ".join(normalize_token(tok, tag) for tok, tag in zip(hyp_tokens, hyp_tags))
+    else:
+        ref_str = " ".join(ref_tokens)
+        hyp_str = " ".join(hyp_tokens)
+
+    ops = editops(ref_str, hyp_str)
+    subs = sum(1 for op in ops if op[0] == "replace")
+    dels = sum(1 for op in ops if op[0] == "delete")
+    ins = sum(1 for op in ops if op[0] == "insert")
+    ref_chars = len(ref_str)
+    char_errors = len(ops)
+    return {
+        "cer_scribe": char_errors / max(1, ref_chars),
+        "char_errors": char_errors,
+        "ref_chars": ref_chars,
+        "substitutions": subs,
+        "deletions": dels,
+        "insertions": ins,
+    }
+
+
+def compute_cer_scribe(
+    ref_text,
+    hyp_text,
+    domain_config: Optional[DomainConfig] = None,
+    normalize: bool = True,
+) -> dict:
+    """
+    Compute the normalized character error rate between two texts.
+
+    SCRIBE CER shares the toolkit's normalization: both sides are
+    tokenized (the domain config shields terms like u/s from
+    splitting), each token is canonicalized with normalize_token when
+    normalize=True (so date/currency format variants contribute zero
+    character errors), the tokens are rejoined with single spaces, and
+    a single character-level Levenshtein pass measures the distance.
+
+    No alignment is involved: sandhi detection does not apply at the
+    character level — a merged or split word costs only its few
+    junction characters, which is exactly CER's robustness to
+    agglutination.
+
+    Args:
+        ref_text: Reference text
+        hyp_text: Hypothesis text
+        domain_config: Domain configuration for tokenization
+            (None for no domain)
+        normalize: If True, canonicalize tokens before comparison
+            (default: True); False measures the raw surface forms
+
+    Returns:
+        Dict with:
+            - "cer_scribe": char_errors / max(1, ref_chars)
+            - "char_errors": total character edits
+            - "ref_chars": reference length after normalization/joining
+            - "substitutions", "deletions", "insertions": character-level
+              edit counts (sum equals char_errors)
+    """
+    t1, g1 = domain_aware_tokenizer(ref_text, domain_config)
+    t2, g2 = domain_aware_tokenizer(hyp_text, domain_config)
+    return _cer_scribe_from_tokens(t1, g1, t2, g2, normalize)

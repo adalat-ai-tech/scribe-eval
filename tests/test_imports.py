@@ -43,6 +43,7 @@ PUBLIC_API = {
     # domain_config
     "DomainConfig": type,
     # measure
+    "compute_cer_scribe": "callable",
     "text_error_details": "callable",
     "text_error_rates": "callable",
     "token_error_details": "callable",

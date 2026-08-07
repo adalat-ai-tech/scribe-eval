@@ -189,3 +189,81 @@ def test_error_details_record_all_tags_from_data(legal_domain):
     details = token_error_details(aligned_ref, aligned_hyp)
     categories = {d["category"] for d in details}
     assert "LEGAL" in categories
+
+
+# ---------------------------------------------------------------------------
+# compute_cer_scribe
+# ---------------------------------------------------------------------------
+
+
+def test_cer_zero_for_identical_texts():
+    from scribe import compute_cer_scribe
+
+    report = compute_cer_scribe("the case is closed", "the case is closed")
+    assert report["cer_scribe"] == 0.0
+    assert report["char_errors"] == 0
+    assert report["ref_chars"] == len("the case is closed")
+
+
+def test_cer_hand_computed_substitution():
+    """'abc def' vs 'abc dxf': one character replaced out of 7."""
+    from scribe import compute_cer_scribe
+
+    report = compute_cer_scribe("abc def", "abc dxf")
+    assert report["char_errors"] == 1
+    assert report["substitutions"] == 1
+    assert report["cer_scribe"] == pytest.approx(1 / 7)
+
+
+def test_cer_hand_computed_deletion():
+    """'abc def' vs 'abc': four characters gone (space + def) of 7."""
+    from scribe import compute_cer_scribe
+
+    report = compute_cer_scribe("abc def", "abc")
+    assert report["char_errors"] == 4
+    assert report["deletions"] == 4
+    assert report["cer_scribe"] == pytest.approx(4 / 7)
+
+
+def test_cer_sid_counts_sum_to_char_errors():
+    from scribe import compute_cer_scribe
+
+    report = compute_cer_scribe("kite flew high", "kites flew hi")
+    assert (
+        report["substitutions"] + report["deletions"] + report["insertions"]
+        == report["char_errors"]
+    )
+
+
+def test_cer_normalization_erases_format_variants(legal_domain):
+    """Date-format variants are not character errors under the shared
+    normalization; the raw variant still counts them."""
+    from scribe import compute_cer_scribe
+
+    ref = "case dated 22.05.2023"
+    hyp = "case dated 22/05/2023"
+    normalized = compute_cer_scribe(ref, hyp, legal_domain, normalize=True)
+    raw = compute_cer_scribe(ref, hyp, legal_domain, normalize=False)
+    assert normalized["cer_scribe"] == 0.0
+    assert raw["char_errors"] > 0
+
+
+def test_cer_robust_to_sandhi_merge():
+    """The paper merge pair costs only its junction characters: the
+    chandrakkala, the space, and the elided vowel — 3 of 16 chars —
+    with no sandhi machinery involved."""
+    from scribe import compute_cer_scribe
+
+    report = compute_cer_scribe("ഇന്ന് അല്ലെങ്കിൽ", "ഇന്നല്ലെങ്കിൽ")
+    assert report["char_errors"] == 3
+    assert report["deletions"] == 3
+    assert report["cer_scribe"] == pytest.approx(3 / 16)
+
+
+def test_cer_empty_reference_counts_insertions():
+    from scribe import compute_cer_scribe
+
+    report = compute_cer_scribe("", "ab")
+    assert report["ref_chars"] == 0
+    assert report["insertions"] == 2
+    assert report["cer_scribe"] == pytest.approx(2.0)
