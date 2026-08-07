@@ -20,6 +20,7 @@ from scribe import (
     DomainConfig,
     aggregate_error_details,
     align_arrays,
+    compute_cer_scribe,
     compute_aggregate_metrics,
     compute_category_contributions,
     compute_error_summary,
@@ -327,13 +328,15 @@ def build_category_chips(contributions, domain_config):
     return format_category_chips(contributions, domain_display)
 
 
-def render_category_analysis(summary, domain_config):
+def render_category_analysis(summary, domain_config, cer_scribe=None):
     """Contributions table + breakdown chart."""
     rows = format_contribution_table(summary["contributions"])
     st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
     if HAS_CHARTS:
-        fig = category_breakdown_chart(summary["contributions"], output_path=None)
+        fig = category_breakdown_chart(
+            summary["contributions"], output_path=None, cer_scribe=cer_scribe
+        )
         if fig is not None:
             st.pyplot(fig, width="content")
     else:
@@ -386,8 +389,10 @@ def render_analysis(ref_text, hyp_text, weights, domain_config, normalize=True, 
 
     category_chips = build_category_chips(contributions, domain_config)
 
+    scribe_cer = compute_cer_scribe(ref_text, hyp_text, domain_config, normalize)
+
     st.markdown("**SCRIBE Alignment** (Domain-Aware)")
-    mc1, mc2, _ = st.columns([1, 1, 2])
+    mc1, mc2, mc3, _ = st.columns([1, 1, 1, 1])
     mc1.metric(
         "WER_SCRIBE",
         f"{wer_scribe_frac:.2%}",
@@ -398,6 +403,15 @@ def render_analysis(ref_text, hyp_text, weights, domain_config, normalize=True, 
         ),
     )
     mc2.metric(
+        "CER_SCRIBE",
+        f"{scribe_cer['cer_scribe']:.2%}",
+        help=(
+            "SCRIBE character error rate: character edits over reference "
+            "characters, computed on normalized token streams — format "
+            "variants cost nothing. Compare with jiwer's raw CER below."
+        ),
+    )
+    mc3.metric(
         "Accuracy",
         f"{accuracy_frac:.2%}",
         help=(
@@ -431,6 +445,7 @@ def render_analysis(ref_text, hyp_text, weights, domain_config, normalize=True, 
                 contributions,
                 output_path=None,
                 title="ASR Error Analysis by Category (single sample)",
+                cer_scribe=scribe_cer["cer_scribe"],
             )
             if fig is not None:
                 st.pyplot(fig, width="content")
@@ -762,8 +777,10 @@ with tab_json:
         overall_chips = build_category_chips(summary["contributions"], domain_config)
         overall_wer_scribe = summary["wer_scribe"]
 
+        cer_overall = agg.get("cer_scribe", {}).get("overall")
+
         st.markdown("**SCRIBE** (Domain-Aware)")
-        mc1, mc2, _ = st.columns([1, 1, 2])
+        mc1, mc2, mc3, _ = st.columns([1, 1, 1, 1])
         mc1.metric(
             "WER_SCRIBE",
             f"{overall_wer_scribe:.2%}",
@@ -774,6 +791,15 @@ with tab_json:
             ),
         )
         mc2.metric(
+            "CER_SCRIBE",
+            f"{cer_overall['cer_scribe']:.2%}" if cer_overall else "N/A",
+            help=(
+                "SCRIBE character error rate: character edits over reference "
+                "characters, computed on normalized token streams — format "
+                "variants cost nothing. Compare with jiwer's raw CER below."
+            ),
+        )
+        mc3.metric(
             "Accuracy",
             f"{summary['total_correct_pct'] / 100:.2%}",
             help=(
@@ -809,7 +835,11 @@ with tab_json:
 
         st.divider()
         st.markdown("## Category Analysis")
-        render_category_analysis(summary, domain_config)
+        render_category_analysis(
+            summary,
+            domain_config,
+            cer_scribe=agg.get("cer_scribe", {}).get("overall", {}).get("cer_scribe"),
+        )
 
         st.divider()
         st.markdown("## Frequent Errors")
