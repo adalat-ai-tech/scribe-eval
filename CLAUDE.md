@@ -107,6 +107,7 @@ The visualizer provides:
    - `text_error_rates(ref_text, hyp_text, domain_config=None, normalize=True, use_sandhi=True)`: End-to-end pipeline from raw text to error metrics
    - `token_error_details(aligned_ref, aligned_hyp, normalize=True)`: Returns flat list of individual error records (substitution/insertion/deletion) per aligned token pair — used for frequent-error analysis; categories come from the aligned tags, no domain config needed
    - `text_error_details(ref_text, hyp_text, domain_config=None, normalize=True, use_sandhi=True)`: End-to-end pipeline from raw text to error detail records
+   - `compute_cer_scribe(ref_text, hyp_text, domain_config=None, normalize=True)`: CER_SCRIBE — tokenize, apply the shared normalization, one Levenshtein pass; returns cer, char counts, and character-level S/I/D. No alignment involved (sandhi costs only its junction characters); `normalize=False` gives the raw variant
    - `use_sandhi=False` disables Sandhi split/merge detection — useful for non-agglutinative languages
    - **Normalized error rates**: Uses combined denominator (sum of all category totals) across all categories to prevent misleading sparse-category metrics
    - **Domain-aware metrics**: ER_LEX (Lexical Error Rate), ER_NUM (Numeral Error Rate), ER_PUNCT (Punctuation Error Rate), plus ER_DOMAIN (Domain Error Rate) for the active domain category
@@ -116,6 +117,7 @@ The visualizer provides:
    - `evaluate_records(records, ref_field=..., hyp_field=..., domain_config=None, normalize=True, use_sandhi=True, collect_error_details=False, workers=None, ...)`: Core in-memory batch API — evaluates any iterable of dicts (parsed JSONL, DataFrame records, training-loop predictions) without touching the filesystem; input dicts are never mutated. `workers=N` spreads samples over a process pool (results identical, input order preserved); the CLI flag is `--workers`
    - `compute_sample_errors(input_file, output_file=None, domain_config=None, normalize=True, use_sandhi=True, collect_error_details=False, skip_bad_records=False, ...)`: Process JSONL files with multiple samples — a thin file loader over `evaluate_records()`
    - **Bad input fails fast**: invalid JSON lines and records with missing/null/non-string text fields raise ValueError with file+line number (record number for the in-memory API); blank lines are always skipped; `skip_bad_records=True` skips bad records with a warning instead
+   - Each result carries a reserved `cer_scribe` block; `compute_aggregate_metrics` returns a separate `"cer_scribe"` key with micro-averaged overall/per-dataset CER (summed char counts, divided once) whenever results carry cer blocks
    - `collect_error_details=True` stores per-token error records in memory (needed for `--analysis`; excluded from JSONL output)
    - Optional `domain_config` parameter enables domain-specific error tracking
    - Optional `output_file` parameter saves detailed per-sample error reports as JSONL

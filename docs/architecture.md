@@ -71,7 +71,7 @@ For batch evaluation across a JSONL dataset, see
 | `domain_config.py` | Loading and applying domain-shielding patterns | `DomainConfig`, `.legal()` / `.medical()` / `.technical()`, `.from_file()` |
 | `normalize.py` | Canonicalising date / currency / numeral surface forms before comparison | `normalize_token`, `normalize_date`, `normalize_currency` |
 | `align.py` | Modified Needleman–Wunsch with token-type-aware scoring; sandhi merge / split detection | `align_arrays`, `DEFAULT_WEIGHTS` |
-| `measure.py` | Per-sample error rates and per-token error records | `text_error_rates`, `token_error_rates`, `text_error_details` |
+| `measure.py` | Per-sample error rates, per-token error records, character error rate | `text_error_rates`, `token_error_rates`, `text_error_details`, `compute_cer_scribe` |
 | `measure_batch.py` | JSONL ingestion, per-sample running, per-dataset & overall aggregation | `compute_sample_errors`, `compute_aggregate_metrics`, `aggregate_error_details` |
 | `analysis.py` | Category contributions, frequent substitutions / deletions / insertions / sandhi merges / sandhi splits, the composite WER_SCRIBE | `compute_error_summary`, `compute_category_contributions`, `compute_frequent_sandhi_merges`, `compute_frequent_sandhi_splits` |
 | `reporting.py` | Formatters shared by the CLI and Streamlit UI | `format_metrics_dict`, `format_contribution_table`, `format_alignment_table` |
@@ -149,6 +149,61 @@ details = text_error_details("alpha beta gamma", "alpha delta epsilon", None)
 For a sandhi event it emits `{"error_type": "sandhi_merge"|"sandhi_split", ...}`
 records (no contribution to sub / ins / del counters).
 
+### CER_SCRIBE vs a raw CER — worked examples
+
+CER_SCRIBE measures the *canonical tokenized surface*, not the raw
+string. Even with `normalize=False`, that produces different numbers
+from a raw character error rate such as jiwer's. Two verified cases:
+
+**1. Whitespace runs cost nothing in CER_SCRIBE** — tokenization
+collapses them, so spacing noise is not treated as a recognition error:
+
+```python
+ref, hyp = "the  case   closed", "the case closed"
+
+jiwer.cer(ref, hyp)                       # 0.1667 — 3 extra spaces counted
+compute_cer_scribe(ref, hyp, normalize=False)
+# compares "the case closed" vs "the case closed"  ->  0.0
+```
+
+**2. Punctuation becomes its own token, changing both numerator and
+denominator** — SCRIBE reconstructs `"closed."` as `"closed ."`:
+
+```python
+ref, hyp = "the case closed.", "the case closed"
+
+jiwer.cer(ref, hyp)
+# compares "the case closed." vs "the case closed"
+# 1 edit / 16 chars = 0.0625
+
+compute_cer_scribe(ref, hyp, normalize=False)
+# compares "the case closed ." vs "the case closed"
+# 2 edits (space + period) / 17 chars = 0.1176
+```
+
+Word-medial punctuation is preserved by the tokenizer (`u/s`,
+`O'Connor`), so such tokens compare identically in both metrics. On
+realistic batches the two CERs track closely (the bundled sample file:
+jiwer ≈ 3.3%, raw CER_SCRIBE ≈ 3.5%); the gap grows with spacing noise
+and punctuation-heavy text. With `normalize=True` (the default),
+CER_SCRIBE additionally stops charging for date/currency format
+variants — that difference is by design, not drift.
+
+### Reading WER_SCRIBE and CER_SCRIBE together
+
+The two metrics measure the same predictions at different granularities,
+and their *disagreement* is diagnostic:
+
+| Pattern | Typical cause |
+|---|---|
+| WER_SCRIBE ≈ 0, CER_SCRIBE > 0, sandhi hits > 0 | Segmentation differences: token-level matching forgives merges/splits as sandhi, while the characters record each junction. Real example from the bundled sample file — one dataset scores WER_SCRIBE 0.00% with CER_SCRIBE 3.09% and 1 sandhi match. |
+| WER_SCRIBE high, CER_SCRIBE low | Near-miss recognition: many tokens each wrong by a character or two — every one counts fully at token level but barely at character level. Common for very long Indic words. |
+| WER_SCRIBE ≈ CER_SCRIBE, both high | Gross errors: whole words substituted, deleted, or hallucinated. |
+
+A model improving CER_SCRIBE while WER_SCRIBE stalls is getting the
+sounds right but not the word forms; the reverse suggests token-level
+luck on top of noisy characters. Report both.
+
 ### Analyse — frequent errors and sandhi events
 
 ```python
@@ -223,6 +278,7 @@ SCRIBE paper. Each entry points at the module that owns the concept.
 - **Combined denominator** — the total reference-token count across all categories, used as the divisor for every category's error rate. Prevents 1-error-in-1-token categories from reading as 100%. See `measure.py::token_error_rates`.
 - **Domain shielding** — extracting domain-critical multi-character tokens (e.g. `u/s`, `r/w`, `PW1`) before general tokenization so they stay atomic and aren't split on punctuation. See `tokenize.py` + `domain_config.py`.
 - **WER_SCRIBE** — the headline composite error rate: `(sub + ins + del) / total_ref`, where `total_ref` is the combined-denominator count of reference tokens across all categories (lexical, domain, numeral, punctuation). Equivalently, WER_SCRIBE is the sum of every category's `error_rate` (since they share the same denominator). Not comparable to a standard word-level WER, which ignores token categories.
+- **CER_SCRIBE** — character edits over reference characters, computed on *normalized* token streams (tokenize, canonicalize each token, rejoin, one Levenshtein pass). Format variants (dates, currency) contribute zero character errors, unlike a raw CER. No alignment is involved, so sandhi detection cannot affect it — a merged/split word costs only its few junction characters, which is CER's natural robustness to agglutination. Even with `normalize=False`, CER_SCRIBE differs from a raw CER (e.g. jiwer's): it measures the *canonical tokenized surface* — whitespace runs collapse to single spaces (spacing noise costs nothing), and punctuation splits into its own space-separated tokens (a missing period costs its space too, over a slightly larger denominator).
 - **Accuracy** — `total_correct / total_ref`, the fraction of reference tokens recovered exactly. **Accuracy and WER_SCRIBE are independent quantities** — they do not sum to 100% in general because (a) insertions appear in the WER_SCRIBE numerator but not in the reference token count, and (b) sandhi hits count as correct but consume two reference tokens per single hypothesis token. Both numbers are reported side-by-side in the CLI and visualizer.
 - **Error rate vs Impact on Total** — every category exposes two numbers. `error_rate = (sub + ins + del) / category_ref` answers "how accurate is the model on this category in isolation". `Impact on Total = (sub + ins + del) / total_ref` answers "how much does this category contribute to WER_SCRIBE". Across categories the *Impact on Total* values sum to WER_SCRIBE.
 - **Gap penalty / DP weight** — in the modified Needleman–Wunsch alignment, the cost of inserting a gap on either side. Tuned per-category in `DEFAULT_WEIGHTS` (align.py); punctuation gaps are cheaper than word or domain gaps because punctuation errors carry less semantic weight.

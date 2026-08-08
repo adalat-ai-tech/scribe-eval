@@ -104,13 +104,14 @@ def init_stat_dict(categories=None) -> dict:
     }
 
 
-def format_table_header(domain_labels=None) -> str:
+def format_table_header(domain_labels=None, cer=False) -> str:
     """
     Generate formatted table header for evaluation results.
 
     Args:
         domain_labels: Labels for domain error-rate columns, one per
             domain category present in the data (empty/None for none)
+        cer: If True, append a CER_SCRIBE column after WER_SCRIBE
 
     Returns:
         Multi-line string with header row and separator line
@@ -128,6 +129,8 @@ def format_table_header(domain_labels=None) -> str:
     sw = COLUMN_WIDTHS["sandhi"]
 
     columns = ["ER_LEX"] + list(domain_labels or []) + ["ER_NUM", "ER_PUNCT", "WER_SCRIBE"]
+    if cer:
+        columns.append("CER_SCRIBE")
     header = f"{'DATASET':<{dw}} | " + " | ".join(f"{c:>{mw}}" for c in columns)
     header += f" | {'SANDHI':>{sw}}"
     separator = "-" * len(header)

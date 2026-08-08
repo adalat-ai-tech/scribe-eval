@@ -189,11 +189,13 @@ With `--analysis --chart`:
 
 ## Detailed JSONL Output Format
 
-Each line is the original input record with the evaluation added. Two
+Each line is the original input record with the evaluation added. Three
 keys are reserved and written by evaluation — `source_dataset` is
 canonicalized (copied from the configured dataset field, stringified,
-"unknown" when missing) and `detailed_report` holds the per-category
-breakdown; input fields with those names are replaced. Every other
+"unknown" when missing) `detailed_report` holds the per-category
+breakdown, and `cer_scribe` holds the character error rate block (cer_scribe,
+char_errors, ref_chars, and character-level S/I/D counts, computed on
+normalized token streams); input fields with those names are replaced. Every other
 original field is preserved verbatim. (In-memory results may also carry
 a reserved `error_details` key when `collect_error_details=True`; it is
 never written to the JSONL.) A real example:
@@ -245,6 +247,14 @@ never written to the JSONL.) A real example:
       "sandhi_hits": 0,
       "combined_total": 4
     }
+  },
+  "cer_scribe": {
+    "cer_scribe": 0.05263157894736842,
+    "char_errors": 1,
+    "ref_chars": 19,
+    "substitutions": 1,
+    "deletions": 0,
+    "insertions": 0
   }
 }
 ```

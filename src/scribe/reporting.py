@@ -59,7 +59,7 @@ def resolve_domain_labels(metrics: Dict) -> Dict[str, str]:
     return {cat: cat for cat in domain_cats}
 
 
-def format_metrics_dict(metrics: Dict) -> Dict[str, str]:
+def format_metrics_dict(metrics: Dict, cer: Dict = None) -> Dict[str, str]:
     """
     Extract ER_LEX/ER_DOMAIN/ER_NUM/ER_PUNCT and the composite
     WER_SCRIBE from aggregate metrics.
@@ -72,6 +72,8 @@ def format_metrics_dict(metrics: Dict) -> Dict[str, str]:
 
     Args:
         metrics: Dictionary containing error metrics for each category
+        cer: Optional CER_SCRIBE counts dict (from a sample's "cer_scribe" block or
+            an aggregate entry); adds a "CER_SCRIBE" column after WER_SCRIBE
 
     Returns:
         Dictionary with formatted metric strings ready for table display
@@ -84,6 +86,13 @@ def format_metrics_dict(metrics: Dict) -> Dict[str, str]:
     result["ER_NUM"] = _format_rate(metrics[CAT_NUMERAL])
     result["ER_PUNCT"] = _format_rate(metrics[CAT_PUNCT])
     result["WER_SCRIBE"] = f"{compute_wer_scribe(metrics):.2%}"
+    if cer is not None:
+        # Same rule as the category rates: N/A only when nothing was
+        # measured AND nothing happened. An empty reference with
+        # hypothesis text is a hallucination-only case with real
+        # insertion errors — its rate must show.
+        measured = cer.get("ref_chars", 0) > 0 or cer.get("char_errors", 0) > 0
+        result["CER_SCRIBE"] = f"{cer['cer_scribe']:.2%}" if measured else "N/A"
 
     # Sandhi can occur in any category (LEXICAL, LEGAL, MEDICAL, etc.).
     result["Sandhi"] = sum(metrics[cat]["sandhi_hits"] for cat in metrics.keys())
@@ -132,15 +141,22 @@ def format_dataset_table(agg_results: Dict) -> List[Dict]:
         List of dictionaries, each containing Dataset name and error metrics
     """
     table_data = []
+    cer_data = agg_results.get("cer_scribe")
 
     # Overall row
-    overall = format_metrics_dict(agg_results["overall"])
+    overall = format_metrics_dict(
+        agg_results["overall"],
+        cer=cer_data["overall"] if cer_data else None,
+    )
     overall["Dataset"] = "OVERALL"
     table_data.append(overall)
 
     # Per-dataset rows
     for ds, metrics in agg_results["by_dataset"].items():
-        row = format_metrics_dict(metrics)
+        row = format_metrics_dict(
+            metrics,
+            cer=(cer_data["by_dataset"].get(ds) or {}) if cer_data else None,
+        )
         row["Dataset"] = ds
         table_data.append(row)
 
@@ -194,8 +210,9 @@ def format_summary_lines(agg_results: Dict) -> List[str]:
     # label differently than the table header, and a label lookup would
     # show N/A over a real number.
     labels = resolve_domain_labels(agg_results["overall"])
+    cer_data = agg_results.get("cer_scribe")
 
-    header = format_table_header(list(labels.values()))
+    header = format_table_header(list(labels.values()), cer=cer_data is not None)
     width = len(header.split("\n")[0])
     dw = COLUMN_WIDTHS["dataset"]
     mw = COLUMN_WIDTHS["metric"]
@@ -219,6 +236,16 @@ def format_summary_lines(agg_results: Dict) -> List[str]:
         cells.append(f"{row['ER_NUM']:>{mw}}")
         cells.append(f"{row['ER_PUNCT']:>{mw}}")
         cells.append(f"{row['WER_SCRIBE']:>{mw}}")
+        if cer_data is not None:
+            entry = (
+                cer_data["overall"]
+                if ds_name == "OVERALL"
+                else cer_data["by_dataset"].get(ds_name)
+            )
+            if entry and (entry.get("ref_chars", 0) > 0 or entry.get("char_errors", 0) > 0):
+                cells.append(f"{entry['cer_scribe']:>{mw}.2%}")
+            else:
+                cells.append(f"{'N/A':>{mw}}")
         cells.append(f"{row['Sandhi']:>{sw}}")
         lines.append(" | ".join(cells))
         if ds_name == "OVERALL":

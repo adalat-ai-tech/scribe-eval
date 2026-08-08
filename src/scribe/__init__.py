@@ -66,6 +66,9 @@ from .domain_config import DomainConfig as DomainConfig
 
 # --- Measurement & Error Rates ---
 from .measure import (
+    compute_cer_scribe as compute_cer_scribe,
+)
+from .measure import (
     text_error_details as text_error_details,
 )
 from .measure import (
