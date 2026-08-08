@@ -434,3 +434,34 @@ def test_summary_table_shows_cer_column_when_present():
     report = text_error_rates("a b", "a b", None)
     agg_no_cer = {"overall": report, "by_dataset": {"x": report}}
     assert "CER_SCRIBE" not in format_summary_lines(agg_no_cer)[1]
+
+
+def test_cer_shows_for_insertion_only_hallucination():
+    """An empty reference with hypothesis text has real insertion
+    errors and a numeric CER — N/A is only for nothing-measured-and-
+    nothing-happened (PR review issue: the ref_chars gate hid
+    hallucination-only CER)."""
+    from scribe import evaluate_records
+    from scribe.reporting import format_summary_lines
+
+    records = [{"text": "", "pred_text": "ab", "source_dataset": "d1"}]
+    agg = compute_aggregate_metrics(evaluate_records(records))
+
+    row = format_metrics_dict(agg["overall"], cer=agg["cer_scribe"]["overall"])
+    assert row["CER_SCRIBE"] == "200.00%"
+
+    overall_line = next(
+        line for line in format_summary_lines(agg) if line.startswith("OVERALL")
+    )
+    assert "200.00%" in overall_line
+
+
+def test_cer_na_only_when_truly_nothing_measured():
+    """Empty reference AND empty hypothesis: nothing measured, nothing
+    happened — N/A is correct there."""
+    from scribe import evaluate_records
+
+    records = [{"text": "", "pred_text": "", "source_dataset": "d1"}]
+    agg = compute_aggregate_metrics(evaluate_records(records))
+    row = format_metrics_dict(agg["overall"], cer=agg["cer_scribe"]["overall"])
+    assert row["CER_SCRIBE"] == "N/A"

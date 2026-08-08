@@ -87,7 +87,12 @@ def format_metrics_dict(metrics: Dict, cer: Dict = None) -> Dict[str, str]:
     result["ER_PUNCT"] = _format_rate(metrics[CAT_PUNCT])
     result["WER_SCRIBE"] = f"{compute_wer_scribe(metrics):.2%}"
     if cer is not None:
-        result["CER_SCRIBE"] = f"{cer['cer_scribe']:.2%}" if cer.get("ref_chars", 0) > 0 else "N/A"
+        # Same rule as the category rates: N/A only when nothing was
+        # measured AND nothing happened. An empty reference with
+        # hypothesis text is a hallucination-only case with real
+        # insertion errors — its rate must show.
+        measured = cer.get("ref_chars", 0) > 0 or cer.get("char_errors", 0) > 0
+        result["CER_SCRIBE"] = f"{cer['cer_scribe']:.2%}" if measured else "N/A"
 
     # Sandhi can occur in any category (LEXICAL, LEGAL, MEDICAL, etc.).
     result["Sandhi"] = sum(metrics[cat]["sandhi_hits"] for cat in metrics.keys())
@@ -237,7 +242,7 @@ def format_summary_lines(agg_results: Dict) -> List[str]:
                 if ds_name == "OVERALL"
                 else cer_data["by_dataset"].get(ds_name)
             )
-            if entry and entry.get("ref_chars", 0) > 0:
+            if entry and (entry.get("ref_chars", 0) > 0 or entry.get("char_errors", 0) > 0):
                 cells.append(f"{entry['cer_scribe']:>{mw}.2%}")
             else:
                 cells.append(f"{'N/A':>{mw}}")
