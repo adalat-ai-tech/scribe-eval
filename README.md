@@ -87,9 +87,12 @@ phrase without detection):
 | Hindi | भाई साहब | भाईसाहब | compound spacing |
 | Hindi | उस में | उसमें | postposition merge |
 
-On a 48-dictation Malayalam legal benchmark, sandhi detection recovers
+On an internal benchmark of 48 Malayalam legal dictations (private
+data, not distributed with this repository), sandhi detection recovers
 **3.0 percentage points of WER_SCRIBE** across 377 events that would
-otherwise masquerade as recognition errors.
+otherwise masquerade as recognition errors. The paired examples above
+are directly reproducible: score any row with `use_sandhi=True` vs
+`use_sandhi=False` in `text_error_rates`.
 
 Detection is an orthographic heuristic, not a linguistic analysis — it
 is deliberately lenient and admits some false positives. See

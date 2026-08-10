@@ -145,8 +145,9 @@ words is never proposed and scores as ordinary errors.
 **Validation scope.** The heuristic is tuned against real Malayalam,
 Kannada, and Hindi ASR evaluation sets, where accepted events are
 overwhelmingly genuine (see the examples in the README). Its leniency
-is a deliberate trade: on a 48-dictation Malayalam legal benchmark it
-recovers 3.0 percentage points of WER_SCRIBE across 377 events. A
+is a deliberate trade: on an internal benchmark of 48 Malayalam legal
+dictations (private data) it recovers 3.0 percentage points of
+WER_SCRIBE across 377 events. A
 human annotation of accepted events (valid vs invalid) is planned;
 until then the false-positive rate is not precisely quantified.
 
@@ -187,9 +188,13 @@ wider bound.
   alignment and is immune — the divergence pattern documented below
   (WER_SCRIBE ≈ 0, CER_SCRIBE > 0, sandhi hits > 0) doubles as the
   detection signal for suspect sandhi counts.
-- Every accepted pair is listed verbatim in the frequent sandhi
-  merge/split tables (CLI `--analysis`, visualizer sub-tabs) —
-  spot-checking your own data takes minutes.
+- The frequent sandhi merge/split tables (CLI `--analysis`, visualizer
+  sub-tabs) show the **top-N** most frequent accepted pairs
+  (default 10) — raise `--top-n` / the visualizer slider when auditing,
+  since rare pairs are the suspicious ones. For an exhaustive list,
+  every accepted event is a `sandhi_merge`/`sandhi_split` record in the
+  per-token error details (`collect_error_details=True`,
+  `aggregate_error_details()`).
 - `use_sandhi=False` disables detection entirely;
   `sandhi_char_tolerance` tightens it.
 
