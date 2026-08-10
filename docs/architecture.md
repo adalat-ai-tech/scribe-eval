@@ -129,6 +129,79 @@ The aligner tags merge / split events with `MERGE:` / `SPLIT:` prefixes
 on the affected side. Downstream, `measure.py` reads those prefixes and
 records the event as a *sandhi correction* — not an error.
 
+### Sandhi detection: scope and limitations
+
+Sandhi detection is an **orthographic heuristic, not a linguistic
+analysis**. It consults no grammar, lexicon, or sandhi rules. When one
+reference token could correspond to two hypothesis tokens (or the
+reverse), it anchors the outer characters — the merged word must start
+like the first word and end like the second — and accepts the pair as a
+sandhi merge/split if the characters at the junction differ by at most
+`sandhi_char_tolerance` (default 2, in `DEFAULT_WEIGHTS`). That bounded
+character difference at the boundary is the entire test. Detection is
+limited to **two-word events**: a merge or split spanning three or more
+words is never proposed and scores as ordinary errors.
+
+**Validation scope.** The heuristic is tuned against real Malayalam,
+Kannada, and Hindi ASR evaluation sets, where accepted events are
+overwhelmingly genuine (see the examples in the README). Its leniency
+is a deliberate trade: on an internal benchmark of 48 Malayalam legal
+dictations (private data) it recovers 3.0 percentage points of
+WER_SCRIBE across 377 events. A
+human annotation of accepted events (valid vs invalid) is planned;
+until then the false-positive rate is not precisely quantified.
+
+**Known false positives — and why.** The tolerance counts *how many*
+characters changed at the junction, never *which kind*. Genuine vowel
+sandhi can eliminate the junction entirely (ഇന്ന് + അല്ലെങ്കിൽ →
+ഇന്നല്ലെങ്കിൽ: the chandrakkala and the vowel merge away — 2 characters,
+correctly accepted). But a lost consonant produces the same arithmetic:
+
+- `കണ്ട് പറഞ്ഞു` ("saw and told") → `കണ്ടറഞ്ഞു` is accepted as a merge,
+  though the consonant പ simply vanished — a real deletion, and the
+  merged form is not a word (a genuine compound keeps it:
+  `കണ്ടുപറഞ്ഞു`). The virama and the പ together are two characters,
+  exactly at the tolerance. The same shape occurs in real data:
+  `ജസ് സോളി` → `ജസോളി`, a name losing its സ (a genuine merge would
+  geminate: `ജസ്സോളി`).
+- From real evaluation data: `പ്രതി ഷിജിലിനെ` → `പ്രതിജിലിനെ` — a
+  witness name losing its ഷി is forgiven as sandhi (flagged pending the
+  annotation effort).
+- The same hole exists in any script: `ab cd` → `ad` is accepted in
+  Latin text.
+
+Distinguishing these cases from genuine elision requires knowing that a
+virama+vowel junction may vanish while a consonant may not — character
+*class* knowledge the heuristic deliberately does not have.
+
+**Tolerance in practice.** Every genuine sandhi examined in the
+Malayalam, Kannada, and Hindi evaluation data changes the junction by
+at most two characters (vowel elision, gemination), so the default
+tolerance has not been observed to reject a real sandhi.
+`sandhi_char_tolerance` is configurable should another language need a
+wider bound.
+
+**Consequences and how to audit.**
+
+- A false-positive sandhi converts real errors into "correct + 1 sandhi
+  hit", so WER_SCRIBE *underestimates*. CER_SCRIBE involves no
+  alignment and is immune — the divergence pattern documented below
+  (WER_SCRIBE ≈ 0, CER_SCRIBE > 0, sandhi hits > 0) doubles as the
+  detection signal for suspect sandhi counts.
+- The frequent sandhi merge/split tables (CLI `--analysis`, visualizer
+  sub-tabs) show the **top-N** most frequent accepted pairs
+  (default 10) — raise `--top-n` / the visualizer slider when auditing,
+  since rare pairs are the suspicious ones. For an exhaustive list,
+  every accepted event is a `sandhi_merge`/`sandhi_split` record in the
+  per-token error details (`collect_error_details=True`,
+  `aggregate_error_details()`).
+- `use_sandhi=False` disables detection entirely;
+  `sandhi_char_tolerance` tightens it.
+
+A stricter, linguistically informed junction check exists in prototype
+and is under validation across the scheduled languages' scripts; it will
+land after the per-language review rather than ship half-validated.
+
 ### Measure — rates and per-token records
 
 ```python

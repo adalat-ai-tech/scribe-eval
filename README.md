@@ -69,6 +69,36 @@ One domain is active per evaluation: pass a single `DomainConfig`
 `DomainConfig.from_file`); its error rate always reports as **ER_DOMAIN**.
 See [docs/domain-configuration.md](docs/domain-configuration.md).
 
+## Sandhi Awareness
+
+Agglutination makes word boundaries unstable in Indic text: the same
+speech can be written as one word or two. SCRIBE detects such two-word
+merges and splits at alignment time and scores them as matches instead
+of errors.
+Real examples from evaluation data (each would count as 100% WER on its
+phrase without detection):
+
+| Language | Reference | Hypothesis | Junction |
+|---|---|---|---|
+| Malayalam | അന്യായ പട്ടിക | അന്യായപ്പട്ടിക | gemination |
+| Malayalam | എനിക്ക് അറിയാം | എനിക്കറിയാം | vowel elision |
+| Kannada | ಪ್ರಧಾನ ಮಂತ್ರಿಗಳ | ಪ್ರಧಾನಮಂತ್ರಿಗಳ | compound merge |
+| Kannada | ಮಿತ್ರರಾಷ್ಟ್ರಗಳು | ಮಿತ್ರ ರಾಷ್ಟ್ರಗಳು | compound split |
+| Hindi | भाई साहब | भाईसाहब | compound spacing |
+| Hindi | उस में | उसमें | postposition merge |
+
+On an internal benchmark of 48 Malayalam legal dictations (private
+data, not distributed with this repository), sandhi detection recovers
+**3.0 percentage points of WER_SCRIBE** across 377 events that would
+otherwise masquerade as recognition errors. The paired examples above
+are directly reproducible: score any row with `use_sandhi=True` vs
+`use_sandhi=False` in `text_error_rates`.
+
+Detection is an orthographic heuristic, not a linguistic analysis — it
+is deliberately lenient and admits some false positives. See
+[Sandhi detection: scope and limitations](docs/architecture.md#sandhi-detection-scope-and-limitations)
+before relying on sandhi counts.
+
 ## Domain Configuration
 
 Factory methods for bundled domains: `DomainConfig.legal()`, `DomainConfig.medical()`, `DomainConfig.technical()`
