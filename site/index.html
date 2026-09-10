@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SCRIBE — Diagnostic ASR Evaluation for Indic Languages</title>
+<meta name="description" content="Fine-grained ASR error analysis for Indic and domain-specific speech recognition: sandhi-aware alignment, domain-shielded tokenization, WER_SCRIBE and CER_SCRIBE — try it live in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600&family=Inter:wght@400;600&family=Noto+Sans+Malayalam:wght@400;600&family=Noto+Sans+Kannada:wght@400;600&family=Noto+Sans+Devanagari:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="masthead-inner">
+    <h1 class="wordmark">SCRIBE</h1>
+    <p class="package-line">the <code>scribe-eval</code> Python package &middot; <code>import scribe</code></p>
+    <p class="tagline">Diagnostic evaluation for Indic &amp; domain-specific ASR — sandhi-aware alignment, domain-shielded tokenization, and error metrics that say <em>what</em> went wrong, not just how much.</p>
+    <nav class="links-row">
+      <a href="https://github.com/adalat-ai-tech/scribe-eval">GitHub</a>
+      <a href="https://arxiv.org/abs/2605.20712">Paper (Interspeech 2026)</a>
+      <a href="https://doi.org/10.5281/zenodo.20765419">Zenodo DOI</a>
+      <!-- Once published on PyPI, point this at https://pypi.org/project/scribe-eval/ -->
+      <a href="https://github.com/adalat-ai-tech/scribe-eval#installation">Install</a>
+      <span class="code-chip">pip install scribe-eval</span>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<section id="story">
+  <h2>Why another error rate</h2>
+  <p>Plain WER treats every mismatch as the same mistake. For Indic languages and
+  domain-heavy transcription that hides the story: an agglutinated word split in
+  two, a date written with different separators, and a misrecognized legal term
+  are three very different failures. SCRIBE decomposes tokens into base classes
+  and an optional domain class, aligns them with a category-aware algorithm,
+  and reports one error rate per class over a shared denominator.</p>
+
+  <table class="prose-table">
+    <thead><tr><th>Category</th><th>Label</th><th>What lands here</th></tr></thead>
+    <tbody>
+      <tr><td>LEXICAL</td><td><code>ER_LEX</code></td><td>General words, Indic and English</td></tr>
+      <tr><td>NUMERAL</td><td><code>ER_NUM</code></td><td>Numbers, dates, times — 302, 22.05.2023, 10:30</td></tr>
+      <tr><td>PUNCT</td><td><code>ER_PUNCT</code></td><td>Punctuation marks</td></tr>
+      <tr><td>LEGAL / MEDICAL / TECH / custom</td><td><code>ER_DOMAIN</code></td><td>Domain terminology, shielded from incorrect splitting</td></tr>
+    </tbody>
+  </table>
+
+  <p><strong>WER_SCRIBE</strong> is the composite: all category errors over the
+  combined reference-token denominator. <strong>CER_SCRIBE</strong> is a
+  character error rate computed on normalized token streams — format variants
+  cost nothing, and it needs no sandhi machinery to be robust to
+  agglutination.</p>
+</section>
+
+</main>
+
+<section class="demo-section" id="demo">
+  <h2>Try it — live in your browser</h2>
+  <div class="demo-panel">
+    <span class="status-pill loading" id="status-pill">Loading Python engine · runs entirely in your browser</span>
+
+    <div class="showcase-row" id="showcase-row"></div>
+
+    <div class="io-grid">
+      <div>
+        <label for="ref-input">Reference (ground truth)</label>
+        <textarea id="ref-input" disabled spellcheck="false"></textarea>
+      </div>
+      <div>
+        <label for="hyp-input">Hypothesis (ASR output)</label>
+        <textarea id="hyp-input" disabled spellcheck="false"></textarea>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div>
+        <label for="domain-select">Domain</label>
+        <select id="domain-select" disabled>
+          <option value="none">None</option>
+          <option value="legal">Legal</option>
+          <option value="medical">Medical</option>
+          <option value="technical">Technical</option>
+        </select>
+      </div>
+      <label class="toggle"><input type="checkbox" id="normalize-toggle" checked disabled> Normalize formats</label>
+      <label class="toggle"><input type="checkbox" id="sandhi-toggle" checked disabled> Sandhi detection</label>
+    </div>
+
+    <p class="showcase-note" id="showcase-note"></p>
+
+    <div id="results" hidden>
+      <div class="tiles">
+        <div class="tile" title="Composite SCRIBE error rate: errors from all token categories (lexical, domain, numeral, punctuation) over the combined reference-token denominator. Not comparable to a word-level WER.">
+          <div class="tile-label">WER_SCRIBE</div>
+          <div class="tile-value" id="tile-wer">–</div>
+        </div>
+        <div class="tile" title="SCRIBE character error rate: character edits over reference characters, computed on normalized token streams — format variants cost nothing.">
+          <div class="tile-label">CER_SCRIBE</div>
+          <div class="tile-value" id="tile-cer">–</div>
+        </div>
+        <div class="tile" title="Accuracy + WER_SCRIBE need not sum to 100%: insertions and sandhi corrections affect the reference token count.">
+          <div class="tile-label">Accuracy</div>
+          <div class="tile-value" id="tile-acc">–</div>
+        </div>
+      </div>
+      <p class="chips-caption" id="chips-caption"></p>
+      <div class="scroll-container"><table class="alignment-table"><tbody><tr id="alignment-row"></tr></tbody></table></div>
+      <details class="contribution">
+        <summary>Category breakdown</summary>
+        <div class="scroll-container" style="border:none;background:transparent">
+          <table class="contribution-table" id="contribution-table"></table>
+        </div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<main>
+
+<section id="sandhi">
+  <h2>Sandhi awareness</h2>
+  <p>Agglutination makes word boundaries unstable in Indic text: the same speech
+  can be written as one word or two. SCRIBE detects such two-word merges and
+  splits at alignment time and scores them as matches instead of errors. Each
+  row below is real evaluation data — and each would count as 100% WER on its
+  phrase without detection.</p>
+
+  <table class="prose-table" id="sandhi-table">
+    <thead><tr><th>Language</th><th>Reference</th><th>Hypothesis</th><th>Junction</th><th></th></tr></thead>
+    <tbody>
+      <tr><td>Malayalam</td><td class="indic">അന്യായ പട്ടിക</td><td class="indic">അന്യായപ്പട്ടിക</td><td>gemination</td><td><a class="try-link" href="#demo" data-showcase="ml-gemination">Try it ↗</a></td></tr>
+      <tr><td>Malayalam</td><td class="indic">എനിക്ക് അറിയാം</td><td class="indic">എനിക്കറിയാം</td><td>vowel elision</td><td><a class="try-link" href="#demo" data-showcase="ml-elision">Try it ↗</a></td></tr>
+      <tr><td>Kannada</td><td class="indic">ಪ್ರಧಾನ ಮಂತ್ರಿಗಳ</td><td class="indic">ಪ್ರಧಾನಮಂತ್ರಿಗಳ</td><td>compound merge</td><td><a class="try-link" href="#demo" data-showcase="kn-merge">Try it ↗</a></td></tr>
+      <tr><td>Kannada</td><td class="indic">ಮಿತ್ರರಾಷ್ಟ್ರಗಳು</td><td class="indic">ಮಿತ್ರ ರಾಷ್ಟ್ರಗಳು</td><td>compound split</td><td><a class="try-link" href="#demo" data-showcase="kn-split">Try it ↗</a></td></tr>
+      <tr><td>Hindi</td><td class="indic">भाई साहब</td><td class="indic">भाईसाहब</td><td>compound spacing</td><td><a class="try-link" href="#demo" data-showcase="hi-compound">Try it ↗</a></td></tr>
+      <tr><td>Hindi</td><td class="indic">उस में</td><td class="indic">उसमें</td><td>postposition merge</td><td><a class="try-link" href="#demo" data-showcase="hi-postposition">Try it ↗</a></td></tr>
+    </tbody>
+  </table>
+
+  <p>On an internal benchmark of 48 Malayalam legal dictations, sandhi detection
+  recovers <strong>3.0 percentage points of WER_SCRIBE</strong> across 377
+  events that would otherwise masquerade as recognition errors. Detection is an
+  orthographic heuristic, not a linguistic analysis — deliberately lenient, with
+  documented limitations: see
+  <a href="https://github.com/adalat-ai-tech/scribe-eval/blob/main/docs/architecture.md#sandhi-detection-scope-and-limitations">scope
+  and limitations</a> before relying on sandhi counts.</p>
+</section>
+
+<section id="how">
+  <h2>How this demo works</h2>
+  <p>The demo runs the <em>published</em> <code>scribe-eval</code> wheel — the
+  same code you get from pip — inside your browser via
+  <a href="https://pyodide.org">Pyodide</a> (CPython on WebAssembly), with a
+  small pure-Python stand-in for the Levenshtein C extension. Nothing you type
+  leaves your browser. The page itself is static files served from GitHub
+  Pages; the source lives in
+  <a href="https://github.com/adalat-ai-tech/scribe-eval/tree/main/site"><code>site/</code></a>.</p>
+</section>
+
+</main>
+
+<footer>
+  <div class="footer-inner">
+    <h2>Cite</h2>
+    <pre class="bibtex">@article{manohar2026scribe,
+  title={SCRIBE: Diagnostic Evaluation and Rich Transcription Models for Indic ASR},
+  author={Manohar, Kavya and Bhattacharya, Arghya and Juvekar, Kush and Nethil, Kumarmanas},
+  journal={arXiv preprint arXiv:2605.20712},
+  year={2026}
+}</pre>
+    <p class="muted">Apache License 2.0 · <a href="https://github.com/adalat-ai-tech/scribe-eval">adalat-ai-tech/scribe-eval</a> · software DOI <a href="https://doi.org/10.5281/zenodo.20765419">10.5281/zenodo.20765419</a></p>
+  </div>
+</footer>
+
+<script defer src="js/demo.js"></script>
+</body>
+</html>
