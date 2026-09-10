@@ -1,0 +1,82 @@
+[
+  {
+    "id": "ml-gemination",
+    "label": "Malayalam · gemination",
+    "ref": "അന്യായ പട്ടിക",
+    "hyp": "അന്യായപ്പട്ടിക",
+    "domain": "none",
+    "normalize": true,
+    "use_sandhi": true,
+    "note": "A sandhi merge scored as a match — this phrase is 100% WER without detection."
+  },
+  {
+    "id": "ml-elision",
+    "label": "Malayalam · vowel elision",
+    "ref": "എനിക്ക് അറിയാം",
+    "hyp": "എനിക്കറിയാം",
+    "domain": "none",
+    "normalize": true,
+    "use_sandhi": true,
+    "note": "The chandrakkala and the vowel merge away at the junction — genuine sandhi, zero errors."
+  },
+  {
+    "id": "kn-merge",
+    "label": "Kannada · compound merge",
+    "ref": "ಪ್ರಧಾನ ಮಂತ್ರಿಗಳ",
+    "hyp": "ಪ್ರಧಾನಮಂತ್ರಿಗಳ",
+    "domain": "none",
+    "normalize": true,
+    "use_sandhi": true,
+    "note": "Two reference words written as one compound by the ASR."
+  },
+  {
+    "id": "kn-split",
+    "label": "Kannada · compound split",
+    "ref": "ಮಿತ್ರರಾಷ್ಟ್ರಗಳು",
+    "hyp": "ಮಿತ್ರ ರಾಷ್ಟ್ರಗಳು",
+    "domain": "none",
+    "normalize": true,
+    "use_sandhi": true,
+    "note": "One reference compound split into two hypothesis words — the reverse direction."
+  },
+  {
+    "id": "hi-compound",
+    "label": "Hindi · compound spacing",
+    "ref": "भाई साहब",
+    "hyp": "भाईसाहब",
+    "domain": "none",
+    "normalize": true,
+    "use_sandhi": true,
+    "note": "Compound spacing variation — both spellings are current Hindi."
+  },
+  {
+    "id": "hi-postposition",
+    "label": "Hindi · postposition merge",
+    "ref": "उस में",
+    "hyp": "उसमें",
+    "domain": "none",
+    "normalize": true,
+    "use_sandhi": true,
+    "note": "Postposition joined to its pronoun — a spacing variant, not a recognition error."
+  },
+  {
+    "id": "legal",
+    "label": "Legal domain · shielded terms",
+    "ref": "charged u/s 302 IPC on 22.05.2023",
+    "hyp": "charged u/s 303 IPC on 22.05.2023",
+    "domain": "legal",
+    "normalize": true,
+    "use_sandhi": true,
+    "note": "u/s stays one LEGAL token instead of splitting on the slash; the 302→303 error lands in ER_NUM, not ER_LEX."
+  },
+  {
+    "id": "numeral-norm",
+    "label": "Numerals · format variants cost nothing",
+    "ref": "fine of 1,00,000 imposed on 22.05.2023",
+    "hyp": "fine of 100000 imposed on 22/05/2023",
+    "domain": "none",
+    "normalize": true,
+    "use_sandhi": true,
+    "note": "With normalization on, currency commas and date separators are formatting, not errors — toggle it off to see the difference."
+  }
+]

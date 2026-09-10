@@ -54,3 +54,7 @@ src/scribe/config/custom_*.txt
 examples/test_*.py
 # Root-level eval result directory
 malayalam-model-results/
+
+# demo site build outputs
+site/wheels/
+site/data/showcase_results.json
