@@ -1,0 +1,64 @@
+name: Deploy demo site
+
+# feat/demo-site deploys directly while the PR is open; the main trigger
+# takes over automatically once this file lands on main.
+on:
+  push:
+    branches: [main, feat/demo-site]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build wheel
+        run: |
+          python -m pip install build
+          python -m build --wheel
+
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp -r site/. _site/
+          mkdir -p _site/wheels _site/data
+          cp dist/*.whl _site/wheels/
+          WHEEL=$(basename dist/*.whl)
+          printf '{"wheel": "%s"}\n' "$WHEEL" > _site/wheels/manifest.json
+
+      # Baking with the installed wheel (not the source tree) doubles as a
+      # wheel-integrity check: it must import and carry its config files.
+      - name: Bake showcase results
+        run: |
+          python -m pip install dist/*.whl
+          python scripts/generate_showcase_data.py \
+            --showcases site/data/showcases.json \
+            --out _site/data/showcase_results.json
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
