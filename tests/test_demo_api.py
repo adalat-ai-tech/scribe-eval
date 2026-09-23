@@ -77,7 +77,7 @@ def test_numeral_showcase_normalization_effect():
 
 
 def test_json_round_trip():
-    case = BY_ID["ml-gemination"]
+    case = BY_ID["ml-merge-split"]
     payload = demo_api.evaluate_single_json(
         case["ref"], case["hyp"], case["domain"], case["normalize"], case["use_sandhi"]
     )
@@ -98,7 +98,10 @@ def test_readme_sandhi_rows_are_showcases():
     section = readme.split("## Sandhi Awareness")[1].split("## Domain Configuration")[0]
     rows = re.findall(r"^\| \w+ \| (.+?) \| (.+?) \|", section, flags=re.MULTILINE)
     rows = [pair for pair in rows if pair != ("Reference", "Hypothesis")]
-    showcase_pairs = {(case["ref"], case["hyp"]) for case in SHOWCASES}
     assert rows, "README Sandhi Awareness table not found"
+    # A README row may be a fragment of a longer showcase utterance, so
+    # containment (not equality) is the contract.
     for ref, hyp in rows:
-        assert (ref.strip(), hyp.strip()) in showcase_pairs, (ref, hyp)
+        assert any(
+            ref.strip() in case["ref"] and hyp.strip() in case["hyp"] for case in SHOWCASES
+        ), (ref, hyp)

@@ -80,7 +80,7 @@ phrase without detection):
 
 | Language | Reference | Hypothesis | Junction |
 |---|---|---|---|
-| Malayalam | അന്യായ പട്ടിക | അന്യായപ്പട്ടിക | gemination |
+| Malayalam | കഥാപാത്രമായിട്ടാണ് | കഥാപാത്രം ആയിട്ടാണ് | compound split |
 | Malayalam | എനിക്ക് അറിയാം | എനിക്കറിയാം | vowel elision |
 | Kannada | ಪ್ರಧಾನ ಮಂತ್ರಿಗಳ | ಪ್ರಧಾನಮಂತ್ರಿಗಳ | compound merge |
 | Kannada | ಮಿತ್ರರಾಷ್ಟ್ರಗಳು | ಮಿತ್ರ ರಾಷ್ಟ್ರಗಳು | compound split |

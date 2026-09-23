@@ -173,7 +173,16 @@ function loadShowcase(id) {
   sandhiToggle.checked = sc.use_sandhi;
   clearActiveChip();
   const chip = document.querySelector(`.showcase-chip[data-id="${id}"]`);
-  if (chip) chip.classList.add("active");
+  if (chip) {
+    chip.classList.add("active");
+    // Scroll only the strip. scrollIntoView() would also scroll the document
+    // and cancel the #demo anchor jump the "Try it" links rely on.
+    const row = chip.parentElement;
+    row.scrollTo({
+      left: chip.offsetLeft - (row.clientWidth - chip.offsetWidth) / 2,
+      behavior: "smooth",
+    });
+  }
   showcaseNote.textContent = sc.note || "";
   if (evaluateJson) {
     evaluateLive();

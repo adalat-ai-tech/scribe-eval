@@ -1,13 +1,13 @@
 [
   {
-    "id": "ml-gemination",
-    "label": "Malayalam · gemination",
-    "ref": "അന്യായ പട്ടിക",
-    "hyp": "അന്യായപ്പട്ടിക",
+    "id": "ml-merge-split",
+    "label": "Malayalam · merge and split, one utterance",
+    "ref": "ഇട വന്ന ഒരു കഥാപാത്രമായിട്ടാണ് ചിത്രീകരിക്കുന്നത്",
+    "hyp": "ഇടവന്ന ഒരു കഥാപാത്രം ആയിട്ടാണ് ചിത്രീകരിക്കുന്നത്.",
     "domain": "none",
     "normalize": true,
     "use_sandhi": true,
-    "note": "A sandhi merge scored as a match — this phrase is 100% WER without detection."
+    "note": "Real data from the bundled sample file: one compound merged, another split. With detection only the stray period remains; without it, every word scores wrong — 100% WER."
   },
   {
     "id": "ml-elision",
@@ -18,6 +18,16 @@
     "normalize": true,
     "use_sandhi": true,
     "note": "The chandrakkala and the vowel merge away at the junction — genuine sandhi, zero errors."
+  },
+  {
+    "id": "ml-vowel-sandhi",
+    "label": "Malayalam · sandhi beside a real error",
+    "ref": "സ്വതന്ത്രമായ മരുന്ന് ഉപയോഗിച്ച് അല്ലെങ്കിൽ മറ്റ് മരുന്നുകളുമായി ചേർന്ന് ഉപയോഗിക്കാൻ കഴിയും.",
+    "hyp": "സ്വതന്ത്രമായ മരുന്നുപയോഗിച്ച് അല്ലെങ്കിൽ മറ്റു മരുന്നുകളുമായി ചേർന്ന് ഉപയോഗിക്കാൻ കഴിയും",
+    "domain": "none",
+    "normalize": true,
+    "use_sandhi": true,
+    "note": "The u-sandhi merge is forgiven while the genuine മറ്റ്→മറ്റു substitution still counts — saves and real errors coexist honestly."
   },
   {
     "id": "kn-merge",
@@ -68,6 +78,36 @@
     "normalize": true,
     "use_sandhi": true,
     "note": "u/s stays one LEGAL token instead of splitting on the slash; the 302→303 error lands in ER_NUM, not ER_LEX."
+  },
+  {
+    "id": "medical-dosage",
+    "label": "Medical domain · dosage error isolated",
+    "ref": "paracetamol 500mg every six hours",
+    "hyp": "paracetamol 650mg every six hours",
+    "domain": "medical",
+    "normalize": true,
+    "use_sandhi": true,
+    "note": "500mg is shielded as one MEDICAL token, so the dosage error is tracked in ER_DOMAIN — the surrounding words stay clean."
+  },
+  {
+    "id": "ml-punct",
+    "label": "Malayalam · punctuation scored apart",
+    "ref": "അതെ, ഞാൻ കണ്ടു.",
+    "hyp": "അതെ ഞാൻ കണ്ടു",
+    "domain": "none",
+    "normalize": true,
+    "use_sandhi": true,
+    "note": "The words are perfect; only punctuation is missing — ER_PUNCT carries it all, ER_LEX stays 0%."
+  },
+  {
+    "id": "hi-mixed",
+    "label": "Hindi · mixed error types",
+    "ref": "गवाह ने 22.05.2023 को अदालत में बयान दिया",
+    "hyp": "गवाह 22.05.2023 को अदालत में बयान दिए गए",
+    "domain": "none",
+    "normalize": true,
+    "use_sandhi": true,
+    "note": "A deletion, a substitution, and an insertion in one utterance — the date stays untouched in NUMERAL."
   },
   {
     "id": "numeral-norm",

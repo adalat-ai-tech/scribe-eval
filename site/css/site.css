@@ -155,20 +155,53 @@ table.prose-table .indic { font-family: var(--token); }
 .status-pill.failed::before { background: var(--err); }
 @keyframes pulse { 50% { opacity: 0.3; } }
 
-.showcase-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0 1.2rem; }
+.showcase-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin: 1rem 0 1.2rem;
+}
+.showcase-strip-label {
+  flex: none;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-muted);
+}
+.showcase-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline) transparent;
+  padding: 3px 2rem 6px 2px;
+  /* faded edges hint at more examples beyond the fold */
+  mask-image: linear-gradient(to right, transparent, black 12px, black calc(100% - 36px), transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 12px, black calc(100% - 36px), transparent);
+}
 .showcase-chip {
+  flex: none;
+  scroll-snap-align: start;
   font-family: var(--sans);
   font-size: 0.82rem;
   font-weight: 600;
-  color: var(--ink);
-  background: var(--paper);
+  color: var(--ink-muted);
+  background: transparent;
   border: 1px solid var(--hairline);
   border-radius: 99px;
   padding: 0.3rem 0.85rem;
   cursor: pointer;
+  white-space: nowrap;
 }
-.showcase-chip:hover { border-color: var(--ink-muted); }
-.showcase-chip.active { border-color: var(--ink); border-bottom: 3px solid var(--brand); }
+.showcase-chip:hover { border-color: var(--ink-muted); color: var(--ink); }
+.showcase-chip.active { color: var(--ink); border-color: var(--ink); box-shadow: inset 0 -3px 0 var(--brand); }
+@media (max-width: 680px) {
+  .showcase-strip { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
+  .showcase-row { width: 100%; }
+}
 
 .io-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .io-grid label, .controls label {
