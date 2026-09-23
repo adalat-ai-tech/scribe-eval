@@ -18,14 +18,21 @@ error rate (ER_LEX).
 
 ## Installation
 
-`scribe-eval` is not yet on PyPI — install from source for now (`pip install scribe-eval` will work once published):
+```bash
+pip install scribe-eval                 # core library
+pip install 'scribe-eval[visualizer]'   # adds Streamlit UI
+pip install 'scribe-eval[charts]'       # adds matplotlib charts
+```
+
+The core library depends only on `levenshtein` and `tabulate`. The extras are
+optional and independent of each other.
+
+To work on SCRIBE itself, install from source instead:
 
 ```bash
 git clone https://github.com/adalat-ai-tech/scribe-eval.git
 cd scribe-eval
-pip install -e .                 # core library
-pip install -e '.[visualizer]'   # adds Streamlit UI
-pip install -e '.[charts]'       # adds matplotlib charts
+pip install -e '.[visualizer,charts]'
 ```
 
 ## Quick Start
