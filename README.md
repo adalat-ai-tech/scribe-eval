@@ -1,7 +1,7 @@
 # SCRIBE — Diagnostic Evaluation for Indic & Domain-Specific ASR
 
 [![Python](https://img.shields.io/badge/python-%3E%3D3.10-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/adalat-ai-tech/scribe-eval/blob/main/LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20765419.svg)](https://doi.org/10.5281/zenodo.20765419)
 
 `scribe-eval` is the open-source evaluation framework introduced in the SCRIBE
@@ -74,7 +74,7 @@ print(f"CER_SCRIBE: {cer['cer_scribe']:.2%}")
 One domain is active per evaluation: pass a single `DomainConfig`
 (a bundled factory like `DomainConfig.legal()` or your own file via
 `DomainConfig.from_file`); its error rate always reports as **ER_DOMAIN**.
-See [docs/domain-configuration.md](docs/domain-configuration.md).
+See [docs/domain-configuration.md](https://github.com/adalat-ai-tech/scribe-eval/blob/main/docs/domain-configuration.md).
 
 ## Sandhi Awareness
 
@@ -103,28 +103,78 @@ are directly reproducible: score any row with `use_sandhi=True` vs
 
 Detection is an orthographic heuristic, not a linguistic analysis — it
 is deliberately lenient and admits some false positives. See
-[Sandhi detection: scope and limitations](docs/architecture.md#sandhi-detection-scope-and-limitations)
+[Sandhi detection: scope and limitations](https://github.com/adalat-ai-tech/scribe-eval/blob/main/docs/architecture.md#sandhi-detection-scope-and-limitations)
 before relying on sandhi counts.
 
 ## Domain Configuration
 
 Factory methods for bundled domains: `DomainConfig.legal()`, `DomainConfig.medical()`, `DomainConfig.technical()`
 
-File-based and custom inline configs are also supported. See [docs/domain-configuration.md](docs/domain-configuration.md).
-
-## Examples
-
-Runnable scripts under [`examples/`](examples/) demonstrate alignment,
-single-sample reports, domain-config patterns, and full batch evaluation.
-See [`examples/README.md`](examples/README.md) for the full index.
+File-based and custom inline configs are also supported. See [docs/domain-configuration.md](https://github.com/adalat-ai-tech/scribe-eval/blob/main/docs/domain-configuration.md).
 
 ## Batch Processing
 
-```bash
-uv run examples/batch_evaluate.py --analysis --chart
+Evaluate a dataset from JSONL, one record per line:
+
+```jsonl
+{"text": "charged u/s 302 IPC on 22.05.2023", "pred_text": "charged u/s 303 IPC on 22-05-2023", "source_dataset": "legal-dictation"}
+{"text": "witness PW1 deposed before the court", "pred_text": "witness PW 1 deposed before court", "source_dataset": "legal-dictation"}
+{"text": "എനിക്ക് അറിയാം", "pred_text": "എനിക്കറിയാം", "source_dataset": "malayalam-read"}
 ```
 
-See [docs/batch-processing.md](docs/batch-processing.md) for the Python API, CLI arguments, and output schema.
+```python
+from scribe import compute_sample_errors, compute_aggregate_metrics, print_evaluation_summary, DomainConfig
+
+results = compute_sample_errors(
+    "predictions.jsonl", domain_config=DomainConfig.legal(), collect_error_details=True
+)
+print_evaluation_summary(compute_aggregate_metrics(results))
+```
+
+```
+DATASET                   |     ER_LEX |  ER_DOMAIN |     ER_NUM |   ER_PUNCT | WER_SCRIBE | CER_SCRIBE | SANDHI
+OVERALL                   |      7.14% |      7.14% |      7.14% |        N/A |     21.43% |     10.84% |      1
+legal-dictation           |      8.33% |      8.33% |      8.33% |        N/A |     25.00% |      8.70% |      0
+malayalam-read            |      0.00% |        N/A |        N/A |        N/A |      0.00% |     21.43% |      1
+```
+
+The Malayalam hypothesis merges a two-word compound; it is counted as a Sandhi
+match, not as errors. `N/A` marks a category with no reference tokens and no
+errors.
+
+`evaluate_records()` accepts a list of dicts instead of a file path.
+`output_file=` writes per-sample reports as JSONL. `workers=N` evaluates
+samples in parallel.
+
+### Charts
+
+Continuing from `results` above, with the `[charts]` extra installed:
+
+```python
+from scribe import aggregate_error_details, compute_error_summary
+from scribe.charts import category_breakdown_chart
+
+summary = compute_error_summary(
+    compute_aggregate_metrics(results)["overall"], aggregate_error_details(results), top_n=10
+)
+category_breakdown_chart(summary["contributions"], output_path="breakdown.png")
+```
+
+![Category breakdown chart](https://raw.githubusercontent.com/adalat-ai-tech/scribe-eval/main/docs/images/category-breakdown.png)
+
+One row per category: a normalized outcome bar, an accuracy figure, and that
+category's contribution to WER_SCRIBE. Punctuation is marked "nothing to
+measure" because the reference carries no punctuation tokens.
+
+## Examples
+
+Runnable scripts live in the repository under
+[`examples/`](https://github.com/adalat-ai-tech/scribe-eval/tree/main/examples),
+covering alignment, single-sample reports, domain configs, and a batch
+command-line tool. They are not installed with the package, so clone the
+repository to use them. See
+[docs/batch-processing.md](https://github.com/adalat-ai-tech/scribe-eval/blob/main/docs/batch-processing.md)
+for the full batch API and output schema.
 
 ## Interactive Visualizer
 
@@ -132,7 +182,7 @@ See [docs/batch-processing.md](docs/batch-processing.md) for the Python API, CLI
 scribe-visualizer    # requires the [visualizer] extra (see Installation)
 ```
 
-See [docs/visualizer.md](docs/visualizer.md).
+See [docs/visualizer.md](https://github.com/adalat-ai-tech/scribe-eval/blob/main/docs/visualizer.md).
 
 ## Dependencies
 
@@ -158,8 +208,8 @@ uv run pytest -v                           # verbose, with each test name
 uv run pytest --cov=scribe                 # with coverage
 ```
 
-Tests are organised one file per library module under [`tests/`](tests/), plus
-[`tests/test_paper_cases.py`](tests/test_paper_cases.py) for end-to-end golden
+Tests are organised one file per library module under [`tests/`](https://github.com/adalat-ai-tech/scribe-eval/blob/main/tests/), plus
+[`tests/test_paper_cases.py`](https://github.com/adalat-ai-tech/scribe-eval/blob/main/tests/test_paper_cases.py) for end-to-end golden
 cases from the SCRIBE paper. `pytest` itself is part of the `dev` dependency
 group, which `uv sync` installs by default.
 
@@ -170,7 +220,7 @@ uv run ruff check src tests examples       # lint
 uv run ruff format src tests examples      # auto-format
 ```
 
-See [`docs/architecture.md`](docs/architecture.md) for the module map and a
+See [`docs/architecture.md`](https://github.com/adalat-ai-tech/scribe-eval/blob/main/docs/architecture.md) for the module map and a
 glossary of project-specific terminology (sandhi, combined denominator, WER_SCRIBE, CER_SCRIBE,
 Accuracy, ...).
 
@@ -189,12 +239,12 @@ arXiv: <https://arxiv.org/abs/2605.20712>
 ```
 
 To cite the software itself, use the "Cite this repository" button on GitHub
-(see [CITATION.cff](CITATION.cff)) or the Zenodo DOI:
+(see [CITATION.cff](https://github.com/adalat-ai-tech/scribe-eval/blob/main/CITATION.cff)) or the Zenodo DOI:
 [10.5281/zenodo.20765419](https://doi.org/10.5281/zenodo.20765419).
 
 ## License
 
-Licensed under the [Apache License 2.0](LICENSE).
+Licensed under the [Apache License 2.0](https://github.com/adalat-ai-tech/scribe-eval/blob/main/LICENSE).
 
 ## Acknowledgements
 
