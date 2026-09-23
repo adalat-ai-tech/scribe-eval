@@ -1,0 +1,89 @@
+name: Publish to PyPI
+
+# Trusted Publishing, so no API token. Each index must have a publisher
+# registered for this repo, workflow and environment before its first upload.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Index to upload to
+        type: choice
+        options: [testpypi, pypi]
+        default: testpypi
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tooling
+        run: python -m pip install --upgrade build
+
+      # The release is gated on the test suite; no other workflow runs it.
+      - name: Run tests
+        run: |
+          python -m pip install -e '.[charts]' pytest
+          python -m pytest -q
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      # Catches the failure mode a plain build hides: a wheel that omits the
+      # bundled domain term files still builds fine and breaks on import.
+      - name: Verify the wheel carries its data files
+        run: |
+          python -m venv /tmp/check
+          /tmp/check/bin/pip install --quiet dist/*.whl
+          /tmp/check/bin/python - <<'PY'
+          from scribe import DomainConfig, domain_aware_tokenizer
+          for name in ("legal", "medical", "technical"):
+              getattr(DomainConfig, name)()
+          tokens, tags = domain_aware_tokenizer("charged u/s 302 IPC", DomainConfig.legal())
+          assert "LEGAL" in tags, tags
+          print("wheel OK:", tokens, tags)
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  testpypi:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi'
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  pypi:
+    needs: build
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi')
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
