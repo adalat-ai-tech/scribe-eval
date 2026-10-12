@@ -112,3 +112,24 @@ def test_factory_methods_produce_usable_configs(domain_factory):
     # The tokenizer must accept it without error.
     tokens, tags = domain_aware_tokenizer("test 123 abc.", config)
     assert len(tokens) == len(tags)
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("PW1 deposed", ["PW", "1", "deposed"]),  # digit glued to a letter end
+        ("Cr.No.353", ["Cr.No.", "353"]),  # anything after a final dot
+        ("Ex.P1", ["Ex.", "P", "1"]),  # no exhibit numeral format here
+    ],
+)
+def test_domain_term_splits_from_glued_reference(text, expected):
+    config = DomainConfig("legal", r"PW|Cr\.No\.|Ex\.", category="LEGAL")
+    tokens, tags = domain_aware_tokenizer(text, config)
+    assert tokens == expected
+    assert tags[0] == "LEGAL"
+
+
+def test_domain_term_not_matched_inside_a_word():
+    config = DomainConfig("legal", ["PW"], category="LEGAL")
+    tokens, tags = domain_aware_tokenizer("PWD office", config)
+    assert "LEGAL" not in tags

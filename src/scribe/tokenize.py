@@ -54,9 +54,16 @@ def domain_aware_tokenizer(
     if domain_config:
         # Wrap domain pattern with word boundaries using negative lookahead/lookbehind
         # Uses Unicode-aware word character definition (not just [a-zA-Z0-9])
-        # This allows matching domain terms adjacent to Indic characters
+        # This allows matching domain terms adjacent to Indic characters.
+        # The right edge also opens after a final punctuation mark ("No.123",
+        # "Ex.P1") and before a digit glued to a non-digit end ("PW1"), so the
+        # term and its number become separate tokens.
+        domain_end = (
+            f"(?:(?<=[{re.escape(punctuation_chars)}])|(?<!\\d)(?=\\d)"
+            f"|(?!{word_char_pattern}))"
+        )
         domain_with_boundaries = (
-            f"(?<!{word_char_pattern})(?:{domain_config.pattern_regex})(?!{word_char_pattern})"
+            f"(?<!{word_char_pattern})(?:{domain_config.pattern_regex}){domain_end}"
         )
         # Domain numeral formats come first so "5(1)(a)" wins over the bare "5"
         if domain_config.numeral_regex:
