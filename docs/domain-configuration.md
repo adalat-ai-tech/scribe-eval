@@ -24,7 +24,7 @@ report = text_error_rates(ref, hyp, domain)
 
 | Factory Method | Category | Label | Includes |
 |---|---|---|---|
-| `DomainConfig.legal()` | LEGAL | ER_DOMAIN | u/s, r/w, sec., art., v., vs., PW1/PW-1, CW1, Ext.A |
+| `DomainConfig.legal()` | LEGAL | ER_DOMAIN | Section, Act names, High Court, Cr.P.C., u/s, v./vs., PW, Exhibit (references like 5(1)(a) are NUMERAL) |
 | `DomainConfig.medical()` | MEDICAL | ER_DOMAIN | mg, ml, cc, mcg, IU, 500mg, 10ml |
 | `DomainConfig.technical()` | TECH | ER_DOMAIN | API, SDK, CLI, JSON, HTTP, v1.0 |
 

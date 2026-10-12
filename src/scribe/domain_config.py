@@ -261,8 +261,10 @@ class DomainConfig:
     def legal(cls) -> "DomainConfig":
         """Load pre-defined legal domain from bundled config.
 
-        Includes Indian legal terminology: u/s, r/w, sec., art., v., vs.,
-        PW1/PW-1/PW 1 patterns, CW1 patterns, Ext.A patterns.
+        Includes Indian legal terminology: anchors (Section, Order, Rule,
+        case type + No., PW, Exhibit) whose reference is one NUMERAL token,
+        Act names, courts, titles, dotted acronyms (Cr.P.C.), u/s, v./vs.,
+        and Malayalam legal terms.
 
         Returns:
             DomainConfig instance for legal terminology with category='LEGAL'

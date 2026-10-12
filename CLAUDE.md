@@ -219,7 +219,7 @@ The visualizer provides:
 - **PUNCT**: Punctuation marks
 
 **Domain Categories (configurable via DomainConfig):**
-- **LEGAL**: Indian legal terminology (u/s, r/w, sec., art., v., vs., PW1/PW-1, CW1, Ext.A with flexible patterns)
+- **LEGAL**: Indian legal terminology — anchors (Section, Order, Rule, case type + No., PW, Exhibit) with the reference as one NUMERAL token (Section | 5(1)(a), PW | 1); Act names, courts, titles, dotted acronyms (Cr.P.C.), versus forms, Latin phrases; Malayalam terms
 - **MEDICAL**: Medical measurements and units (mg, ml, cc, mcg, IU, 500mg, 10ml)
 - **TECH**: Technical abbreviations (API, SDK, CLI, JSON, HTTP, v1.0 - case-sensitive)
 - **Custom**: Define your own domain with list or regex patterns
@@ -325,11 +325,11 @@ factories (`DomainConfig.legal()`, `.medical()`, `.technical()`) or the CLI
 (`--domain legal|medical|technical`); their files are internal to the
 package and never referenced by path:
 
-- **legal**: Indian legal terminology with flexible witness designation patterns
-  - Literal terms: u/s, r/w, sec., art., v., vs., etc.
-  - Regex patterns: `PW[-\s]*\d+` matches PW1, PW 1, PW-1 (prosecution witness)
-  - Regex patterns: `CW[-\s]*\d+` matches CW1, CW 1, CW-1 (court witness)
-  - Regex patterns: `Ext\.[-\s]*[A-Z]\d*` matches Ext.A, Ext. A1, Ext-B2 (exhibits)
+- **legal**: Indian legal terminology (English rules as REGEX: lines, Malayalam as literals)
+  - Anchors are LEGAL, the reference after them one NUMERAL token: Section | 5(1)(a), Order | XXXIX, Cr.No. | 353/2019, PW | 1, Exhibit | A1
+  - Act/Code names, courts, judge and officer titles, legal phrases as single LEGAL tokens; a leading state name stays LEXICAL (Kerala | High Court)
+  - Dotted acronyms (IPC, I.P.C., Cr.P.C.), versus forms (v., vs., versus), u/s, r/w
+  - Case-scoped patterns (`(?-i:...)`) keep ordinary English untagged ("in order to act")
 
 - **medical**: Medical units and dosages
   - Literal terms: mg, ml, cc, mcg, IU, kg, gm
