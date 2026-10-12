@@ -133,3 +133,36 @@ def test_domain_term_not_matched_inside_a_word():
     config = DomainConfig("legal", ["PW"], category="LEGAL")
     tokens, tags = domain_aware_tokenizer("PWD office", config)
     assert "LEGAL" not in tags
+
+
+# Bundled legal rules: anchors and legal names are LEGAL, the reference
+# after an anchor is one NUMERAL token, a leading place name stays LEXICAL.
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        (
+            "under Section 5(1)(a)",
+            [("under", "LEXICAL"), ("Section", "LEGAL"), ("5(1)(a)", "NUMERAL")],
+        ),
+        ("under Cr.P.C.", [("under", "LEXICAL"), ("Cr.P.C.", "LEGAL")]),
+        ("Kerala High Court", [("Kerala", "LEXICAL"), ("High Court", "LEGAL")]),
+        ("Kerala Abkari Act", [("Kerala", "LEXICAL"), ("Abkari Act", "LEGAL")]),
+        ("PW1 stated", [("PW", "LEGAL"), ("1", "NUMERAL"), ("stated", "LEXICAL")]),
+        ("Exhibit A1", [("Exhibit", "LEGAL"), ("A1", "NUMERAL")]),
+        ("Cr.No.353/2019", [("Cr.No.", "LEGAL"), ("353/2019", "NUMERAL")]),
+        (
+            "Order XXXIX Rule 1",
+            [("Order", "LEGAL"), ("XXXIX", "NUMERAL"), ("Rule", "LEGAL"), ("1", "NUMERAL")],
+        ),
+        # Verb "act" and "in order to" are not legal terms.
+        (
+            "in order to act",
+            [("in", "LEXICAL"), ("order", "LEXICAL"), ("to", "LEXICAL"), ("act", "LEXICAL")],
+        ),
+        # A case number format must not split a date.
+        ("dated 22/05/2023", [("dated", "LEXICAL"), ("22/05/2023", "NUMERAL")]),
+    ],
+)
+def test_bundled_legal_rules(legal_domain, text, expected):
+    tokens, tags = domain_aware_tokenizer(text, legal_domain)
+    assert list(zip(tokens, tags)) == expected
