@@ -19,6 +19,7 @@ class DomainConfig:
         patterns: Union[str, List[str]],
         category: Optional[str] = None,
         case_sensitive: bool = False,
+        numeral_patterns: Optional[List[str]] = None,
     ):
         r"""
         Initialize domain configuration.
@@ -30,6 +31,9 @@ class DomainConfig:
             patterns: Either a regex pattern string or list of domain terms
             category: Category name for tokens (default: "DOMAIN_{NAME}")
             case_sensitive: Whether pattern matching is case-sensitive
+            numeral_patterns: Extra regex patterns for domain-specific numeral
+                formats (e.g. "5(1)(a)", "1679/2015"). Tokens they match are
+                kept whole and tagged NUMERAL, not with the domain category.
 
         Examples:
             >>> # Using list of terms
@@ -55,6 +59,14 @@ class DomainConfig:
             self.pattern_regex = "|".join(escaped)
         else:
             raise TypeError("patterns must be str (regex) or list (terms)")
+
+        # Extra numeral formats contributed by this domain (None when absent)
+        if numeral_patterns:
+            for pattern in numeral_patterns:
+                re.compile(pattern)
+            self.numeral_regex = "|".join(numeral_patterns)
+        else:
+            self.numeral_regex = None
 
         # Set category with a sensible default
         self.category = category or f"DOMAIN_{name.upper()}"
@@ -93,6 +105,9 @@ class DomainConfig:
 
             # Regex patterns (prefix with REGEX:, used directly)
             REGEX: PW[-\s]*\d+
+
+            # Domain numeral formats (prefix with NUMERAL_REGEX:), tagged NUMERAL
+            NUMERAL_REGEX: \d+(?:\(\w{1,4}\))+
 
         Args:
             file_path: Path to configuration file (absolute or relative)
@@ -135,6 +150,7 @@ class DomainConfig:
         metadata = {}
         literal_terms = []
         regex_patterns = []
+        numeral_patterns = []
 
         with open(file_path, "r", encoding="utf-8") as f:
             for line_num, line in enumerate(f, start=1):
@@ -154,6 +170,16 @@ class DomainConfig:
                         )
                     key, value = line[1:].split(":", 1)
                     metadata[key.strip()] = value.strip()
+                    continue
+
+                # Parse domain numeral patterns (NUMERAL_REGEX: pattern)
+                if line.startswith("NUMERAL_REGEX:"):
+                    pattern = line[len("NUMERAL_REGEX:") :].strip()
+                    # Remove inline comments
+                    if "#" in pattern:
+                        pattern = pattern.split("#")[0].strip()
+                    if pattern:
+                        numeral_patterns.append(pattern)
                     continue
 
                 # Parse regex patterns (REGEX: pattern)
@@ -200,6 +226,14 @@ class DomainConfig:
                     ) from e
             all_patterns.extend(regex_patterns)
 
+        for pattern in numeral_patterns:
+            try:
+                re.compile(pattern)
+            except re.error as e:
+                raise ValueError(
+                    f"Invalid numeral pattern in {file_path}: {pattern}\nError: {e}"
+                ) from e
+
         # Combine all patterns with |
         combined_pattern = "|".join(all_patterns)
 
@@ -220,6 +254,7 @@ class DomainConfig:
             patterns=combined_pattern,
             category=final_category,
             case_sensitive=final_case_sensitive,
+            numeral_patterns=numeral_patterns,
         )
 
     @classmethod

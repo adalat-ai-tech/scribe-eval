@@ -58,6 +58,12 @@ def domain_aware_tokenizer(
         domain_with_boundaries = (
             f"(?<!{word_char_pattern})(?:{domain_config.pattern_regex})(?!{word_char_pattern})"
         )
+        # Domain numeral formats come first so "5(1)(a)" wins over the bare "5"
+        if domain_config.numeral_regex:
+            num_inner = (
+                f"(?<!{word_char_pattern})(?:{domain_config.numeral_regex})"
+                f"(?!{word_char_pattern})|{num_inner}"
+            )
         protected_pattern = f"(?P<domain>{domain_with_boundaries})|(?P<numeral>{num_inner})"
     else:
         # Only numeral patterns

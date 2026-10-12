@@ -275,6 +275,7 @@ REGEX: CW[-\s]*\d+     # Matches CW1, CW 1, CW-1
   - `@case_sensitive`: true/false (default: false)
 - **Literal terms**: Plain text, one per line (automatically escaped with `re.escape()`)
 - **Regex patterns**: Prefix with `REGEX:`, used directly without escaping
+- **Numeral formats**: Prefix with `NUMERAL_REGEX:` to add a domain-specific numeral format (e.g. `5(1)(a)`, `1679/2015`); matches stay one token tagged NUMERAL, tried before the built-in numeral patterns
 - **Comments**: Lines starting with `#` are ignored
 - **Inline comments**: Text after `#` on any line is removed
 

@@ -67,6 +67,7 @@ REGEX: Ext\.[-\s]*[A-Z]\d*  # Matches Ext.A, Ext. B2
 **Pattern types:**
 - **Literal terms**: One per line, automatically escaped with `re.escape()`
 - **Regex patterns**: Prefix with `REGEX:`, supports full regex syntax
+- **Numeral formats**: Prefix with `NUMERAL_REGEX:` to add a domain-specific numeral format (e.g. `\d+(?:\(\w{1,4}\))+` for `5(1)(a)`). Matches are kept as one token and tagged NUMERAL, not with the domain category
 - **Comments**: Lines starting with `#`, or inline text after `#`
 
 ### Bundled Domains
