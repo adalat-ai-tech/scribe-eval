@@ -2,7 +2,13 @@
 
 import pytest
 
-from scribe import normalize_currency, normalize_date, normalize_numeral, normalize_token
+from scribe import (
+    normalize_currency,
+    normalize_date,
+    normalize_numeral,
+    normalize_subsection,
+    normalize_token,
+)
 
 
 @pytest.mark.parametrize(
@@ -35,6 +41,26 @@ def test_normalize_currency_strips_commas(raw, expected):
 
 def test_normalize_currency_passes_through_plain_words():
     assert normalize_currency("rupees") == "rupees"
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("34 (2)", "34(2)"),
+        ("5 (1)(a)", "5(1)(a)"),
+        ("34(2)(a)(iii)", "34(2)(a)(iii)"),
+        ("304A (1)", "304A(1)"),
+        ("120-B", "120-B"),
+    ],
+)
+def test_normalize_subsection_removes_spaces(raw, expected):
+    assert normalize_subsection(raw) == expected
+    assert normalize_numeral(raw) == expected
+
+
+@pytest.mark.parametrize("raw", ["34  (2)", "34 ( 2 )", "34 (2 ) (a)"])
+def test_normalize_subsection_leaves_bad_spacing(raw):
+    assert normalize_subsection(raw) == raw
 
 
 def test_normalize_numeral_handles_pure_digits():

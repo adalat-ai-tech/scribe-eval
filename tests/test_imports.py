@@ -58,6 +58,7 @@ PUBLIC_API = {
     "normalize_currency": "callable",
     "normalize_date": "callable",
     "normalize_numeral": "callable",
+    "normalize_subsection": "callable",
     "normalize_token": "callable",
     # reporting
     "extract_error_rates": "callable",

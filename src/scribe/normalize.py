@@ -38,6 +38,35 @@ def normalize_date(text: str) -> str:
     return text
 
 
+def normalize_subsection(text: str) -> str:
+    """Normalize statute references by removing a space before a bracket.
+
+    Converts spaced sub-clause references (34 (2), 5 (1)(a)) to the glued
+    form (34(2), 5(1)(a)) for comparison. Badly spaced forms such as
+    34  ( 2 ) are left as they are.
+
+    Args:
+        text: Token text that may contain a statute reference
+
+    Returns:
+        Reference with spaces removed if pattern matches, otherwise original text
+
+    Examples:
+        >>> normalize_subsection("34 (2)")
+        '34(2)'
+        >>> normalize_subsection("34  ( 2 )")
+        '34  ( 2 )'
+        >>> normalize_subsection("5 (1) (a)")
+        '5(1)(a)'
+        >>> normalize_subsection("34(2)")
+        '34(2)'
+    """
+    pattern = r"\d+[A-Za-z]?(?: ?\(\w{1,5}\))+"
+    if re.fullmatch(pattern, text):
+        return text.replace(" ", "")
+    return text
+
+
 def normalize_currency(text: str) -> str:
     """Normalize currency by removing comma separators.
 
@@ -108,8 +137,9 @@ def normalize_kannada_numerals(text: str) -> str:
 def normalize_numeral(text: str) -> str:
     """Apply all numeral normalization rules.
 
-    Tries date normalization first, then currency normalization.
-    Time formats (HH:MM) are already in canonical form and unchanged.
+    Tries date normalization first, then statute references, then currency
+    normalization. Time formats (HH:MM) are already in canonical form and
+    unchanged.
 
     Args:
         text: Token text with NUMERAL category
@@ -124,6 +154,8 @@ def normalize_numeral(text: str) -> str:
         '10500'
         >>> normalize_numeral("10:30")
         '10:30'
+        >>> normalize_numeral("34 (2)")
+        '34(2)'
         >>> normalize_numeral("೧೫.೦೫.೨೦೮೯")
         '15-08-2023'
     """
@@ -132,6 +164,11 @@ def normalize_numeral(text: str) -> str:
 
     # Try date normalization first
     normalized = normalize_date(text)
+    if normalized != text:
+        return normalized
+
+    # Try statute reference normalization
+    normalized = normalize_subsection(text)
     if normalized != text:
         return normalized
 

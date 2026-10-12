@@ -112,3 +112,86 @@ def test_factory_methods_produce_usable_configs(domain_factory):
     # The tokenizer must accept it without error.
     tokens, tags = domain_aware_tokenizer("test 123 abc.", config)
     assert len(tokens) == len(tags)
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("PW1 deposed", ["PW", "1", "deposed"]),  # digit glued to a letter end
+        ("Cr.No.353", ["Cr.No.", "353"]),  # anything after a final dot
+        ("Ex.P1", ["Ex.", "P", "1"]),  # no exhibit numeral format here
+    ],
+)
+def test_domain_term_splits_from_glued_reference(text, expected):
+    config = DomainConfig("legal", r"PW|Cr\.No\.|Ex\.", category="LEGAL")
+    tokens, tags = domain_aware_tokenizer(text, config)
+    assert tokens == expected
+    assert tags[0] == "LEGAL"
+
+
+def test_domain_term_not_matched_inside_a_word():
+    config = DomainConfig("legal", ["PW"], category="LEGAL")
+    tokens, tags = domain_aware_tokenizer("PWD office", config)
+    assert "LEGAL" not in tags
+
+
+# Bundled legal rules: anchors and legal names are LEGAL, the reference
+# after an anchor is one NUMERAL token, a leading place name stays LEXICAL.
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        (
+            "under Section 5(1)(a)",
+            [("under", "LEXICAL"), ("Section", "LEGAL"), ("5(1)(a)", "NUMERAL")],
+        ),
+        ("under Cr.P.C.", [("under", "LEXICAL"), ("Cr.P.C.", "LEGAL")]),
+        ("Kerala High Court", [("Kerala", "LEXICAL"), ("High Court", "LEGAL")]),
+        ("Kerala Abkari Act", [("Kerala", "LEXICAL"), ("Abkari Act", "LEGAL")]),
+        ("PW1 stated", [("PW", "LEGAL"), ("1", "NUMERAL"), ("stated", "LEXICAL")]),
+        ("Exhibit A1", [("Exhibit", "LEGAL"), ("A1", "NUMERAL")]),
+        ("Cr.No.353/2019", [("Cr.No.", "LEGAL"), ("353/2019", "NUMERAL")]),
+        # Loose spacing around brackets stays one NUMERAL token.
+        ("Section 34  (2)", [("Section", "LEGAL"), ("34  (2)", "NUMERAL")]),
+        ("Section 34 (2 )", [("Section", "LEGAL"), ("34 (2 )", "NUMERAL")]),
+        ("Section 34  ( 2 )", [("Section", "LEGAL"), ("34  ( 2 )", "NUMERAL")]),
+        ("Section 34(2) (a)", [("Section", "LEGAL"), ("34(2) (a)", "NUMERAL")]),
+        # Prose in brackets is not a reference.
+        (
+            "on page 34 (see below)",
+            [
+                ("on", "LEXICAL"),
+                ("page", "LEXICAL"),
+                ("34", "NUMERAL"),
+                ("(", "PUNCT"),
+                ("see", "LEXICAL"),
+                ("below", "LEXICAL"),
+                (")", "PUNCT"),
+            ],
+        ),
+        # A line break ends the reference.
+        (
+            "Section 34\n(2)",
+            [
+                ("Section", "LEGAL"),
+                ("34", "NUMERAL"),
+                ("(", "PUNCT"),
+                ("2", "NUMERAL"),
+                (")", "PUNCT"),
+            ],
+        ),
+        (
+            "Order XXXIX Rule 1",
+            [("Order", "LEGAL"), ("XXXIX", "NUMERAL"), ("Rule", "LEGAL"), ("1", "NUMERAL")],
+        ),
+        # Verb "act" and "in order to" are not legal terms.
+        (
+            "in order to act",
+            [("in", "LEXICAL"), ("order", "LEXICAL"), ("to", "LEXICAL"), ("act", "LEXICAL")],
+        ),
+        # A case number format must not split a date.
+        ("dated 22/05/2023", [("dated", "LEXICAL"), ("22/05/2023", "NUMERAL")]),
+    ],
+)
+def test_bundled_legal_rules(legal_domain, text, expected):
+    tokens, tags = domain_aware_tokenizer(text, legal_domain)
+    assert list(zip(tokens, tags)) == expected

@@ -562,5 +562,61 @@ class TestBundledConfigFiles:
         assert config.case_sensitive is True
 
 
+class TestNumeralPatterns:
+    """NUMERAL_REGEX: lines add domain-specific numeral formats."""
+
+    CONTENT = """
+@name: test
+@category: LEGAL
+
+Section
+NUMERAL_REGEX: \\d+[A-Z]?(?:\\(\\w{1,4}\\))+   # 5(1)(a)
+NUMERAL_REGEX: \\d+/\\d{2,4}                    # 1679/2015
+"""
+
+    def _load(self, content):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write(content)
+            temp_path = f.name
+        try:
+            return DomainConfig.from_file(temp_path)
+        finally:
+            os.unlink(temp_path)
+
+    def test_numeral_patterns_parsed_separately(self):
+        config = self._load(self.CONTENT)
+        assert config.numeral_regex is not None
+        # Numeral formats are not part of the domain-term pattern
+        assert not config.matches("5(1)(a)")
+        assert config.matches("Section")
+
+    def test_numeral_formats_kept_whole_and_tagged_numeral(self):
+        config = self._load(self.CONTENT)
+        tokens, tags = domain_aware_tokenizer(
+            "under Section 5(1)(a) in Crime No. 1679/2015", config
+        )
+        assert tokens == ["under", "Section", "5(1)(a)", "in", "Crime", "No", ".", "1679/2015"]
+        assert tags[1] == "LEGAL"
+        assert tags[2] == "NUMERAL"
+        assert tags[7] == "NUMERAL"
+
+    def test_numeral_pattern_respects_word_boundaries(self):
+        config = self._load("@name: test\nSection\nNUMERAL_REGEX: \\d+[A-Z]\n")
+        tokens, _ = domain_aware_tokenizer("abc123def and 304A", config)
+        # Inside a word the domain format must not fire ("123d" would be wrong)
+        assert "123d" not in tokens
+        assert "304A" in tokens
+
+    def test_no_numeral_patterns_leaves_tokenization_unchanged(self):
+        config = self._load("@name: test\nSection\n")
+        assert config.numeral_regex is None
+        tokens, _ = domain_aware_tokenizer("Section 5(1)(a)", config)
+        assert tokens == ["Section", "5", "(", "1", ")", "(", "a", ")"]
+
+    def test_invalid_numeral_regex(self):
+        with pytest.raises(ValueError, match="Invalid numeral pattern"):
+            self._load("@name: test\nSection\nNUMERAL_REGEX: \\d+(\n")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

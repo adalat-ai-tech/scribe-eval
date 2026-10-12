@@ -109,6 +109,9 @@ from .normalize import (
     normalize_numeral as normalize_numeral,
 )
 from .normalize import (
+    normalize_subsection as normalize_subsection,
+)
+from .normalize import (
     normalize_token as normalize_token,
 )
 

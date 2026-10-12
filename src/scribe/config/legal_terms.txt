@@ -1,69 +1,26 @@
 # Legal Domain Configuration
-# Indian legal terminology for ASR error analysis
+# Indian legal terminology for ASR error analysis.
+# English rules derived from English legal transcripts.
+#
+# Tagging rules:
+# - Anchor words (Section, Order, Rule, Article, case type + No.) are LEGAL;
+#   the reference after them is one NUMERAL token: Section | 5(1)(a)
+# - Multi-word legal names (Acts, courts, titles, proceedings) are one LEGAL
+#   token; a leading state/place name stays LEXICAL: Kerala | High Court
+# - (?-i:...) makes one pattern case-sensitive inside this case-insensitive
+#   file; used where capitalisation is what marks the legal term
+#
+# Ordering: when two patterns can start at the same word, the one listed
+# FIRST wins (not the longest). Longer families are therefore listed before
+# shorter ones, and every English entry is a REGEX: line, since plain literal
+# terms are always tried before any REGEX: line. The Malayalam single words
+# stay plain literals; they never start where an English pattern does.
 
 # Metadata
 @name: legal
 @category: LEGAL
 @case_sensitive: false
 
-# Literal terms - common legal abbreviations
-# These will be automatically escaped for regex safety
-
-# Basic abbreviations
-u/s
-U/S
-r/w
-w.p.
-o.s.
-OS
-no.
-v.
-vs.
-art.
-sec.
-a.m.
-am
-p.m.
-pm
-
-
-# Case types and legal instruments
-FIR
-EP
-CC
-IA
-
-# Courts and officials
-JFCM
-CJM
-CBI
-SI
-SHO
-CPO
-KSR
-
-# Acts and codes
-IPC
-CrPC
-BNS
-BSA
-BNSS
-NI
-NDPS
-LAR
-MV
-POCSO
-SCST
-
-# Evidence and materials
-MO
-
-# Legal Vocabulary (single-word terms only)
-# Note: Don't add terms here that are part of multi-word patterns below
-# (e.g., don't add "Police" since it's part of "Police Station")
-Article
-Section
-Crime
 
 # Malayalam legal terms (single words)
 ആധാരമെഴുത്തുകാരൻ
@@ -239,38 +196,229 @@ Crime
 ഗ്രാമക്കോടതികൾ
 
 
+# =====================================================================
+# Latin legal phrases (multi-word first)
+# =====================================================================
+REGEX: Nemo\s+Judex\s+in\s+Causa\s+Sua
+REGEX: Ubi\s+Jus\s+Ibi\s+Remedium
+REGEX: Volenti\s+Non\s+Fit\s+Injuria
+REGEX: Audi\s+alteram\s+partem
+REGEX: Res\s+Ipsa\s+Loquitur
+REGEX: Noscitur\s+a\s+Sociis
+REGEX: Damnum\s+sine\s+injuria
+REGEX: Injuria\s+sine\s+damno
+REGEX: Consensus\s+ad\s+idem
+REGEX: Void\s+Ab\s+Initio
+REGEX: Ex\s+Post\s+Facto
+REGEX: Non\s+Est\s+Factum
+REGEX: Quid\s+Pro\s+Quo
+REGEX: Sine\s+qua\s+non
+REGEX: Status\s+quo\s+ante
+REGEX: In\s+Loco\s+Parentis
+REGEX: Jus\s+Ad\s+Rem
+REGEX: Jus\s+in\s+rem
+REGEX: Bona\s+Fide
+REGEX: Mala\s+Fide
+REGEX: Ex\s+parte
+REGEX: Ex\s+ante
+REGEX: Ex\s+Gratia
+REGEX: Ex[-\s]*officio
+REGEX: Inter\s+alia
+REGEX: Locus\s+Standi
+REGEX: Mens\s+rea
+REGEX: Actus\s+Reus
+REGEX: Non\s+obstante
+REGEX: Prima\s+facie
+REGEX: Res\s+Judicata
+REGEX: Res\s+Integra
+REGEX: Ultra\s+vires
+REGEX: Ad\s+Hoc
+REGEX: Amicus\s+curiae
+REGEX: De\s+novo
+REGEX: De\s+jure
+REGEX: De\s+facto
+REGEX: Habeas\s+corpus
+REGEX: In\s+limine
+REGEX: In\s+Personam
+REGEX: In\s+rem
+REGEX: In\s+Situ
+REGEX: In\s+absentia
+REGEX: In\s+Re
+REGEX: Obiter\s+[Dd]icta
+REGEX: Obiter\s+dictum
+REGEX: Pendente\s+lite
+REGEX: Per\s+incuriam
+REGEX: Per\s+curiam
+REGEX: Per\s+Contra
+REGEX: Per\s+Capita
+REGEX: Suo\s+Motu
+REGEX: Ejusdem\s+Generis
+REGEX: Ipse\s+Dixit
+REGEX: Ipso\s+Facto
+REGEX: Modus\s+Operandi
+REGEX: Mutatis\s+mutandis
+REGEX: Onus\s+probandi
+REGEX: Pari\s+Materia
+REGEX: Pro\s+bono
+REGEX: Quasi[-\s]judicial
+REGEX: Quo\s+Warranto
+REGEX: Ratio\s+decidendi
+REGEX: Sine\s+Die
+REGEX: Stare\s+Decisis
+REGEX: Status\s+quo
+REGEX: Sub\s+judice
+REGEX: Sub\s+Silentio
+REGEX: Ab\s+initio
+REGEX: Functus\s+officio
+REGEX: Fait\s+accompli
+REGEX: Lis\s+pendens
+REGEX: Caveat\s+emptor
+REGEX: Caveat\s+venditor
+REGEX: Sui\s+generis
+REGEX: Post\s+Mortem
+REGEX: Fiat|Supra|Lacuna|Mandamus|Certiorari
 
-# Latin legal terms (single words)
-Fiat
-Supra
-Lacuna
-Mandamus
-Certiorari
+
+# =====================================================================
+# Case type + No. as one token; the number after it is NUMERAL
+#   Cr. No. | 353/2019     O.S. No. | 62/2025     S.L.P.(C) No. | 11340/2020
+# Abbreviations are case-sensitive so "as no." is not caught.
+# A bare "No." (Issue No., House No.) is not tagged.
+# =====================================================================
+REGEX: (?-i:(?:Spl\.?\s+POCSO\s+Case|P\.?\s?S\.?\s?Case|Crl\.?\s?M\.?\s?P\.?|Crl\.?\s?A\.?|Crl\.?|Cr\.?|Crime|CRIME|O\.\s?S\.|OS|I\.\s?A\.|IA|A\.\s?S\.|AS|C\.\s?C\.|CC|E\.\s?P\.|EP|E\.\s?A\.|EA|S\.\s?A\.|SA|S\.\s?C\.|SC|S\.?\s?L\.?\s?P\.?\s?\((?:C|Civil|Crl)\)|SLP|W\.?\s?P\.?\s?\(C\)|W\.\s?P\.|WP|CWP|FAO|RCP|GR|MACT\s?OP|OP|Case)\s?(?:No|NO)s?\.)
 
 
+# =====================================================================
+# Proceedings, optionally with (Civil)/(Stamp) and No.
+#   Special Leave Petition (Civil) No. | 18943 | of | 2024
+# =====================================================================
+REGEX: (?:Special\s+Leave|Writ|Execution|Revision|Review|Bail|Anticipatory\s+Bail|Interlocutory|Transfer|Original|Criminal|Civil|Miscellaneous|Civil\s+Miscellaneous|Regular|First|Second)\s+(?:Petitions?|Suits?|Appeals?|Applications?|Revisions?)(?:\s?\((?:C|Civil|Crl|Criminal|Stamp)\))?(?:\s?Nos?\.)?
 
-# Regex patterns - flexible matching for witness/exhibit designations
-# Prefix with REGEX: to use pattern directly (not escaped)
-REGEX: PW[-\s]*\d+
-REGEX: CW[-\s]*\d+
-REGEX: DW[-\s]*\d+
-REGEX: Ext[.\-][-\s]*[A-Z]\d*
-REGEX: Ext[.\-][-\s]*P\d*
-REGEX: Evidence\s+Act[-\s]*\d+
 
-# Multi-word legal entities (must use regex patterns with \s+ for spaces)
-# English terms
+# =====================================================================
+# Acts and Codes
+# =====================================================================
+# Short form + Act:  NDPS Act, N.I.Act, M.V. Act, SC/ST (PoA) Act
+REGEX: (?-i:(?:NDPS|POCSO|N\.?\s?I\.?|M\.?\s?V\.?|MTP|EC|IT|RTI|PMLA|SC/ST\s*\(PoA\)|SC/ST\s+PoA|SC/ST|ST\s+PoA)\s?Act)
+
+# Codes whose names do not end in Act/Code
+REGEX: Code\s+of\s+(?:Criminal|Civil)\s+Procedure
+
+# Any capitalised statute name ending in Act/Code/Sanhita/Adhiniyam.
+# The first word may not be a function word, an anchor, a Roman numeral or
+# a state/place name, so "Kerala Abkari Act" -> Kerala | Abkari Act and
+# "Under the Consumer Protection Act" -> Under | the | Consumer Protection Act.
+REGEX: (?-i:(?!(?:The|This|That|These|Under|In|Of|As|By|And|For|With|From|Vide|Per|To|On|At|Section|Sections|Sec|Order|Rule|Rules|Article|Chapter|Schedule|Kerala|Delhi|Karnataka|Tamil|Nadu|Andhra|Telangana|Pradesh|Uttar|Madhya|Himachal|Arunachal|Maharashtra|Gujarat|Rajasthan|Punjab|Haryana|Bihar|Jharkhand|Odisha|Orissa|West|Bengal|Assam|Goa|Uttarakhand|Uttaranchal|Chhattisgarh|Manipur|Meghalaya|Mizoram|Nagaland|Sikkim|Tripura|Jammu|Kashmir|Ladakh|Puducherry|Pondicherry|Chandigarh|Lakshadweep|Bombay|Madras|Calcutta|Mysore|Travancore|Cochin|Hyderabad)\b)(?![IVXLC]+\b)[A-Z][A-Za-z'-]+\s+(?:(?:(?:of|and|the|to|for|on)\s+)*[A-Z][A-Za-z'-]+\s+){0,6}(?:Act|Code|Sanhita|Adhiniyam))
+
+
+# =====================================================================
+# Courts: court-type words + Court(s) as one token; place names stay
+# LEXICAL. A lone Court/court is LEGAL too.
+#   Additional Sessions Court     Kerala | High Court     this | Court
+# =====================================================================
+REGEX: (?:(?:Additional|Addl\.|Principal|Chief|Senior|Junior|Special|Spl\.|Sessions|District|High|Supreme|Apex|Appellate|Sub|Family|Labour|Juvenile|Trial|Civil|Criminal|Magistrate'?s?|Munsiff'?s?|Munsif'?s?|Consumer|Fast\s+Track|First\s+Class|Lower|Division|Constitution)\s+)*Courts?
 REGEX: Police\s+Station
-REGEX: Supreme\s+Court
-REGEX: High\s+Court
-REGEX: District\s+Court
-REGEX: Sessions\s+Court
-REGEX: Magistrate\s+Court
-REGEX: Trial\s+Court
-REGEX: Civil\s+Court
-REGEX: Criminal\s+Court
-REGEX: Family\s+Court
-REGEX: Labour\s+Court
+
+
+# =====================================================================
+# Judges, officers and other legal titles (multi-word first)
+# =====================================================================
+REGEX: (?:(?:Additional|Addl\.|Principal|Chief|Senior|Junior|Special|Spl\.|Sessions|District|Civil|Judicial|Metropolitan|Assistant|Asst\.|Deputy|Dy\.|Public)\s+)+(?:Judge|Magistrate|Prosecutor|Justice|Counsel)(?:\s+(?:of\s+the\s+)?First\s+Class)?
+REGEX: (?:Assistant\s+Sub|Sub|Circle)[-\s]Inspector(?:\s+of\s+Police)?
+REGEX: (?:Deputy\s+)?Superintendent\s+of\s+Police
+REGEX: Investigating\s+Officer|Station\s+House\s+Officer|Sub[-\s]Registrar
+REGEX: (?-i:A\.S\.I\.?|ASI|S\.I\.|SI|I\.O\.|IO|SHO|S\.H\.O\.)
+REGEX: Hon'?ble|Honourable|Hon\.|Ld\.|Adv\.
+REGEX: Judges?|Magistrates?|Justice|Prosecutor|Advocates?|Counsel
+
+
+# =====================================================================
+# Legal phrases (two or more words)
+# =====================================================================
+REGEX: charge[-\s]?sheets?|final\s+report|show\s+cause\s+notice
+REGEX: (?:cross|chief)[-\s]examination
+REGEX: written\s+statements?|counter\s+(?:affidavit|statement)
+REGEX: (?:sale|gift|partition|settlement|release|mortgage)\s+deeds?
+REGEX: natural\s+justice|specific\s+performance|power\s+of\s+attorney|certified\s+copy
+REGEX: (?:temporary|interim|permanent|mandatory|prohibitory|perpetual)\s+injunction
+REGEX: (?:anticipatory|regular|interim)\s+bail
+REGEX: legal\s+(?:notice|heirs?|representatives?)
+
+
+# =====================================================================
+# Witnesses, exhibits, material objects: anchor LEGAL, number NUMERAL
+# (PW | 1, P.W. | 1, Ex. | P1, Exhibit | A1), like Section | 302
+# =====================================================================
+REGEX: (?:P|D|C)\.?\s?W\.?s?(?=[-\s]*\d)          # PW1, P.W.1, P W 1, PW-1, PWs 1
+REGEX: M\.?\s?O\.?s?(?=[-\s]*\d)                  # MO1, M.O.1
+REGEX: Exhibits?(?=[-\s]?[A-Z]\.?\d)              # Exhibit A1, Exhibit P1
+REGEX: Exts?\.|Ex\.                               # Ext.A, Ex.P1
+
+
+# =====================================================================
+# Acronyms, with optional dots (IPC, I.P.C, I.P.C.)
+# =====================================================================
+REGEX: IPC|I\.\s?P\.\s?C\.?
+REGEX: CrPC|Cr\.\s?P\.\s?C\.?
+REGEX: CPC|C\.\s?P\.\s?C\.?
+REGEX: FIR|F\.\s?I\.\s?R\.?
+REGEX: NDPS|N\.\s?D\.\s?P\.\s?S\.?
+REGEX: BNSS|BNS|BSA|B\.\s?N\.\s?S\.\s?S\.?|B\.\s?N\.\s?S\.?|B\.\s?S\.\s?A\.?
+REGEX: POCSO|CBI|C\.\s?B\.\s?I\.?|RTO|R\.\s?T\.\s?O\.?|MACT|SCST|SC/ST
+REGEX: JFCM|CJM|KSR|LAR|CPO
+REGEX: L\.\s?Rs\.?|Lrs\.
+REGEX: u/s|r/w
+
+
+# =====================================================================
+# Case-name connectors and abbreviations
+# =====================================================================
+REGEX: versus|vs\.?|v\.
+REGEX: Ors\.|Anr\.
+
+
+# =====================================================================
+# Anchor words; the reference after them is NUMERAL
+# "Act" is case-sensitive ("to act" is not legal);
+# "order" is not tagged in "in order to".
+# =====================================================================
+REGEX: Sub[-\s]?[Ss]ections?|Sections?|Secs?\.|S\.(?=\s?\d)
+REGEX: Articles?|Art\.
+REGEX: Orders?(?!\s+to\b)
+REGEX: Rules?|Clauses?|Schedules?|Chapters?
+REGEX: (?-i:Acts?|ACT)
+REGEX: a\.m\.|p\.m\.
+
+
+# =====================================================================
+# Party and court roles
+# =====================================================================
+REGEX: Petitioners?|Respondents?|Appellants?|Plaintiffs?|Defendants?|Applicants?
+REGEX: Accused|Complainants?|Prosecution|Informant|Deponent
+REGEX: [Ww]itness(?:es)?
+
+
+# =====================================================================
+# Legal terms of art (single words)
+# =====================================================================
+REGEX: injunction|decree|affidavit|impugned|cognizance|jurisdiction|adjudication
+REGEX: acquitted|acquittal|convicted|conviction|bail|plaint|vakalath|vakalatnama
+REGEX: summons|warrant|chargesheet|deposed|testimony|litigation
+REGEX: offences?|offenses?|punishable|judgments?|petitions?|appeals?|suits?
+REGEX: Crime
+
+
+# =====================================================================
+# NUMERAL formats (tagged NUMERAL, not LEGAL)
+# =====================================================================
+NUMERAL_REGEX: \d+[A-Z]?(?:[ \t]*\([ \t]*(?:\d{1,3}|[a-z]{1,4}|[ivx]{1,5})[ \t]*\))+   # 5(1)(a), 34(2)(a)(iii), 34 (2), 34  ( 2 )
+NUMERAL_REGEX: \d+-[A-Z](?![a-z])                                       # 120-B
+NUMERAL_REGEX: \d+[A-Z](?![a-z])                                        # 304A, 66E, 437A
+NUMERAL_REGEX: \d+/\d+(?![/.-]\d)                                       # 1679/2015, 412/2 (not 22/05/2023)
+NUMERAL_REGEX: \(\d{4}\)                                                # (2009) in citations
+NUMERAL_REGEX: (?:(?<=Exhibit )|(?<=Exhibits )|(?<=Exhibit-)|(?<=Ext\.)|(?<=Ext\. )|(?<=Exts\. )|(?<=Ex\.)|(?<=Ex\. ))[A-Z]\.?\d*   # Exhibit A1, Ex.P.1, Ext.A
+NUMERAL_REGEX: (?:(?<=Order )|(?<=ORDER )|(?<=Schedule )|(?<=Part )|(?<=Chapter ))[IVXLC]+   # Order XXXIX
+
 
 # Malayalam multi-word legal terms
 REGEX: അഴിമതി\s+കേസ്
@@ -278,92 +426,3 @@ REGEX: അന്യായപ്പട്ടിക\s+വസ്തു
 REGEX: ഫോറൻസിക്\s+വിദഗ്ദ്ധൻ
 REGEX: പ്രൂഫ്\s+അഫിഡവിറ്റ്‌
 REGEX: അഡ്വക്കേറ്റ്\s+കമ്മീഷണർ
-
-# Latin legal phrases (2 words)
-REGEX: Bona\s+Fide
-REGEX: Ex\s+parte
-REGEX: Inter\s+alia
-REGEX: Locus\s+Standi
-REGEX: Mens\s+rea
-REGEX: Non\s+obstante
-REGEX: Prima\s+facie
-REGEX: Res\s+Judicata
-REGEX: Ultra\s+vires
-REGEX: Ad\s+Hoc
-REGEX: Amicus\s+curiae
-REGEX: De\s+novo
-REGEX: De\s+jure
-REGEX: Habeas\s+corpus
-REGEX: In\s+limine
-REGEX: Mala\s+Fide
-REGEX: Obiter\s+[Dd]icta
-REGEX: Pendente\s+lite
-REGEX: Per\s+incuriam
-REGEX: Suo\s+Motu
-REGEX: De\s+facto
-REGEX: Ejusdem\s+Generis
-REGEX: Ex\s+ante
-REGEX: In\s+Personam
-REGEX: In\s+rem
-REGEX: In\s+Situ
-REGEX: Ipse\s+Dixit
-REGEX: Ipso\s+Facto
-REGEX: Modus\s+Operandi
-REGEX: Mutatis\s+mutandis
-REGEX: Obiter\s+dictum
-REGEX: Onus\s+probandi
-REGEX: Pari\s+Materia
-REGEX: Per\s+curiam
-REGEX: Pro\s+bono
-REGEX: Quasi\s+judicial
-REGEX: Quo\s+Warranto
-REGEX: Ratio\s+decidendi
-REGEX: Res\s+Integra
-REGEX: Sine\s+Die
-REGEX: Stare\s+Decisis
-REGEX: Status\s+quo
-REGEX: Sub\s+judice
-REGEX: Sub\s+Silentio
-REGEX: Ab\s+initio
-REGEX: Audi\s+alteram\s+partem
-REGEX: Functus\s+officio
-REGEX: Ex[-\s]*officio
-REGEX: Fait\s+accompli
-REGEX: Lis\s+pendens
-REGEX: Caveat\s+emptor
-REGEX: Sui\s+generis
-REGEX: Ex\s+Gratia
-REGEX: In\s+Re
-REGEX: Actus\s+Reus
-REGEX: In\s+absentia
-REGEX: Per\s+Contra
-REGEX: Per\s+Capita
-REGEX: Post\s+Mortem
-REGEX: Caveat\s+venditor
-
-# Latin legal phrases (3+ words)
-REGEX: Void\s+Ab\s+Initio
-REGEX: Consensus\s+ad\s+idem
-REGEX: Damnum\s+sine\s+injuria
-REGEX: Ex\s+Post\s+Facto
-REGEX: Jus\s+Ad\s+Rem
-REGEX: Jus\s+in\s+rem
-REGEX: Nemo\s+Judex\s+in\s+Causa\s+Sua
-REGEX: Non\s+Est\s+Factum
-REGEX: Noscitur\s+a\s+Sociis
-REGEX: Quid\s+Pro\s+Quo
-REGEX: Res\s+Ipsa\s+Loquitur
-REGEX: Sine\s+qua\s+non
-REGEX: Status\s+quo\s+ante
-REGEX: Ubi\s+Jus\s+Ibi\s+Remedium
-REGEX: Volenti\s+Non\s+Fit\s+Injuria
-REGEX: In\s+Loco\s+Parentis
-REGEX: Injuria\s+sine\s+damno
-
-# Pattern explanations:
-# PW[-\s]*\d+ matches: PW1, PW 1, PW-1, PW-123 (prosecution witness)
-# CW[-\s]*\d+ matches: CW1, CW 1, CW-1 (court witness)
-# DW[-\s]*\d+ matches: DW1, DW 1, DW-1 (defence witness)
-# Ext\.[-\s]*[A-Z]\d* matches: Ext.A, Ext. A1, Ext-B2 (exhibits)
-# Ext\.[-\s]*P\d* matches: Ext.P, Ext. P1, Ext-P2 (prosecution exhibits)
-# Evidence\s+Act[-\s]*\d+ matches: Evidence Act 65, Evidence Act-101 (Evidence Act sections)
