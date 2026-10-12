@@ -65,6 +65,16 @@ def test_normalize_flag_collapses_date_format_variants(legal_domain):
     assert raw["NUMERAL"]["substitutions"] + raw["NUMERAL"]["error_rate"] > 0
 
 
+def test_normalize_flag_collapses_spaced_subsection_references(legal_domain):
+    """Section 34 (2) vs 34(2) are equivalent under normalize=True."""
+    ref = "under Section 34 (2) of the Act"
+    hyp = "under Section 34(2) of the Act"
+    norm = text_error_rates(ref, hyp, legal_domain, normalize=True)
+    raw = text_error_rates(ref, hyp, legal_domain, normalize=False)
+    assert norm["NUMERAL"]["substitutions"] == 0
+    assert raw["NUMERAL"]["substitutions"] == 1
+
+
 def test_normalize_flag_collapses_currency_comma_variants(legal_domain):
     ref = "amount Rs. 10,500"
     hyp = "amount Rs. 10500"

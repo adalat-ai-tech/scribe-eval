@@ -150,6 +150,35 @@ def test_domain_term_not_matched_inside_a_word():
         ("PW1 stated", [("PW", "LEGAL"), ("1", "NUMERAL"), ("stated", "LEXICAL")]),
         ("Exhibit A1", [("Exhibit", "LEGAL"), ("A1", "NUMERAL")]),
         ("Cr.No.353/2019", [("Cr.No.", "LEGAL"), ("353/2019", "NUMERAL")]),
+        # Loose spacing around brackets stays one NUMERAL token.
+        ("Section 34  (2)", [("Section", "LEGAL"), ("34  (2)", "NUMERAL")]),
+        ("Section 34 (2 )", [("Section", "LEGAL"), ("34 (2 )", "NUMERAL")]),
+        ("Section 34  ( 2 )", [("Section", "LEGAL"), ("34  ( 2 )", "NUMERAL")]),
+        ("Section 34(2) (a)", [("Section", "LEGAL"), ("34(2) (a)", "NUMERAL")]),
+        # Prose in brackets is not a reference.
+        (
+            "on page 34 (see below)",
+            [
+                ("on", "LEXICAL"),
+                ("page", "LEXICAL"),
+                ("34", "NUMERAL"),
+                ("(", "PUNCT"),
+                ("see", "LEXICAL"),
+                ("below", "LEXICAL"),
+                (")", "PUNCT"),
+            ],
+        ),
+        # A line break ends the reference.
+        (
+            "Section 34\n(2)",
+            [
+                ("Section", "LEGAL"),
+                ("34", "NUMERAL"),
+                ("(", "PUNCT"),
+                ("2", "NUMERAL"),
+                (")", "PUNCT"),
+            ],
+        ),
         (
             "Order XXXIX Rule 1",
             [("Order", "LEGAL"), ("XXXIX", "NUMERAL"), ("Rule", "LEGAL"), ("1", "NUMERAL")],
