@@ -54,25 +54,31 @@ def test_paper_fig2_only_word_category_is_affected():
 
 
 # Paper claim: domain-entity shielding keeps multi-character legal tokens
-# (e.g. u/s, PW1, Ext.A) atomic, so a single-character ASR error inside
+# (e.g. u/s, Cr.P.C., Ext.A) atomic, so a single-character ASR error inside
 # them is counted in the domain category, not split into spurious
 # punctuation/word errors. Without shielding, "u/s" would tokenise as
 # three tokens ("u", "/", "s") and a sub of "u" -> "us" would explode
 # into multiple error types.
 @pytest.mark.parametrize(
-    "ref,hyp,expected_legal_subs",
+    "ref,hyp,expected_legal_subs,expected_numeral_subs",
     [
         # u/s misrecognised as "us" -> single LEGAL substitution.
-        ("charged u/s 302", "charged us 302", 1),
-        # PW1 misrecognised as "PW2" -> single LEGAL substitution.
-        ("witness PW1 testified", "witness PW2 testified", 1),
+        ("charged u/s 302", "charged us 302", 1, 0),
+        # Dotted Cr.P.C. heard as "CrPC" -> single LEGAL substitution.
+        ("charged under Cr.P.C.", "charged under CrPC", 1, 0),
+        # PW1 is anchor PW (LEGAL) + number 1 (NUMERAL), like Section 302,
+        # so PW1 -> PW2 is a NUMERAL substitution only.
+        ("witness PW1 testified", "witness PW2 testified", 0, 1),
         # Exact match -> no errors.
-        ("Ext.A is admitted", "Ext.A is admitted", 0),
+        ("Ext.A is admitted", "Ext.A is admitted", 0, 0),
     ],
 )
-def test_legal_domain_shielding_keeps_entities_atomic(legal_domain, ref, hyp, expected_legal_subs):
+def test_legal_domain_shielding_keeps_entities_atomic(
+    legal_domain, ref, hyp, expected_legal_subs, expected_numeral_subs
+):
     report = text_error_rates(ref, hyp, legal_domain)
     assert report["LEGAL"]["substitutions"] == expected_legal_subs
+    assert report["NUMERAL"]["substitutions"] == expected_numeral_subs
 
 
 def test_combined_denominator_keeps_sparse_categories_honest(legal_domain):

@@ -24,7 +24,7 @@ report = text_error_rates(ref, hyp, domain)
 
 | Factory Method | Category | Label | Includes |
 |---|---|---|---|
-| `DomainConfig.legal()` | LEGAL | ER_DOMAIN | u/s, r/w, sec., art., v., vs., PW1/PW-1, CW1, Ext.A |
+| `DomainConfig.legal()` | LEGAL | ER_DOMAIN | Section, Act names, High Court, Cr.P.C., u/s, v./vs., PW, Exhibit (references like 5(1)(a) are NUMERAL) |
 | `DomainConfig.medical()` | MEDICAL | ER_DOMAIN | mg, ml, cc, mcg, IU, 500mg, 10ml |
 | `DomainConfig.technical()` | TECH | ER_DOMAIN | API, SDK, CLI, JSON, HTTP, v1.0 |
 
@@ -67,6 +67,7 @@ REGEX: Ext\.[-\s]*[A-Z]\d*  # Matches Ext.A, Ext. B2
 **Pattern types:**
 - **Literal terms**: One per line, automatically escaped with `re.escape()`
 - **Regex patterns**: Prefix with `REGEX:`, supports full regex syntax
+- **Numeral formats**: Prefix with `NUMERAL_REGEX:` to add a domain-specific numeral format (e.g. `\d+(?:\(\w{1,4}\))+` for `5(1)(a)`). Matches are kept as one token and tagged NUMERAL, not with the domain category
 - **Comments**: Lines starting with `#`, or inline text after `#`
 
 ### Bundled Domains
