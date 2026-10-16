@@ -15,18 +15,99 @@
 <header class="masthead">
   <div class="masthead-inner">
     <h1 class="wordmark">SCRIBE</h1>
-    <p class="package-line">the <code>scribe-eval</code> Python package &middot; <code>import scribe</code></p>
-    <p class="tagline">Diagnostic evaluation for Indic &amp; domain-specific ASR — sandhi-aware alignment, domain-shielded tokenization, and error metrics that say <em>what</em> went wrong, not just how much.</p>
+    <p class="tagline">Diagnostic evaluation for Indic &amp; domain-specific ASR</p>
     <nav class="links-row">
       <a href="https://github.com/adalat-ai-tech/scribe-eval">GitHub</a>
-      <a href="https://arxiv.org/abs/2605.20712">Paper (Interspeech 2026)</a>
-      <a href="https://doi.org/10.5281/zenodo.20765419">Zenodo DOI</a>
-      <!-- Once published on PyPI, point this at https://pypi.org/project/scribe-eval/ -->
-      <a href="https://github.com/adalat-ai-tech/scribe-eval#installation">Install</a>
+      <a href="https://arxiv.org/abs/2605.20712">Paper</a>
+      <a href="https://doi.org/10.5281/zenodo.20765419">DOI</a>
       <span class="code-chip">pip install scribe-eval</span>
     </nav>
   </div>
 </header>
+
+<section class="demo-section" id="demo">
+  <div class="control-bar">
+    <div class="control">
+      <label for="example-select">Example</label>
+      <select id="example-select"><option value="">Custom</option></select>
+    </div>
+    <div class="control">
+      <label for="domain-select">Domain</label>
+      <select id="domain-select" disabled>
+        <option value="none">None</option>
+        <option value="legal">Legal</option>
+        <option value="medical">Medical</option>
+        <option value="technical">Technical</option>
+      </select>
+    </div>
+    <label class="toggle"><input type="checkbox" id="normalize-toggle" checked disabled> Normalize formats</label>
+    <label class="toggle"><input type="checkbox" id="sandhi-toggle" checked disabled> Sandhi detection</label>
+    <span class="status-pill loading" id="status-pill">Loading Python engine</span>
+  </div>
+
+  <div class="io-grid">
+    <div>
+      <label for="ref-input">Reference</label>
+      <textarea id="ref-input" disabled spellcheck="false"></textarea>
+    </div>
+    <div>
+      <label for="hyp-input">Hypothesis</label>
+      <textarea id="hyp-input" disabled spellcheck="false"></textarea>
+    </div>
+  </div>
+  <p class="showcase-note" id="showcase-note"></p>
+
+  <div id="results" hidden>
+    <h3 class="panel-label">SCRIBE Alignment <span>(Domain-Aware)</span></h3>
+    <div class="tiles">
+      <div class="tile" title="Composite SCRIBE error rate: errors from all token categories (lexical, domain, numeral, punctuation) over the combined reference-token denominator. Not comparable to a word-level WER.">
+        <div class="tile-label">WER_SCRIBE</div>
+        <div class="tile-value" id="tile-wer">–</div>
+      </div>
+      <div class="tile" title="SCRIBE character error rate: character edits over reference characters, computed on normalized token streams — format variants cost nothing.">
+        <div class="tile-label">CER_SCRIBE</div>
+        <div class="tile-value" id="tile-cer">–</div>
+      </div>
+      <div class="tile" title="Accuracy + WER_SCRIBE need not sum to 100%: insertions and sandhi corrections affect the reference token count.">
+        <div class="tile-label">Accuracy</div>
+        <div class="tile-value" id="tile-acc">–</div>
+      </div>
+    </div>
+    <p class="chips-caption" id="chips-caption"></p>
+    <div class="scroll-container"><table class="alignment-table"><tbody><tr id="alignment-row"></tr></tbody></table></div>
+
+    <hr class="divider">
+
+    <h3 class="panel-label">Plain Alignment <span>(Standard Word-Level)</span></h3>
+    <div class="tiles">
+      <div class="tile" title="Word error rate on whitespace-split words, no normalization.">
+        <div class="tile-label">Word Error Rate</div>
+        <div class="tile-value" id="tile-plain-wer">–</div>
+      </div>
+      <div class="tile" title="Character error rate on the raw text, no normalization.">
+        <div class="tile-label">Character Error Rate</div>
+        <div class="tile-value" id="tile-plain-cer">–</div>
+      </div>
+    </div>
+    <p class="chips-caption" id="plain-caption"></p>
+    <div class="scroll-container"><table class="alignment-table"><tbody><tr id="plain-alignment-row"></tr></tbody></table></div>
+
+    <hr class="divider">
+
+    <details class="contribution">
+      <summary>Error analysis (single sample)</summary>
+      <h4>Category breakdown</h4>
+      <div class="scroll-container plain-scroll">
+        <table class="contribution-table" id="contribution-table"></table>
+      </div>
+      <h4>Individual error records</h4>
+      <p class="muted" id="errors-empty" hidden>No errors detected.</p>
+      <div class="scroll-container plain-scroll">
+        <table class="contribution-table" id="errors-table"></table>
+      </div>
+    </details>
+  </div>
+</section>
 
 <main>
 
@@ -55,74 +136,6 @@
   cost nothing, and it needs no sandhi machinery to be robust to
   agglutination.</p>
 </section>
-
-</main>
-
-<section class="demo-section" id="demo">
-  <h2>Try it — live in your browser</h2>
-  <div class="demo-panel">
-    <span class="status-pill loading" id="status-pill">Loading Python engine · runs entirely in your browser</span>
-
-    <div class="showcase-strip">
-      <span class="showcase-strip-label">Examples</span>
-      <div class="showcase-row" id="showcase-row"></div>
-    </div>
-
-    <div class="io-grid">
-      <div>
-        <label for="ref-input">Reference (ground truth)</label>
-        <textarea id="ref-input" disabled spellcheck="false"></textarea>
-      </div>
-      <div>
-        <label for="hyp-input">Hypothesis (ASR output)</label>
-        <textarea id="hyp-input" disabled spellcheck="false"></textarea>
-      </div>
-    </div>
-
-    <div class="controls">
-      <div>
-        <label for="domain-select">Domain</label>
-        <select id="domain-select" disabled>
-          <option value="none">None</option>
-          <option value="legal">Legal</option>
-          <option value="medical">Medical</option>
-          <option value="technical">Technical</option>
-        </select>
-      </div>
-      <label class="toggle"><input type="checkbox" id="normalize-toggle" checked disabled> Normalize formats</label>
-      <label class="toggle"><input type="checkbox" id="sandhi-toggle" checked disabled> Sandhi detection</label>
-    </div>
-
-    <p class="showcase-note" id="showcase-note"></p>
-
-    <div id="results" hidden>
-      <div class="tiles">
-        <div class="tile" title="Composite SCRIBE error rate: errors from all token categories (lexical, domain, numeral, punctuation) over the combined reference-token denominator. Not comparable to a word-level WER.">
-          <div class="tile-label">WER_SCRIBE</div>
-          <div class="tile-value" id="tile-wer">–</div>
-        </div>
-        <div class="tile" title="SCRIBE character error rate: character edits over reference characters, computed on normalized token streams — format variants cost nothing.">
-          <div class="tile-label">CER_SCRIBE</div>
-          <div class="tile-value" id="tile-cer">–</div>
-        </div>
-        <div class="tile" title="Accuracy + WER_SCRIBE need not sum to 100%: insertions and sandhi corrections affect the reference token count.">
-          <div class="tile-label">Accuracy</div>
-          <div class="tile-value" id="tile-acc">–</div>
-        </div>
-      </div>
-      <p class="chips-caption" id="chips-caption"></p>
-      <div class="scroll-container"><table class="alignment-table"><tbody><tr id="alignment-row"></tr></tbody></table></div>
-      <details class="contribution">
-        <summary>Category breakdown</summary>
-        <div class="scroll-container" style="border:none;background:transparent">
-          <table class="contribution-table" id="contribution-table"></table>
-        </div>
-      </details>
-    </div>
-  </div>
-</section>
-
-<main>
 
 <section id="sandhi">
   <h2>Sandhi awareness</h2>
@@ -161,7 +174,7 @@
   small pure-Python stand-in for the Levenshtein C extension. Nothing you type
   leaves your browser. The page itself is static files served from GitHub
   Pages; the source lives in
-  <a href="https://github.com/adalat-ai-tech/scribe-eval/tree/main/site"><code>site/</code></a>.</p>
+  <a href="https://github.com/adalat-ai-tech/scribe-eval/tree/feat/demo-site/site"><code>site/</code></a>.</p>
 </section>
 
 </main>

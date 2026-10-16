@@ -9,12 +9,15 @@ the visualizer's ``render_analysis`` (src/scribe/visualizer/app.py).
 
 import json
 
+import Levenshtein
+
 from scribe import (
     DomainConfig,
     align_arrays,
     compute_category_contributions,
     compute_cer_scribe,
     domain_aware_tokenizer,
+    text_error_details,
     token_error_rates,
 )
 from scribe.reporting import (
@@ -31,6 +34,65 @@ _DOMAINS = {
 }
 
 
+def _word_alignment(ref_words: list, hyp_words: list) -> list:
+    """Plain word-level Levenshtein alignment, as jiwer computes by default.
+
+    Returns aligned rows using "**" for gap cells, the same convention as
+    the visualizer's jiwer view.
+    """
+    n, m = len(ref_words), len(hyp_words)
+    cost = [[0] * (m + 1) for _ in range(n + 1)]
+    for i in range(n + 1):
+        cost[i][0] = i
+    for j in range(m + 1):
+        cost[0][j] = j
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            diff = 0 if ref_words[i - 1] == hyp_words[j - 1] else 1
+            cost[i][j] = min(cost[i - 1][j - 1] + diff, cost[i - 1][j] + 1, cost[i][j - 1] + 1)
+
+    rows = []
+    i, j = n, m
+    while i > 0 or j > 0:
+        if i > 0 and j > 0:
+            diff = 0 if ref_words[i - 1] == hyp_words[j - 1] else 1
+            if cost[i][j] == cost[i - 1][j - 1] + diff:
+                kind = "correct" if diff == 0 else "substitution"
+                rows.append(
+                    {"ref_text": ref_words[i - 1], "hyp_text": hyp_words[j - 1], "error_type": kind}
+                )
+                i, j = i - 1, j - 1
+                continue
+        if i > 0 and cost[i][j] == cost[i - 1][j] + 1:
+            rows.append({"ref_text": ref_words[i - 1], "hyp_text": "**", "error_type": "deletion"})
+            i -= 1
+        else:
+            rows.append({"ref_text": "**", "hyp_text": hyp_words[j - 1], "error_type": "insertion"})
+            j -= 1
+    rows.reverse()
+    return rows
+
+
+def plain_error_rates(ref: str, hyp: str) -> dict:
+    """Standard word and character error rates with no transforms, the
+    baseline the page sets against SCRIBE's metrics."""
+    ref_words, hyp_words = ref.split(), hyp.split()
+    alignment = _word_alignment(ref_words, hyp_words)
+    counts = {
+        t: sum(r["error_type"] == t for r in alignment)
+        for t in ("substitution", "insertion", "deletion")
+    }
+    errors = sum(counts.values())
+    return {
+        "wer": errors / len(ref_words) if ref_words else float(bool(hyp_words)),
+        "cer": Levenshtein.distance(ref, hyp) / len(ref) if ref else float(bool(hyp)),
+        "subs": counts["substitution"],
+        "ins": counts["insertion"],
+        "dels": counts["deletion"],
+        "alignment": alignment,
+    }
+
+
 def evaluate_single(
     ref: str,
     hyp: str,
@@ -39,7 +101,8 @@ def evaluate_single(
     use_sandhi: bool = True,
 ) -> dict:
     """Evaluate one ref/hyp pair; return alignment rows, metric tiles,
-    category chips, and the contribution table as plain data."""
+    category chips, the contribution table, error records and the plain
+    WER baseline as plain data."""
     domain = _DOMAINS[domain_name]() if domain_name in _DOMAINS else None
     t1, g1 = domain_aware_tokenizer(ref, domain)
     t2, g2 = domain_aware_tokenizer(hyp, domain)
@@ -64,6 +127,8 @@ def evaluate_single(
         },
         "chips": format_category_chips(contributions, domain_display),
         "contribution": format_contribution_table(contributions),
+        "errors": text_error_details(ref, hyp, domain, normalize, use_sandhi),
+        "plain": plain_error_rates(ref, hyp),
     }
 
 

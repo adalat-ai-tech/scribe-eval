@@ -10,6 +10,8 @@ import json
 import re
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).parent.parent
 
 _spec = importlib.util.spec_from_file_location(
@@ -36,7 +38,12 @@ def run_case(case, **overrides):
 
 def test_result_schema():
     result = run_case(BY_ID["legal"])
-    assert set(result) == {"alignment", "tiles", "chips", "contribution"}
+    assert set(result) == {"alignment", "tiles", "chips", "contribution", "errors", "plain"}
+    assert set(result["plain"]) == {"wer", "cer", "subs", "ins", "dels", "alignment"}
+    for row in result["plain"]["alignment"]:
+        assert set(row) == {"ref_text", "hyp_text", "error_type"}
+    for record in result["errors"]:
+        assert {"error_type", "category", "ref_token", "hyp_token"} <= set(record)
     assert set(result["tiles"]) == {"wer_scribe", "cer_scribe", "accuracy", "sandhi_hits"}
     for row in result["alignment"]:
         assert {"ref_text", "hyp_text", "error_type", "token_type"} <= set(row)
@@ -68,6 +75,16 @@ def test_legal_showcase_tags_domain_tokens():
     assert any(chip.startswith("Legal Tokens") for chip in result["chips"])
 
 
+def test_statute_showcase_is_one_numeral_error():
+    result = run_case(BY_ID["legal-statute"])
+    numerals = [row["ref_text"] for row in result["alignment"] if row["token_type"] == "NUMERAL"]
+    assert numerals == ["32(1)(a)"]
+    assert [(e["error_type"], e["category"]) for e in result["errors"]] == [
+        ("substitution", "NUMERAL")
+    ]
+    assert result["plain"]["subs"] + result["plain"]["ins"] + result["plain"]["dels"] == 2
+
+
 def test_numeral_showcase_normalization_effect():
     case = BY_ID["numeral-norm"]
     normalized = run_case(case)
@@ -90,6 +107,40 @@ def test_insertion_only_does_not_crash():
     result = demo_api.evaluate_single("", "hallucinated text")
     assert result["tiles"]["accuracy"] == 0.0
     assert result["tiles"]["wer_scribe"] > 0.0
+    assert result["plain"]["ins"] == 2
+
+
+def test_empty_hypothesis_is_all_deletions():
+    plain = demo_api.evaluate_single("two words", "")["plain"]
+    assert plain["wer"] == 1.0
+    assert plain["dels"] == 2
+
+
+def test_plain_wer_flags_sandhi_that_scribe_forgives():
+    # The contrast the page shows: every word wrong for plain WER, no
+    # lexical error for SCRIBE.
+    result = run_case(BY_ID["ml-merge-split"])
+    assert result["plain"]["wer"] == 1.0
+    assert not any(
+        row["error_type"] != "correct"
+        and row["token_type"] == "LEXICAL"
+        and row["error_type"] != "sandhi"
+        for row in result["alignment"]
+    )
+
+
+def test_plain_rates_match_jiwer():
+    jiwer = pytest.importorskip("jiwer")
+    for case in SHOWCASES:
+        plain = run_case(case)["plain"]
+        assert plain["wer"] == pytest.approx(jiwer.wer(case["ref"], case["hyp"])), case["id"]
+        assert plain["cer"] == pytest.approx(jiwer.cer(case["ref"], case["hyp"])), case["id"]
+        counts = jiwer.process_words(case["ref"], case["hyp"])
+        assert (plain["subs"], plain["ins"], plain["dels"]) == (
+            counts.substitutions,
+            counts.insertions,
+            counts.deletions,
+        ), case["id"]
 
 
 def test_readme_sandhi_rows_are_showcases():

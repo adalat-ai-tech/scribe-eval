@@ -80,6 +80,16 @@
     "note": "u/s stays one LEGAL token instead of splitting on the slash; the 302→303 error lands in ER_NUM, not ER_LEX."
   },
   {
+    "id": "legal-statute",
+    "label": "Legal domain · statute sub-clause",
+    "ref": "The accused was charged under Section 32(1)(a) of the Kerala Abkari Act.",
+    "hyp": "The accused was charged under Section 32 (1)(b) of the Kerala Abkari Act.",
+    "domain": "legal",
+    "normalize": true,
+    "use_sandhi": true,
+    "note": "Section stays LEGAL and 32(1)(a) is one NUMERAL token, so the spacing before the bracket is ignored and the wrong clause letter is a single numeral error. Plain WER splits the reference across words and counts two."
+  },
+  {
     "id": "medical-dosage",
     "label": "Medical domain · dosage error isolated",
     "ref": "paracetamol 500mg every six hours",

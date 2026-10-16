@@ -79,25 +79,25 @@ code, .code-chip {
 
 /* ---------- Masthead ---------- */
 
-.masthead { border-bottom: 2px solid var(--ink); padding: 2.6rem 0 1.4rem; }
+.masthead { border-bottom: 1px solid var(--hairline); padding: 0.9rem 0; }
+.masthead .masthead-inner {
+  max-width: 1080px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem 1.2rem;
+}
 .wordmark {
   font-family: var(--display);
-  font-size: 3rem;
+  font-size: 1.6rem;
   font-weight: 600;
-  line-height: 1.05;
+  line-height: 1.1;
   margin: 0;
+  border-left: 4px solid var(--brand);
+  padding-left: 0.5rem;
 }
-.wordmark::before {
-  content: "";
-  display: block;
-  width: 44px;
-  height: 5px;
-  background: var(--brand);
-  margin-bottom: 0.6rem;
-}
-.package-line { color: var(--ink-muted); font-size: 0.85rem; margin: 0.3rem 0 0; letter-spacing: 0.02em; }
-.tagline { color: var(--ink-muted); font-size: 1.05rem; margin: 0.35rem 0 1.1rem; }
-.links-row { display: flex; flex-wrap: wrap; gap: 0.6rem 1.4rem; align-items: center; font-size: 0.92rem; }
+.tagline { color: var(--ink-muted); font-size: 0.95rem; margin: 0; flex: 1 1 18rem; }
+.links-row { display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem; align-items: center; font-size: 0.88rem; }
 
 /* ---------- Prose tables (category table, sandhi table) ---------- */
 
@@ -126,13 +126,7 @@ table.prose-table .indic { font-family: var(--token); }
 
 /* ---------- Demo panel ---------- */
 
-.demo-section { max-width: 1080px; margin-left: auto; margin-right: auto; padding: 0 1.25rem; }
-.demo-panel {
-  border: 1px solid var(--hairline);
-  border-radius: 6px;
-  background: #FFFDFA;
-  padding: 1.4rem 1.6rem 1.6rem;
-}
+.demo-section { max-width: 1080px; margin: 1.4rem auto 3.2rem; padding: 0 1.25rem; }
 
 .status-pill {
   display: inline-flex;
@@ -155,56 +149,8 @@ table.prose-table .indic { font-family: var(--token); }
 .status-pill.failed::before { background: var(--err); }
 @keyframes pulse { 50% { opacity: 0.3; } }
 
-.showcase-strip {
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  margin: 1rem 0 1.2rem;
-}
-.showcase-strip-label {
-  flex: none;
-  font-size: 0.72rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--ink-muted);
-}
-.showcase-row {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 0.5rem;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  scrollbar-width: thin;
-  scrollbar-color: var(--hairline) transparent;
-  padding: 3px 2rem 6px 2px;
-  /* faded edges hint at more examples beyond the fold */
-  mask-image: linear-gradient(to right, transparent, black 12px, black calc(100% - 36px), transparent);
-  -webkit-mask-image: linear-gradient(to right, transparent, black 12px, black calc(100% - 36px), transparent);
-}
-.showcase-chip {
-  flex: none;
-  scroll-snap-align: start;
-  font-family: var(--sans);
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--ink-muted);
-  background: transparent;
-  border: 1px solid var(--hairline);
-  border-radius: 99px;
-  padding: 0.3rem 0.85rem;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.showcase-chip:hover { border-color: var(--ink-muted); color: var(--ink); }
-.showcase-chip.active { color: var(--ink); border-color: var(--ink); box-shadow: inset 0 -3px 0 var(--brand); }
-@media (max-width: 680px) {
-  .showcase-strip { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
-  .showcase-row { width: 100%; }
-}
-
 .io-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-.io-grid label, .controls label {
+.io-grid label, .control label {
   display: block;
   font-size: 0.72rem;
   font-weight: 600;
@@ -228,14 +174,14 @@ textarea {
 textarea:focus { outline: 2px solid var(--brand); outline-offset: 1px; }
 textarea:disabled { opacity: 0.55; }
 
-.controls {
+.control-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.6rem;
+  gap: 0.8rem 1.6rem;
   align-items: end;
-  margin: 1rem 0 0.4rem;
+  margin: 0 0 1rem;
 }
-.controls select {
+.control select {
   font-family: var(--sans);
   font-size: 0.92rem;
   color: var(--ink);
@@ -243,15 +189,27 @@ textarea:disabled { opacity: 0.55; }
   border: 1px solid var(--hairline);
   border-radius: 4px;
   padding: 0.35rem 0.5rem;
+  max-width: 100%;
 }
-.toggle { display: flex; align-items: center; gap: 0.45rem; font-size: 0.92rem; }
+.control { min-width: 0; max-width: 100%; }
+.control-bar .status-pill { margin-left: auto; }
+.toggle { display: flex; align-items: center; padding-bottom: 0.35rem; gap: 0.45rem; font-size: 0.92rem; }
 .toggle input { accent-color: var(--brand); width: 16px; height: 16px; }
 
-.showcase-note { font-size: 0.9rem; color: var(--ink-muted); margin: 0.8rem 0 0; min-height: 1.4em; }
+.showcase-note { font-size: 0.9rem; color: var(--ink-muted); margin: 0.6rem 0 0; min-height: 1.4em; }
+
+.panel-label {
+  font-family: var(--display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 1.6rem 0 0;
+}
+.panel-label span { font-weight: 500; color: var(--ink-muted); }
+hr.divider { border: none; border-top: 1px solid var(--hairline); margin: 1.6rem 0 0; }
 
 /* ---------- Results ---------- */
 
-.tiles { display: flex; flex-wrap: wrap; gap: 2.4rem; margin: 1.4rem 0 0.4rem; }
+.tiles { display: flex; flex-wrap: wrap; gap: 2.4rem; margin: 0.6rem 0 0.4rem; }
 .tile .tile-label {
   font-size: 0.72rem;
   font-weight: 600;
@@ -308,6 +266,8 @@ td.token-cell {
 .t-LEGAL, .t-MEDICAL, .t-TECH { border: 1px solid var(--hairline); border-bottom: 3px solid var(--brand); }
 
 details.contribution { margin-top: 1.1rem; }
+details.contribution h4 { font-size: 0.85rem; margin: 1rem 0 0; }
+.plain-scroll { border: none; background: transparent; }
 details.contribution summary {
   cursor: pointer;
   font-size: 0.85rem;
@@ -349,5 +309,5 @@ pre.bibtex {
 @media (max-width: 680px) {
   .io-grid { grid-template-columns: 1fr; }
   .tiles { gap: 1.4rem; }
-  .wordmark { font-size: 2.2rem; }
+  table.prose-table { display: block; overflow-x: auto; }
 }

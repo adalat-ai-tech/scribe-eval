@@ -20,6 +20,7 @@ const domainSelect = el("domain-select");
 const normalizeToggle = el("normalize-toggle");
 const sandhiToggle = el("sandhi-toggle");
 const showcaseNote = el("showcase-note");
+const exampleSelect = el("example-select");
 
 let showcases = [];
 let bakedResults = {};
@@ -49,8 +50,8 @@ const STATUS_MAP = {
   sandhi: "s-merge",
 };
 
-function renderAlignment(rows) {
-  const tr = el("alignment-row");
+function renderAlignment(rows, rowId = "alignment-row", withTags = true) {
+  const tr = el(rowId);
   tr.replaceChildren();
   for (const item of rows) {
     const td = document.createElement("td");
@@ -66,8 +67,11 @@ function renderAlignment(rows) {
     else top.textContent = item.ref_text;
     if (item.hyp_text === "**") bot.innerHTML = "&nbsp;";
     else bot.textContent = item.hyp_text;
-    tag.textContent = item.token_type;
-    td.append(top, bot, tag);
+    td.append(top, bot);
+    if (withTags) {
+      tag.textContent = item.token_type;
+      td.append(tag);
+    }
     tr.append(td);
   }
 }
@@ -77,10 +81,9 @@ const CONTRIBUTION_COLUMNS = [
   "Errors", "Error Rate", "Impact on Total",
 ];
 
-function renderContribution(rows) {
-  const table = el("contribution-table");
+function renderTable(tableId, cols, rows) {
+  const table = el(tableId);
   table.replaceChildren();
-  const cols = CONTRIBUTION_COLUMNS.filter((c) => rows.length && c in rows[0]);
   const thead = document.createElement("thead");
   const headRow = document.createElement("tr");
   for (const c of cols) {
@@ -95,7 +98,7 @@ function renderContribution(rows) {
     if (row.Category === "TOTAL") tr.className = "total-row";
     for (const c of cols) {
       const td = document.createElement("td");
-      td.textContent = row[c];
+      td.textContent = row[c] ?? "";
       tr.append(td);
     }
     tbody.append(tr);
@@ -103,11 +106,33 @@ function renderContribution(rows) {
   table.append(thead, tbody);
 }
 
+function renderContribution(rows) {
+  const cols = CONTRIBUTION_COLUMNS.filter((c) => rows.length && c in rows[0]);
+  renderTable("contribution-table", cols, rows);
+}
+
+const ERROR_COLUMNS = ["error_type", "category", "ref_token", "hyp_token"];
+
+function renderErrors(records) {
+  el("errors-empty").hidden = records.length > 0;
+  el("errors-table").hidden = records.length === 0;
+  renderTable("errors-table", ERROR_COLUMNS, records);
+}
+
+function renderPlain(plain) {
+  el("tile-plain-wer").textContent = pct(plain.wer);
+  el("tile-plain-cer").textContent = pct(plain.cer);
+  el("plain-caption").textContent = `${plain.subs} subs  ·  ${plain.ins} ins  ·  ${plain.dels} del`;
+  renderAlignment(plain.alignment, "plain-alignment-row", false);
+}
+
 function renderResult(result) {
   renderTiles(result.tiles);
   renderChips(result.chips, result.tiles);
   renderAlignment(result.alignment);
   renderContribution(result.contribution);
+  renderErrors(result.errors);
+  renderPlain(result.plain);
   el("results").hidden = false;
 }
 
@@ -116,12 +141,14 @@ function renderResult(result) {
 function setEngineStatus(state, detail) {
   statusPill.className = `status-pill ${state}`;
   if (state === "loading") {
-    statusPill.textContent = "Loading Python engine · runs entirely in your browser";
+    statusPill.textContent = "Loading Python engine";
+    statusPill.title = "Runs entirely in your browser";
   } else if (state === "ready") {
-    statusPill.textContent = "Live — running the published scribe-eval wheel in your browser";
+    statusPill.textContent = "Live in your browser";
+    statusPill.title = "Running the scribe-eval wheel in your browser; nothing you type leaves it";
   } else {
-    statusPill.textContent =
-      "Live engine unavailable — showcase results below were precomputed with the same library";
+    statusPill.textContent = "Engine unavailable";
+    statusPill.title = "Example results were precomputed with the same library";
     if (detail) console.error("SCRIBE demo engine failed:", detail);
   }
 }
@@ -153,13 +180,11 @@ function evaluateLive() {
 function scheduleEvaluate() {
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(evaluateLive, 250);
-  clearActiveChip();
+  clearExample();
 }
 
-function clearActiveChip() {
-  for (const chip of document.querySelectorAll(".showcase-chip.active")) {
-    chip.classList.remove("active");
-  }
+function clearExample() {
+  exampleSelect.value = "";
   showcaseNote.textContent = "";
 }
 
@@ -171,18 +196,7 @@ function loadShowcase(id) {
   domainSelect.value = sc.domain;
   normalizeToggle.checked = sc.normalize;
   sandhiToggle.checked = sc.use_sandhi;
-  clearActiveChip();
-  const chip = document.querySelector(`.showcase-chip[data-id="${id}"]`);
-  if (chip) {
-    chip.classList.add("active");
-    // Scroll only the strip. scrollIntoView() would also scroll the document
-    // and cancel the #demo anchor jump the "Try it" links rely on.
-    const row = chip.parentElement;
-    row.scrollTo({
-      left: chip.offsetLeft - (row.clientWidth - chip.offsetWidth) / 2,
-      behavior: "smooth",
-    });
-  }
+  exampleSelect.value = id;
   showcaseNote.textContent = sc.note || "";
   if (evaluateJson) {
     evaluateLive();
@@ -206,16 +220,15 @@ async function initShowcases() {
   } catch {
     bakedResults = {}; // page still works; results appear once the engine is live
   }
-  const row = el("showcase-row");
   for (const sc of showcases) {
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "showcase-chip";
-    chip.dataset.id = sc.id;
-    chip.textContent = sc.label;
-    chip.addEventListener("click", () => loadShowcase(sc.id));
-    row.append(chip);
+    const option = document.createElement("option");
+    option.value = sc.id;
+    option.textContent = sc.label;
+    exampleSelect.append(option);
   }
+  exampleSelect.addEventListener("change", () => {
+    if (exampleSelect.value) loadShowcase(exampleSelect.value);
+  });
   for (const link of document.querySelectorAll("[data-showcase]")) {
     link.addEventListener("click", () => loadShowcase(link.dataset.showcase));
   }
