@@ -5,6 +5,7 @@ This module provides shared functions for formatting error metrics
 and alignment results for both CLI and web UI presentations.
 """
 
+import warnings
 from typing import Dict, List, Tuple
 
 from .analysis import compute_wer_scribe
@@ -130,15 +131,18 @@ def extract_error_rates(report: Dict) -> Dict:
     return result
 
 
-def format_dataset_table(agg_results: Dict) -> List[Dict]:
+def format_group_table(agg_results: Dict) -> List[Dict]:
     """
     Format aggregate results as list of dicts for table display.
 
+    One row for OVERALL plus one per group (the values of the record
+    field the batch was grouped by — dataset, speaker, any field).
+
     Args:
-        agg_results: Dictionary with 'overall' and 'by_dataset' keys
+        agg_results: Dictionary with 'overall' and 'by_group' keys
 
     Returns:
-        List of dictionaries, each containing Dataset name and error metrics
+        List of dictionaries, each containing the Group name and error metrics
     """
     table_data = []
     cer_data = agg_results.get("cer_scribe")
@@ -148,19 +152,30 @@ def format_dataset_table(agg_results: Dict) -> List[Dict]:
         agg_results["overall"],
         cer=cer_data["overall"] if cer_data else None,
     )
-    overall["Dataset"] = "OVERALL"
+    overall["Group"] = "OVERALL"
     table_data.append(overall)
 
-    # Per-dataset rows
-    for ds, metrics in agg_results["by_dataset"].items():
+    # Per-group rows
+    for group, metrics in agg_results["by_group"].items():
         row = format_metrics_dict(
             metrics,
-            cer=(cer_data["by_dataset"].get(ds) or {}) if cer_data else None,
+            cer=(cer_data["by_group"].get(group) or {}) if cer_data else None,
         )
-        row["Dataset"] = ds
+        row["Group"] = group
         table_data.append(row)
 
     return table_data
+
+
+def format_dataset_table(agg_results: Dict) -> List[Dict]:
+    """Deprecated alias for format_group_table (removed in a future release)."""
+    warnings.warn(
+        "format_dataset_table is deprecated; use format_group_table "
+        "(rows carry a 'Group' key instead of 'Dataset')",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return format_group_table(agg_results)
 
 
 def format_error_counts_table(report: Dict) -> List[Dict]:
@@ -199,14 +214,14 @@ def format_summary_lines(agg_results: Dict) -> List[str]:
     domain category (if any) is shown as ER_DOMAIN.
 
     Args:
-        agg_results: Dictionary with 'overall' and 'by_dataset' keys
+        agg_results: Dictionary with 'overall' and 'by_group' keys
 
     Returns:
         List of lines (no trailing newlines)
     """
     # Domain columns are fixed by the overall metrics; each row's value
     # is read by CATEGORY from that row's own metrics, not by label —
-    # in a mixed aggregate a single-domain dataset row resolves its own
+    # in a mixed aggregate a single-domain group row resolves its own
     # label differently than the table header, and a label lookup would
     # show N/A over a real number.
     labels = resolve_domain_labels(agg_results["overall"])
@@ -214,24 +229,24 @@ def format_summary_lines(agg_results: Dict) -> List[str]:
 
     header = format_table_header(list(labels.values()), cer=cer_data is not None)
     width = len(header.split("\n")[0])
-    dw = COLUMN_WIDTHS["dataset"]
+    gw = COLUMN_WIDTHS["group"]
     mw = COLUMN_WIDTHS["metric"]
     sw = COLUMN_WIDTHS["sandhi"]
 
     named_metrics = [("OVERALL", agg_results["overall"])]
-    named_metrics += list(agg_results["by_dataset"].items())
+    named_metrics += list(agg_results["by_group"].items())
 
     lines = ["=" * width, *header.split("\n")]
-    for ds_name, metrics in named_metrics:
+    for group_name, metrics in named_metrics:
         row = format_metrics_dict(metrics)
-        cells = [f"{ds_name:<{dw}}", f"{row['ER_LEX']:>{mw}}"]
+        cells = [f"{group_name:<{gw}}", f"{row['ER_LEX']:>{mw}}"]
         for cat in labels:
             if cat in metrics:
                 # _format_rate renders N/A for a present-but-empty
                 # category, matching the absent-category case below.
                 cells.append(f"{_format_rate(metrics[cat]):>{mw}}")
             else:
-                # Genuinely absent from this dataset's data.
+                # Genuinely absent from this group's data.
                 cells.append(f"{'N/A':>{mw}}")
         cells.append(f"{row['ER_NUM']:>{mw}}")
         cells.append(f"{row['ER_PUNCT']:>{mw}}")
@@ -239,8 +254,8 @@ def format_summary_lines(agg_results: Dict) -> List[str]:
         if cer_data is not None:
             entry = (
                 cer_data["overall"]
-                if ds_name == "OVERALL"
-                else cer_data["by_dataset"].get(ds_name)
+                if group_name == "OVERALL"
+                else cer_data["by_group"].get(group_name)
             )
             if entry and (entry.get("ref_chars", 0) > 0 or entry.get("char_errors", 0) > 0):
                 cells.append(f"{entry['cer_scribe']:>{mw}.2%}")
@@ -248,7 +263,7 @@ def format_summary_lines(agg_results: Dict) -> List[str]:
                 cells.append(f"{'N/A':>{mw}}")
         cells.append(f"{row['Sandhi']:>{sw}}")
         lines.append(" | ".join(cells))
-        if ds_name == "OVERALL":
+        if group_name == "OVERALL":
             lines.append("-" * width)
     lines.append("=" * width)
     return lines
@@ -259,7 +274,7 @@ def write_summary_to_file(agg_results: Dict, output_path: str) -> None:
     Write evaluation summary to file safely.
 
     Args:
-        agg_results: Dictionary with 'overall' and 'by_dataset' keys
+        agg_results: Dictionary with 'overall' and 'by_group' keys
         output_path: Path to output file
     """
     with open(output_path, "w", encoding="utf-8") as f:

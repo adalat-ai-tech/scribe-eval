@@ -66,8 +66,9 @@ PUBLIC_API = {
     "format_alignment_table": "callable",
     "format_category_chips": "callable",
     "format_contribution_table": "callable",
-    "format_dataset_table": "callable",
+    "format_dataset_table": "callable",  # deprecated alias, still exported
     "format_error_counts_table": "callable",
+    "format_group_table": "callable",
     "format_frequent_errors_table": "callable",
     "format_metrics_dict": "callable",
     "write_summary_to_file": "callable",

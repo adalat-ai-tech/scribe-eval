@@ -39,7 +39,7 @@ Upload a JSONL file (or use the default path) to get aggregate metrics across mu
 - Category decomposition caption (including the sandhi match count)
 - Category contributions table and breakdown chart
 - Frequent errors tables with adjustable top-N (changing top-N does not rerun the batch)
-- Per-dataset breakdown table
+- Per-group breakdown table, split by the record field chosen under "Group By Field" (dataset, speaker, any field)
 - **Individual record inspection** — select a sample from a dropdown to see full alignment and per-sample metrics
 
 ## Sidebar Options

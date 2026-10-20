@@ -54,3 +54,6 @@ src/scribe/config/custom_*.txt
 examples/test_*.py
 # Root-level eval result directory
 malayalam-model-results/
+
+# Internal evaluation data (never committed)
+test-data/

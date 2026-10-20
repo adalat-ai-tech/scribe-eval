@@ -1,6 +1,6 @@
 # Batch Processing
 
-scribe-eval supports processing multiple samples from a JSONL file and aggregating metrics across datasets.
+scribe-eval supports processing multiple samples from a JSONL file and aggregating metrics overall and per group (per dataset, per speaker, or any other record field).
 
 ## Input Format
 
@@ -10,7 +10,7 @@ Each line in the JSONL file must have:
 |---|---|---|
 | Reference text | `text` | Ground truth transcription (NeMo manifest convention) |
 | Hypothesis text | `pred_text` | ASR model output |
-| Dataset ID | `source_dataset` | Optional; groups per-dataset metrics |
+| Group field | `source_dataset` | Optional; the field whose value splits the per-group metrics. Any record field can be chosen with `group_by=` (`--group-by` on the CLI). Missing or empty values fall into `unknown` |
 
 ## Python API
 
@@ -35,10 +35,18 @@ metrics = compute_aggregate_metrics(results)
 print(metrics['overall']['LEXICAL']['error_rate'])
 print(metrics['overall']['LEGAL']['error_rate'])
 
-# Per-dataset metrics
-for dataset, data in metrics['by_dataset'].items():
-    print(f"{dataset}: ER_LEX={data['LEXICAL']['error_rate']:.2%}")
+# Per-group metrics (one entry per source_dataset value by default)
+for group, data in metrics['by_group'].items():
+    print(f"{group}: ER_LEX={data['LEXICAL']['error_rate']:.2%}")
+
+# Group by any other record field instead
+by_speaker = compute_aggregate_metrics(
+    compute_sample_errors("predictions.jsonl", group_by="speaker", domain_config=domain)
+)
 ```
+
+`source_dataset_field=` from 0.1.x still works as an alias of `group_by=` but
+emits a `DeprecationWarning`; it will be removed in a later release.
 
 ### In-memory evaluation (no file needed)
 
@@ -166,7 +174,7 @@ uv run examples/batch_evaluate.py \
 | `-o`, `--output-dir` | `examples/output/` | Output directory (defaults alongside the script) |
 | `--ref-field` | `text` | Reference field name |
 | `--hyp-field` | `pred_text` | Hypothesis field name |
-| `--dataset-field` | `source_dataset` | Dataset identifier field |
+| `--group-by FIELD` | `source_dataset` | Record field whose value splits the per-group rows (any field, e.g. `speaker`); `--dataset-field` is a deprecated alias |
 | `--domain` | `legal` | Bundled domain name (`legal`, `medical`, `technical`, `none`) or path to a domain config file |
 | `--no-normalize` | *(normalization enabled)* | Disable token normalization |
 | `--analysis` | *(off)* | Enable detailed error analysis (contributions, frequent errors) |
@@ -190,15 +198,16 @@ With `--analysis --chart`:
 ## Detailed JSONL Output Format
 
 Each line is the original input record with the evaluation added. Three
-keys are reserved and written by evaluation — `source_dataset` is
-canonicalized (copied from the configured dataset field, stringified,
-"unknown" when missing) `detailed_report` holds the per-category
-breakdown, and `cer_scribe` holds the character error rate block (cer_scribe,
+keys are reserved and written by evaluation — `group` holds the grouping
+value (copied from the `group_by` field, stringified, "unknown" when
+missing), `detailed_report` holds the per-category breakdown, and
+`cer_scribe` holds the character error rate block (cer_scribe,
 char_errors, ref_chars, and character-level S/I/D counts, computed on
 normalized token streams); input fields with those names are replaced. Every other
-original field is preserved verbatim. (In-memory results may also carry
-a reserved `error_details` key when `collect_error_details=True`; it is
-never written to the JSONL.) A real example:
+original field is preserved verbatim, including the field that was
+grouped by. (In-memory results may also carry a reserved `error_details`
+key when `collect_error_details=True`; it is never written to the
+JSONL.) A real example:
 
 ```json
 {
@@ -206,6 +215,7 @@ never written to the JSONL.) A real example:
   "text": "charged u/s 302 IPC",
   "pred_text": "charged u/s 303 IPC",
   "source_dataset": "adalat-ai/court-audio",
+  "group": "adalat-ai/court-audio",
   "detailed_report": {
     "LEXICAL": {
       "error_rate": 0.0,
