@@ -34,7 +34,7 @@ from scribe.reporting import (
     format_alignment_dict,
     format_category_chips,
     format_contribution_table,
-    format_dataset_table,
+    format_group_table,
     format_frequent_errors_table,
 )
 
@@ -675,7 +675,12 @@ with tab_json:
                 if keys:
                     ref_col = st.selectbox("Reference Field", keys, index=def_ref)
                     hyp_col = st.selectbox("Hypothesis Field", keys, index=def_hyp)
-                    src_col = st.selectbox("Dataset Split Field", ["(None)"] + keys)
+                    src_col = st.selectbox(
+                        "Group By Field",
+                        ["(None)"] + keys,
+                        help="Any record field — dataset, speaker, domain — "
+                        "splits the per-group table.",
+                    )
 
     with col_batch:
         if records:
@@ -715,11 +720,11 @@ with tab_json:
                     st.stop()
 
                 # Results are copies of the input records, so the
-                # dataset id is read from each result itself — an
+                # group value is read from each result itself — an
                 # index zip against the raw records would misalign
                 # once any record is skipped.
                 for r in res_detailed:
-                    r["source_dataset"] = (
+                    r["group"] = (
                         r.get(src_col, "unknown") if src_col and src_col != "(None)" else "overall"
                     )
 
@@ -825,13 +830,13 @@ with tab_json:
         )
 
         st.divider()
-        st.markdown("## Per-Dataset Breakdown")
-        table_data = format_dataset_table(agg)
-        table_data = [row for row in table_data if row["Dataset"] != "OVERALL"]
+        st.markdown("## Per-Group Breakdown")
+        table_data = format_group_table(agg)
+        table_data = [row for row in table_data if row["Group"] != "OVERALL"]
         if table_data:
             st.dataframe(pd.DataFrame(table_data), hide_index=True, width="stretch")
         else:
-            st.caption("No per-dataset split available (all samples in a single batch).")
+            st.caption("No per-group split available (all samples in a single batch).")
 
         st.divider()
         st.markdown("## Category Analysis")

@@ -9,8 +9,8 @@ from scribe import (
     format_alignment_dict,
     format_alignment_table,
     format_contribution_table,
-    format_dataset_table,
     format_error_counts_table,
+    format_group_table,
     format_metrics_dict,
     text_error_rates,
     write_summary_to_file,
@@ -61,7 +61,7 @@ def test_seeded_domain_with_no_tokens_reports_na(tmp_path, legal_domain):
     formatted = format_metrics_dict(report)
     assert formatted["ER_DOMAIN"] == "N/A"
 
-    agg = {"overall": report, "by_dataset": {"court": report}}
+    agg = {"overall": report, "by_group": {"court": report}}
     out = tmp_path / "summary.txt"
     write_summary_to_file(agg, str(out))
     content = out.read_text(encoding="utf-8")
@@ -94,7 +94,7 @@ def test_wer_scribe_column_is_sum_of_category_rates(tmp_path, legal_domain):
     assert formatted["ER_LEX"] == "0.00%"
     assert formatted["WER_SCRIBE"] == "50.00%"
 
-    agg = {"overall": report, "by_dataset": {"court": report}}
+    agg = {"overall": report, "by_group": {"court": report}}
     out = tmp_path / "summary.txt"
     write_summary_to_file(agg, str(out))
     content = out.read_text(encoding="utf-8")
@@ -109,7 +109,7 @@ def test_write_summary_to_file_without_domain_config(tmp_path):
     domain label). With no domain category in the data there is no
     domain column; token-less base categories render N/A."""
     report = text_error_rates("the case is closed", "the case was closed", None)
-    agg = {"overall": report, "by_dataset": {"test-set": report}}
+    agg = {"overall": report, "by_group": {"test-set": report}}
     out = tmp_path / "summary.txt"
     write_summary_to_file(agg, str(out))
     content = out.read_text(encoding="utf-8")
@@ -128,7 +128,7 @@ def test_summary_domain_column_inferred_from_data(tmp_path, legal_domain):
     ER_DOMAIN: a batch measured with any domain shows an ER_DOMAIN
     column with no reporting-time configuration."""
     report = text_error_rates("charged u/s 302 IPC", "charged us 302 IPC", legal_domain)
-    agg = {"overall": report, "by_dataset": {"court": report}}
+    agg = {"overall": report, "by_group": {"court": report}}
 
     out = tmp_path / "summary.txt"
     write_summary_to_file(agg, str(out))
@@ -168,12 +168,12 @@ def test_format_alignment_table_returns_rows_for_aligned_tokens(legal_domain):
     assert all(isinstance(row, dict) for row in rows)
 
 
-def test_format_dataset_table_takes_aggregate_shape(tmp_path, legal_domain):
-    """format_dataset_table consumes the dict returned by
+def test_format_group_table_takes_aggregate_shape(tmp_path, legal_domain):
+    """format_group_table consumes the dict returned by
     compute_aggregate_metrics, which has the shape
-    {"overall": ..., "by_dataset": {dataset: report, ...}}.
+    {"overall": ..., "by_group": {group: report, ...}}.
     """
-    # Build a tiny aggregate from two synthetic samples spanning two datasets.
+    # Build a tiny aggregate from two synthetic samples spanning two groups.
     import json
 
     inp = tmp_path / "predictions.jsonl"
@@ -193,14 +193,41 @@ def test_format_dataset_table_takes_aggregate_shape(tmp_path, legal_domain):
     )
     results = compute_sample_errors(str(inp), domain_config=legal_domain)
     agg = compute_aggregate_metrics(results)
-    rows = format_dataset_table(agg)
+    rows = format_group_table(agg)
     assert isinstance(rows, list)
     assert rows, "Expected at least the OVERALL row"
-    # An OVERALL row plus one per dataset.
-    dataset_names = {row.get("Dataset") for row in rows}
-    assert "OVERALL" in dataset_names
-    assert "ds1" in dataset_names
-    assert "ds2" in dataset_names
+    # An OVERALL row plus one per group.
+    group_names = {row.get("Group") for row in rows}
+    assert "OVERALL" in group_names
+    assert "ds1" in group_names
+    assert "ds2" in group_names
+
+
+def test_format_dataset_table_is_a_warning_alias(tmp_path, legal_domain):
+    """The 0.1.x name still works for one release, warns, and returns
+    the same rows (with the new 'Group' column)."""
+    import warnings
+
+    from scribe import format_dataset_table
+
+    records = [{"text": "a b", "pred_text": "a b", "source_dataset": "ds1"}]
+    from scribe import evaluate_records
+
+    agg = compute_aggregate_metrics(evaluate_records(records))
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        rows = format_dataset_table(agg)
+    assert any(issubclass(w.category, DeprecationWarning) for w in caught)
+    assert rows == format_group_table(agg)
+    assert rows[1]["Group"] == "ds1"
+
+
+def test_summary_header_says_group():
+    """The first column of the summary table is GROUP (not DATASET):
+    rows are whatever field the batch was grouped by."""
+    from scribe.constants import format_table_header
+
+    assert format_table_header().startswith("GROUP")
 
 
 def test_write_summary_to_file_creates_a_readable_file(tmp_path, legal_domain):
@@ -276,8 +303,8 @@ def test_contribution_table_distinguishes_multiple_domain_categories(legal_domai
     medical_report = text_error_rates("dose 500mg daily", "dose 500 daily", medical_domain)
     agg = compute_aggregate_metrics(
         [
-            {"detailed_report": legal_report, "source_dataset": "x"},
-            {"detailed_report": medical_report, "source_dataset": "x"},
+            {"detailed_report": legal_report, "group": "x"},
+            {"detailed_report": medical_report, "group": "x"},
         ]
     )
     rows = format_contribution_table(compute_category_contributions(agg["overall"]))
@@ -308,8 +335,8 @@ def test_mixed_aggregate_summary_shows_per_dataset_domain_rates(legal_domain, me
     medical_report = text_error_rates("administer 500mg now", "administer 500 now", medical_domain)
     agg = compute_aggregate_metrics(
         [
-            {"detailed_report": legal_report, "source_dataset": "court"},
-            {"detailed_report": medical_report, "source_dataset": "clinic"},
+            {"detailed_report": legal_report, "group": "court"},
+            {"detailed_report": medical_report, "group": "clinic"},
         ]
     )
     lines = format_summary_lines(agg)
@@ -390,8 +417,8 @@ def test_category_chips_distinguish_multiple_domain_categories(legal_domain, med
     medical_report = text_error_rates("dose 500mg daily", "dose 500 daily", medical_domain)
     agg = compute_aggregate_metrics(
         [
-            {"detailed_report": legal_report, "source_dataset": "x"},
-            {"detailed_report": medical_report, "source_dataset": "x"},
+            {"detailed_report": legal_report, "group": "x"},
+            {"detailed_report": medical_report, "group": "x"},
         ]
     )
     chips = format_category_chips(
@@ -432,7 +459,7 @@ def test_summary_table_shows_cer_column_when_present():
 
     # Without cer data: no CER column.
     report = text_error_rates("a b", "a b", None)
-    agg_no_cer = {"overall": report, "by_dataset": {"x": report}}
+    agg_no_cer = {"overall": report, "by_group": {"x": report}}
     assert "CER_SCRIBE" not in format_summary_lines(agg_no_cer)[1]
 
 

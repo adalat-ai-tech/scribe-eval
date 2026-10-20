@@ -57,12 +57,12 @@ def test_compute_sample_errors_writes_detailed_output(tmp_path, sample_jsonl, le
     assert all("LEXICAL" in p["detailed_report"] for p in parsed)
 
 
-def test_aggregate_metrics_has_overall_and_by_dataset(sample_jsonl, legal_domain):
+def test_aggregate_metrics_has_overall_and_by_group(sample_jsonl, legal_domain):
     results = compute_sample_errors(str(sample_jsonl), domain_config=legal_domain)
     agg = compute_aggregate_metrics(results)
     assert "overall" in agg
-    assert "by_dataset" in agg
-    assert set(agg["by_dataset"].keys()) == {"dataset-a", "dataset-b"}
+    assert "by_group" in agg
+    assert set(agg["by_group"].keys()) == {"dataset-a", "dataset-b"}
 
 
 def test_aggregate_overall_metrics_have_required_categories(sample_jsonl, legal_domain):
@@ -81,10 +81,10 @@ def test_per_dataset_totals_reflect_per_dataset_records(sample_jsonl, legal_doma
     agg = compute_aggregate_metrics(results)
     # dataset-a has one perfect sample and one with a numeral substitution
     # ("302" -> "303"). So its NUMERAL substitutions should be exactly 1.
-    assert agg["by_dataset"]["dataset-a"]["NUMERAL"]["substitutions"] == 1
+    assert agg["by_group"]["dataset-a"]["NUMERAL"]["substitutions"] == 1
     # dataset-b has one perfect sample and one with a date substitution.
     # Its NUMERAL category should also report at least one error.
-    assert agg["by_dataset"]["dataset-b"]["NUMERAL"]["substitutions"] >= 1
+    assert agg["by_group"]["dataset-b"]["NUMERAL"]["substitutions"] >= 1
 
 
 def test_print_evaluation_summary_without_domain_config(sample_jsonl, capsys):
@@ -118,9 +118,9 @@ def test_field_name_overrides(tmp_path, legal_domain):
     assert len(results) == 1
 
 
-def test_custom_dataset_field_propagates_to_by_dataset(tmp_path):
-    """A custom source_dataset_field must still group by_dataset
-    (regression: all datasets collapsed into 'unknown')."""
+def test_custom_group_field_propagates_to_by_group(tmp_path):
+    """A custom group_by field must still split by_group
+    (regression: all groups collapsed into 'unknown')."""
     records = [
         {"text": "one two", "pred_text": "one two", "ds": "set-a"},
         {"text": "three four", "pred_text": "three four", "ds": "set-b"},
@@ -130,9 +130,59 @@ def test_custom_dataset_field_propagates_to_by_dataset(tmp_path):
         for rec in records:
             f.write(json.dumps(rec) + "\n")
 
-    results = compute_sample_errors(str(path), source_dataset_field="ds")
+    results = compute_sample_errors(str(path), group_by="ds")
     agg = compute_aggregate_metrics(results)
-    assert set(agg["by_dataset"].keys()) == {"set-a", "set-b"}
+    assert set(agg["by_group"].keys()) == {"set-a", "set-b"}
+
+
+def test_group_by_any_field():
+    """Grouping is generic: any record field (here a speaker id) splits
+    the aggregate, not only a dataset identifier."""
+    records = [
+        {"text": "one two", "pred_text": "one two", "speaker": "spk1"},
+        {"text": "three four", "pred_text": "three for", "speaker": "spk2"},
+        {"text": "five six", "pred_text": "five six", "speaker": "spk1"},
+    ]
+    agg = compute_aggregate_metrics(evaluate_records(records, group_by="speaker"))
+    assert set(agg["by_group"]) == {"spk1", "spk2"}
+    assert agg["by_group"]["spk1"]["LEXICAL"]["total"] == 4
+    assert agg["by_group"]["spk2"]["LEXICAL"]["substitutions"] == 1
+
+
+def test_result_carries_group_key_only():
+    """The grouping value lands under the reserved 'group' key; no
+    'source_dataset' key is injected into results that lack one."""
+    records = [{"text": "a b", "pred_text": "a b", "speaker": "spk1"}]
+    (result,) = evaluate_records(records, group_by="speaker")
+    assert result["group"] == "spk1"
+    assert "source_dataset" not in result
+
+
+def test_source_dataset_field_alias_warns_and_still_groups(tmp_path):
+    """The 0.1.x keyword is accepted for one release with a
+    DeprecationWarning and behaves exactly like group_by, on both the
+    in-memory and the file entry points."""
+    records = [
+        {"text": "a b", "pred_text": "a b", "ds": "x"},
+        {"text": "c d", "pred_text": "c d", "ds": "y"},
+    ]
+    with pytest.warns(DeprecationWarning, match="group_by"):
+        results = evaluate_records(records, source_dataset_field="ds")
+    assert [r["group"] for r in results] == ["x", "y"]
+
+    path = tmp_path / "alias.jsonl"
+    with path.open("w", encoding="utf-8") as f:
+        for rec in records:
+            f.write(json.dumps(rec) + "\n")
+    with pytest.warns(DeprecationWarning, match="group_by"):
+        from_file = compute_sample_errors(str(path), source_dataset_field="ds")
+    assert set(compute_aggregate_metrics(from_file)["by_group"]) == {"x", "y"}
+
+
+def test_both_group_arguments_raise():
+    records = [{"text": "a b", "pred_text": "a b", "ds": "x"}]
+    with pytest.raises(TypeError, match="not both"):
+        evaluate_records(records, group_by="speaker", source_dataset_field="ds")
 
 
 def test_aggregation_includes_domain_categories_from_data(tmp_path, legal_domain):
@@ -184,7 +234,7 @@ def test_aggregate_error_rate_recomputed_from_summed_counts(tmp_path):
 
 def test_sandhi_hits_summed_across_samples_and_datasets(tmp_path):
     """sandhi_hits must sum across samples in both overall and
-    by_dataset aggregates (paper Fig. 2 pair has 2 hits per sample)."""
+    by_group aggregates (paper Fig. 2 pair has 2 hits per sample)."""
     ref = "ഇന്ന് അല്ലെങ്കിൽ നാളെയാകട്ടെ"
     hyp = "ഇന്നല്ലെങ്കിൽ നാളെ ആകട്ടെ"
     records = [
@@ -199,12 +249,12 @@ def test_sandhi_hits_summed_across_samples_and_datasets(tmp_path):
 
     agg = compute_aggregate_metrics(compute_sample_errors(str(path)))
     assert agg["overall"]["LEXICAL"]["sandhi_hits"] == 6
-    assert agg["by_dataset"]["d1"]["LEXICAL"]["sandhi_hits"] == 4
-    assert agg["by_dataset"]["d2"]["LEXICAL"]["sandhi_hits"] == 2
+    assert agg["by_group"]["d1"]["LEXICAL"]["sandhi_hits"] == 4
+    assert agg["by_group"]["d2"]["LEXICAL"]["sandhi_hits"] == 2
 
 
-def test_non_string_dataset_ids_do_not_break_aggregation(tmp_path):
-    """A numeric or JSON-array dataset id must not crash aggregation
+def test_non_string_group_ids_do_not_break_aggregation(tmp_path):
+    """A numeric or JSON-array group id must not crash aggregation
     with an unhashable-type TypeError (PR review issue); non-string ids
     are stringified for grouping."""
     records = [
@@ -217,16 +267,16 @@ def test_non_string_dataset_ids_do_not_break_aggregation(tmp_path):
         for rec in records:
             f.write(json.dumps(rec) + "\n")
 
-    results = compute_sample_errors(str(path), source_dataset_field="ds")
+    results = compute_sample_errors(str(path), group_by="ds")
     agg = compute_aggregate_metrics(results)
-    keys = agg["by_dataset"].keys()
+    keys = agg["by_group"].keys()
     assert all(isinstance(k, str) for k in keys)
     assert "7" in keys
     assert len(keys) == 3
 
 
-def test_falsy_dataset_ids_are_real_values(tmp_path):
-    """Falsy scalars like 0 or false are legitimate dataset ids and must
+def test_falsy_group_ids_are_real_values(tmp_path):
+    """Falsy scalars like 0 or false are legitimate group ids and must
     not collapse into 'unknown' (PR review issue); only a missing, null,
     or empty field falls back to 'unknown'."""
     records = [
@@ -241,9 +291,9 @@ def test_falsy_dataset_ids_are_real_values(tmp_path):
         for rec in records:
             f.write(json.dumps(rec) + "\n")
 
-    results = compute_sample_errors(str(path), source_dataset_field="ds")
+    results = compute_sample_errors(str(path), group_by="ds")
     agg = compute_aggregate_metrics(results)
-    assert set(agg["by_dataset"].keys()) == {"0", "False", "unknown"}
+    assert set(agg["by_group"].keys()) == {"0", "False", "unknown"}
 
 
 def test_evaluate_records_matches_file_pipeline(sample_jsonl, legal_domain):
@@ -280,8 +330,8 @@ def test_evaluate_records_accepts_a_generator():
     assert all("detailed_report" in r for r in results)
 
 
-def test_evaluate_records_canonicalizes_dataset_ids():
-    """The same dataset-id rules as the file pipeline apply in memory:
+def test_evaluate_records_canonicalizes_group_ids():
+    """The same group-id rules as the file pipeline apply in memory:
     custom field name honoured, non-strings stringified, only
     missing/null/empty falls back to 'unknown'."""
     records = [
@@ -289,8 +339,8 @@ def test_evaluate_records_canonicalizes_dataset_ids():
         {"text": "c d", "pred_text": "c d", "ds": 0},
         {"text": "e f", "pred_text": "e f"},
     ]
-    results = evaluate_records(records, source_dataset_field="ds")
-    assert [r["source_dataset"] for r in results] == ["7", "0", "unknown"]
+    results = evaluate_records(records, group_by="ds")
+    assert [r["group"] for r in results] == ["7", "0", "unknown"]
 
 
 def test_parallel_workers_match_sequential(sample_jsonl, legal_domain):
@@ -495,7 +545,7 @@ def test_cer_block_present_and_micro_averaged():
     assert cer["overall"]["char_errors"] == 1
     assert cer["overall"]["ref_chars"] == 7
     assert cer["overall"]["cer_scribe"] == pytest.approx(1 / 7)
-    assert cer["by_dataset"]["d2"]["cer_scribe"] == pytest.approx(1 / 2)
+    assert cer["by_group"]["d2"]["cer_scribe"] == pytest.approx(1 / 2)
 
 
 def test_aggregates_without_cer_blocks_omit_the_key():
@@ -505,5 +555,5 @@ def test_aggregates_without_cer_blocks_omit_the_key():
     from scribe import text_error_rates
 
     report = text_error_rates("a b", "a b", None)
-    agg = compute_aggregate_metrics([{"detailed_report": report, "source_dataset": "x"}])
+    agg = compute_aggregate_metrics([{"detailed_report": report, "group": "x"}])
     assert "cer_scribe" not in agg
