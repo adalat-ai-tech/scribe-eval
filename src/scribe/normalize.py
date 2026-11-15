@@ -5,6 +5,7 @@ for comparison purposes while preserving original formatting for display.
 """
 
 import re
+import unicodedata
 
 from .constants import CAT_NUMERAL, CAT_PUNCT
 
@@ -92,11 +93,38 @@ def normalize_currency(text: str) -> str:
     return text
 
 
+def normalize_indic_numerals(text: str) -> str:
+    """Normalize Indic and other Unicode decimal numerals to Arabic numerals.
+
+    Converts Unicode decimal digits (Kannada, Malayalam, Devanagari, Bengali,
+    Telugu, Tamil, etc.) to standard Arabic numerals (0-9). Non-numeral and
+    ASCII characters are preserved as is.
+
+    Args:
+        text: Token text that may contain Indic numerals
+
+    Returns:
+        Text with Indic numerals converted to Arabic numerals (0-9)
+
+    Examples:
+        >>> normalize_indic_numerals("೧೮೩")
+        '183'
+        >>> normalize_indic_numerals("൧൫.൦൫.൨൦൨൩")
+        '15.05.2023'
+        >>> normalize_indic_numerals("१५,५००")
+        '15,500'
+    """
+    if text.isascii():
+        return text
+    return "".join(str(unicodedata.decimal(c)) if c.isdecimal() else c for c in text)
+
+
 def normalize_kannada_numerals(text: str) -> str:
     """Normalize Kannada numerals to Arabic numerals.
 
     Converts Kannada digits (೦-೯) to their Arabic numeral equivalents (0-9).
     Handles full strings containing Kannada numerals.
+    Kept for backward compatibility; delegates to normalize_indic_numerals.
 
     Args:
         text: Token text that may contain Kannada numerals
@@ -106,40 +134,21 @@ def normalize_kannada_numerals(text: str) -> str:
 
     Examples:
         >>> normalize_kannada_numerals("೧೮೩")
-        '189'
+        '183'
         >>> normalize_kannada_numerals("೧೫.೦೫.೨೦೨೩")
-        '15.08.2023'
+        '15.05.2023'
         >>> normalize_kannada_numerals("೧,೫೦೦")
         '1,500'
     """
-    # Kannada to Arabic numeral mapping
-    kannada_to_arabic = {
-        "೦": "0",
-        "೧": "1",
-        "೨": "2",
-        "೩": "3",
-        "೪": "4",
-        "೫": "5",
-        "೬": "6",
-        "೭": "7",
-        "೮": "8",
-        "೯": "9",
-    }
-
-    # Replace each Kannada digit with its Arabic equivalent
-    result = []
-    for char in text:
-        result.append(kannada_to_arabic.get(char, char))
-
-    return "".join(result)
+    return normalize_indic_numerals(text)
 
 
 def normalize_numeral(text: str) -> str:
     """Apply all numeral normalization rules.
 
-    Tries date normalization first, then statute references, then currency
-    normalization. Time formats (HH:MM) are already in canonical form and
-    unchanged.
+    Normalizes Indic numerals to Arabic numerals first, then tries date
+    normalization, statute reference normalization, and currency normalization.
+    Time formats (HH:MM) are already in canonical form and unchanged.
 
     Args:
         text: Token text with NUMERAL category
@@ -156,11 +165,13 @@ def normalize_numeral(text: str) -> str:
         '10:30'
         >>> normalize_numeral("34 (2)")
         '34(2)'
-        >>> normalize_numeral("೧೫.೦೫.೨೦೮೯")
-        '15-08-2023'
+        >>> normalize_numeral("೧೫.೦೫.೨೦೨೩")
+        '15-05-2023'
+        >>> normalize_numeral("൧൫.൦൫.൨൦൨൩")
+        '15-05-2023'
     """
-    # First, normalize Kannada numerals to Arabic numerals
-    text = normalize_kannada_numerals(text)
+    # First, normalize Indic numerals to Arabic numerals
+    text = normalize_indic_numerals(text)
 
     # Try date normalization first
     normalized = normalize_date(text)

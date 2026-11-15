@@ -57,6 +57,8 @@ PUBLIC_API = {
     # normalize
     "normalize_currency": "callable",
     "normalize_date": "callable",
+    "normalize_indic_numerals": "callable",
+    "normalize_kannada_numerals": "callable",
     "normalize_numeral": "callable",
     "normalize_subsection": "callable",
     "normalize_token": "callable",
