@@ -63,6 +63,12 @@ def _iter_valid_records(records, ref_field, hyp_field, skip_bad_records):
             )
 
 
+def _is_group_value(value) -> bool:
+    """True when a record's grouping field holds a usable value
+    (anything but missing, null or the empty string)."""
+    return value is not None and value != ""
+
+
 def _evaluate_one(
     record,
     ref_field,
@@ -86,7 +92,7 @@ def _evaluate_one(
     # "unknown"; falsy scalars like 0 or false are real group ids.
     # group_by=None puts every record in the single "overall" group.
     group_value = data.get(group_by) if group_by is not None else GROUP_OVERALL
-    if group_value is None or group_value == "":
+    if not _is_group_value(group_value):
         group_value = GROUP_UNKNOWN
     data["group"] = group_value if isinstance(group_value, str) else str(group_value)
 
@@ -153,8 +159,8 @@ def evaluate_records(
             is copied to the reserved "group" key on each result
             ("unknown" when missing) so aggregation can split by group
             regardless of the configured field name. None, or a field
-            that no record carries, puts every result in the single
-            "overall" group
+            that no record fills (missing, null or empty everywhere),
+            puts every result in the single "overall" group
         domain_config: Domain configuration (None for no domain)
         normalize: If True, apply normalization for matching (default: True)
         use_sandhi: If True, detect sandhi splits/merges (default: True)
@@ -185,6 +191,20 @@ def evaluate_records(
 
     valid = _iter_valid_records(records, ref_field, hyp_field, skip_bad_records)
 
+    # Note whether any record supplies a grouping value, so the fallback
+    # below depends on the input rather than on the finished labels
+    # (a supplied value may itself be "unknown").
+    seen_group_value = False
+
+    def track_group_values(records):
+        nonlocal seen_group_value
+        for record in records:
+            if group_by is not None and _is_group_value(record.get(group_by)):
+                seen_group_value = True
+            yield record
+
+    valid = track_group_values(valid)
+
     if workers is not None and workers > 1:
         # The pool needs the full record list for chunking; only the
         # parallel path materializes the iterable.
@@ -199,9 +219,9 @@ def evaluate_records(
     else:
         results = [evaluate(record) for record in valid]
 
-    # A grouping field that no record carries leaves nothing to split by:
+    # A grouping field that no record fills leaves nothing to split by:
     # report one "overall" group rather than one "unknown" group.
-    if all(r["group"] == GROUP_UNKNOWN for r in results):
+    if not seen_group_value:
         for r in results:
             r["group"] = GROUP_OVERALL
     return results

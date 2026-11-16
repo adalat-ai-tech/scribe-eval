@@ -340,6 +340,32 @@ def test_group_field_absent_from_every_record_is_overall():
     assert [r["group"] for r in evaluate_records(records, workers=2)] == ["overall", "overall"]
 
 
+def test_group_field_empty_on_every_record_is_overall():
+    """A field present but null or empty everywhere also leaves nothing
+    to split by."""
+    records = [
+        {"text": "a b", "pred_text": "a b", "speaker": None},
+        {"text": "c d", "pred_text": "c x", "speaker": ""},
+    ]
+    assert [r["group"] for r in evaluate_records(records, group_by="speaker")] == [
+        "overall",
+        "overall",
+    ]
+
+
+def test_supplied_unknown_label_is_kept():
+    """A record value that is literally 'unknown' is a real group label and
+    must not be relabelled 'overall' (PR review issue)."""
+    records = [
+        {"text": "a b", "pred_text": "a b", "speaker": "unknown"},
+        {"text": "c d", "pred_text": "c x", "speaker": "unknown"},
+    ]
+    for workers in (None, 2):
+        results = evaluate_records(records, group_by="speaker", workers=workers)
+        assert [r["group"] for r in results] == ["unknown", "unknown"]
+        assert set(compute_aggregate_metrics(results)["by_group"]) == {"unknown"}
+
+
 def test_group_by_a_field_named_group():
     """A record field literally named 'group' is honoured, not replaced by
     the default source_dataset grouping (PR review issue)."""
