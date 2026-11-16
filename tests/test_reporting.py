@@ -203,25 +203,6 @@ def test_format_group_table_takes_aggregate_shape(tmp_path, legal_domain):
     assert "ds2" in group_names
 
 
-def test_format_dataset_table_is_a_warning_alias(tmp_path, legal_domain):
-    """The 0.1.x name still works for one release, warns, and returns
-    the same rows (with the new 'Group' column)."""
-    import warnings
-
-    from scribe import format_dataset_table
-
-    records = [{"text": "a b", "pred_text": "a b", "source_dataset": "ds1"}]
-    from scribe import evaluate_records
-
-    agg = compute_aggregate_metrics(evaluate_records(records))
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        rows = format_dataset_table(agg)
-    assert any(issubclass(w.category, DeprecationWarning) for w in caught)
-    assert rows == format_group_table(agg)
-    assert rows[1]["Group"] == "ds1"
-
-
 def test_summary_header_says_group():
     """The first column of the summary table is GROUP (not DATASET):
     rows are whatever field the batch was grouped by."""

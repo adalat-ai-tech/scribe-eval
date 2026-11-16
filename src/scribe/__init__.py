@@ -132,9 +132,6 @@ from .reporting import (
     format_contribution_table as format_contribution_table,
 )
 from .reporting import (
-    format_dataset_table as format_dataset_table,  # deprecated alias of format_group_table
-)
-from .reporting import (
     format_error_counts_table as format_error_counts_table,
 )
 from .reporting import (

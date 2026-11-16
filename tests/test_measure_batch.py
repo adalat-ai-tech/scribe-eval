@@ -158,33 +158,6 @@ def test_result_carries_group_key_only():
     assert "source_dataset" not in result
 
 
-def test_source_dataset_field_alias_warns_and_still_groups(tmp_path):
-    """The 0.1.x keyword is accepted for one release with a
-    DeprecationWarning and behaves exactly like group_by, on both the
-    in-memory and the file entry points."""
-    records = [
-        {"text": "a b", "pred_text": "a b", "ds": "x"},
-        {"text": "c d", "pred_text": "c d", "ds": "y"},
-    ]
-    with pytest.warns(DeprecationWarning, match="group_by"):
-        results = evaluate_records(records, source_dataset_field="ds")
-    assert [r["group"] for r in results] == ["x", "y"]
-
-    path = tmp_path / "alias.jsonl"
-    with path.open("w", encoding="utf-8") as f:
-        for rec in records:
-            f.write(json.dumps(rec) + "\n")
-    with pytest.warns(DeprecationWarning, match="group_by"):
-        from_file = compute_sample_errors(str(path), source_dataset_field="ds")
-    assert set(compute_aggregate_metrics(from_file)["by_group"]) == {"x", "y"}
-
-
-def test_both_group_arguments_raise():
-    records = [{"text": "a b", "pred_text": "a b", "ds": "x"}]
-    with pytest.raises(TypeError, match="not both"):
-        evaluate_records(records, group_by="speaker", source_dataset_field="ds")
-
-
 def test_aggregation_includes_domain_categories_from_data(tmp_path, legal_domain):
     """Aggregation counts every category present in the sample reports.
     A batch measured with the legal domain has its LEGAL error counted

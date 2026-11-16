@@ -5,7 +5,6 @@ This module provides shared functions for formatting error metrics
 and alignment results for both CLI and web UI presentations.
 """
 
-import warnings
 from typing import Dict, List, Tuple
 
 from .analysis import compute_wer_scribe
@@ -165,17 +164,6 @@ def format_group_table(agg_results: Dict) -> List[Dict]:
         table_data.append(row)
 
     return table_data
-
-
-def format_dataset_table(agg_results: Dict) -> List[Dict]:
-    """Deprecated alias for format_group_table (removed in a future release)."""
-    warnings.warn(
-        "format_dataset_table is deprecated; use format_group_table "
-        "(rows carry a 'Group' key instead of 'Dataset')",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return format_group_table(agg_results)
 
 
 def format_error_counts_table(report: Dict) -> List[Dict]:

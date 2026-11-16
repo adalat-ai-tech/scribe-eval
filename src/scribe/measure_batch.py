@@ -23,25 +23,6 @@ GROUP_OVERALL = "overall"
 GROUP_UNKNOWN = "unknown"
 
 
-def _resolve_group_by(group_by, source_dataset_field) -> str:
-    """Fold the deprecated ``source_dataset_field=`` alias into ``group_by``.
-
-    The alias is accepted for one release so callers of 0.1.x keep
-    working, with a DeprecationWarning pointing at the new name.
-    """
-    if source_dataset_field is None:
-        return group_by
-    if group_by != DEFAULT_GROUP_BY:
-        raise TypeError("pass either group_by= or the deprecated source_dataset_field=, not both")
-    warnings.warn(
-        "source_dataset_field= is deprecated and will be removed in a future release; "
-        "use group_by= instead",
-        DeprecationWarning,
-        stacklevel=3,
-    )
-    return source_dataset_field
-
-
 def _validate_record(record, ref_field, hyp_field) -> Optional[str]:
     """Return the reason a record cannot be evaluated, or None if it can.
 
@@ -141,8 +122,6 @@ def evaluate_records(
     collect_error_details: bool = False,
     workers: Optional[int] = None,
     skip_bad_records: bool = False,
-    *,
-    source_dataset_field: Optional[str] = None,
 ) -> list[dict]:
     """
     Compute error metrics for an in-memory iterable of sample records.
@@ -188,13 +167,11 @@ def evaluate_records(
             records iterable into a list before dispatching.
         skip_bad_records: If True, skip records that fail validation
             (with a warning) instead of raising ValueError (default: False)
-        source_dataset_field: Deprecated alias for group_by (warns).
 
     Returns:
         List of result dictionaries with detailed reports
         (one per valid record)
     """
-    group_by = _resolve_group_by(group_by, source_dataset_field)
     evaluate = partial(
         _evaluate_one,
         ref_field=ref_field,
@@ -242,8 +219,6 @@ def compute_sample_errors(
     collect_error_details: bool = False,
     workers: Optional[int] = None,
     skip_bad_records: bool = False,
-    *,
-    source_dataset_field: Optional[str] = None,
 ) -> list[dict]:
     """
     Compute error metrics for all samples in a JSONL file.
@@ -276,13 +251,11 @@ def compute_sample_errors(
             (None or 1 = sequential; see evaluate_records)
         skip_bad_records: If True, skip unparseable lines and invalid
             records (with a warning) instead of raising ValueError
-        source_dataset_field: Deprecated alias for group_by (warns).
 
     Returns:
         List of result dictionaries with detailed reports
         (one per valid record)
     """
-    group_by = _resolve_group_by(group_by, source_dataset_field)
     # Parse and validate here, where line numbers exist — an error that
     # says "line 1042" is actionable; "record 1037" (after blank lines)
     # is not.

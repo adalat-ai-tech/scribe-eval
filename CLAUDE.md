@@ -147,7 +147,7 @@ The visualizer provides:
    - Shared formatting functions used across CLI and web UI
    - `format_metrics_dict()`: Convert error metrics to formatted dictionary (returns formatted strings)
    - `extract_error_rates()`: Extract raw numeric error rates (er_lex/er_domain/er_num/er_punct/sandhi) for UI components
-   - `format_dataset_table()`: Create dataset-level summary tables
+   - `format_group_table()`: Create per-group summary tables (OVERALL row plus one row per group)
    - `format_error_counts_table()`: Format error counts by category
    - `format_contribution_table(contributions)`: Category breakdown table with columns: Category, Ref Tokens, Match, Accuracy, Sub, Del, Ins, Errors, Error Rate (S+I+D/category_ref), Impact on Total (S+I+D/total_ref); percentage cells read N/A for token-less categories
    - `format_category_chips(contributions, domain_display)`: "Lexical Tokens 5.40%" chips in canonical order; token-less categories omitted (used by the visualizer captions)
@@ -407,7 +407,7 @@ python batch_evaluate.py --help
 -o, --output-dir         Output directory for results (default: ./dictation-eval)
 --ref-field              Field name for reference text (default: text)
 --hyp-field              Field name for hypothesis text (default: pred_text)
---group-by FIELD         Record field that splits the per-group metrics (default: source_dataset; `--dataset-field` is a deprecated alias)
+--group-by FIELD         Record field that splits the per-group metrics (default: source_dataset)
 --domain                 Bundled domain name (legal, medical, technical, none) or path to a domain config file (default: legal)
 --no-normalize           Disable token normalization (strict matching)
 --analysis               Enable detailed error analysis (WER_SCRIBE, category contributions, frequent errors)

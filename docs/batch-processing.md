@@ -45,8 +45,8 @@ by_speaker = compute_aggregate_metrics(
 )
 ```
 
-`source_dataset_field=` from 0.1.x still works as an alias of `group_by=` but
-emits a `DeprecationWarning`; it will be removed in a later release.
+`group_by=` replaces the 0.1.x `source_dataset_field=` keyword, which has
+been removed.
 
 ### In-memory evaluation (no file needed)
 
@@ -174,7 +174,7 @@ uv run examples/batch_evaluate.py \
 | `-o`, `--output-dir` | `examples/output/` | Output directory (defaults alongside the script) |
 | `--ref-field` | `text` | Reference field name |
 | `--hyp-field` | `pred_text` | Hypothesis field name |
-| `--group-by FIELD` | `source_dataset` | Record field whose value splits the per-group rows (any field, e.g. `speaker`); `--dataset-field` is a deprecated alias |
+| `--group-by FIELD` | `source_dataset` | Record field whose value splits the per-group rows (any field, e.g. `speaker`) |
 | `--domain` | `legal` | Bundled domain name (`legal`, `medical`, `technical`, `none`) or path to a domain config file |
 | `--no-normalize` | *(normalization enabled)* | Disable token normalization |
 | `--analysis` | *(off)* | Enable detailed error analysis (contributions, frequent errors) |

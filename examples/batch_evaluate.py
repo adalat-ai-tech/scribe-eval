@@ -238,8 +238,6 @@ Examples:
         help="Record field whose value splits the per-group metrics "
         "(default: source_dataset; any field works, e.g. speaker)",
     )
-    # Deprecated spelling, kept for one release.
-    parser.add_argument("--dataset-field", dest="group_by", help=argparse.SUPPRESS)
     parser.add_argument(
         "--no-normalize",
         action="store_true",
