@@ -132,7 +132,7 @@ print_evaluation_summary(compute_aggregate_metrics(results))
 ```
 
 ```
-DATASET                   |     ER_LEX |  ER_DOMAIN |     ER_NUM |   ER_PUNCT | WER_SCRIBE | CER_SCRIBE | SANDHI
+GROUP                     |     ER_LEX |  ER_DOMAIN |     ER_NUM |   ER_PUNCT | WER_SCRIBE | CER_SCRIBE | SANDHI
 OVERALL                   |      7.14% |      7.14% |      7.14% |        N/A |     21.43% |     10.84% |      1
 legal-dictation           |      8.33% |      8.33% |      8.33% |        N/A |     25.00% |      8.70% |      0
 malayalam-read            |      0.00% |        N/A |        N/A |        N/A |      0.00% |     21.43% |      1
@@ -141,6 +141,10 @@ malayalam-read            |      0.00% |        N/A |        N/A |        N/A | 
 The Malayalam hypothesis merges a two-word compound; it is counted as a Sandhi
 match, not as errors. `N/A` marks a category with no reference tokens and no
 errors.
+
+Rows below OVERALL are one per value of the `group_by` field, `source_dataset`
+by default. Any record field works: `group_by="speaker"` splits the table by
+speaker instead.
 
 `evaluate_records()` accepts a list of dicts instead of a file path.
 `output_file=` writes per-sample reports as JSONL. `workers=N` evaluates

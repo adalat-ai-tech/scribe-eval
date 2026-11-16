@@ -17,7 +17,7 @@ raw text  ──▶  tokenize  ──▶  align  ──▶  measure  ──▶  
 | tokenize → align | `(tokens, tags, normalized_tokens)` per side |
 | align → measure | aligned `[(text, tag), ...]` pairs (gaps as `("**", "GAP")`) |
 | measure → aggregate | per-sample report `{LEXICAL: {...}, NUMERAL: {...}, ...}` |
-| aggregate → report | `{"overall": ..., "by_dataset": {...}}` |
+| aggregate → report | `{"overall": ..., "by_group": {...}}` (one entry per value of the `group_by` field) |
 
 ## Quick example
 
@@ -296,7 +296,7 @@ samples = []
 for r, h in pairs:
     details.extend(text_error_details(r, h, None))
     samples.append({"detailed_report": text_error_rates(r, h, None),
-                    "source_dataset": "demo"})
+                    "group": "demo"})
 
 agg = compute_aggregate_metrics(samples)
 summary = compute_error_summary(agg["overall"], details, top_n=5)

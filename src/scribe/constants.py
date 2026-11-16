@@ -39,7 +39,7 @@ def get_categories(domain_config=None):
 
 # Table formatting constants
 TABLE_WIDTH = 85
-COLUMN_WIDTHS = {"dataset": 25, "metric": 10, "sandhi": 6}
+COLUMN_WIDTHS = {"group": 25, "metric": 10, "sandhi": 6}
 
 
 # Utility Functions
@@ -118,20 +118,21 @@ def format_table_header(domain_labels=None, cer=False) -> str:
 
     Example:
         >>> print(format_table_header())
-        DATASET                   |     ER_LEX |     ER_NUM |   ER_PUNCT | WER_SCRIBE | SANDHI
+        GROUP                     |     ER_LEX |     ER_NUM |   ER_PUNCT | WER_SCRIBE | SANDHI
         --------------------------------------------------------------------------------------
 
         With domain_labels=["ER_DOMAIN"], an ER_DOMAIN column appears
-        between ER_LEX and ER_NUM.
+        between ER_LEX and ER_NUM. The GROUP column holds OVERALL plus
+        one row per value of the field the batch was grouped by.
     """
-    dw = COLUMN_WIDTHS["dataset"]
+    dw = COLUMN_WIDTHS["group"]
     mw = COLUMN_WIDTHS["metric"]
     sw = COLUMN_WIDTHS["sandhi"]
 
     columns = ["ER_LEX"] + list(domain_labels or []) + ["ER_NUM", "ER_PUNCT", "WER_SCRIBE"]
     if cer:
         columns.append("CER_SCRIBE")
-    header = f"{'DATASET':<{dw}} | " + " | ".join(f"{c:>{mw}}" for c in columns)
+    header = f"{'GROUP':<{dw}} | " + " | ".join(f"{c:>{mw}}" for c in columns)
     header += f" | {'SANDHI':>{sw}}"
     separator = "-" * len(header)
     return f"{header}\n{separator}"

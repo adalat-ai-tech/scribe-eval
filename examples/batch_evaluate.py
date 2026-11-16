@@ -231,9 +231,12 @@ Examples:
         help="Field name for hypothesis text (default: pred_text)",
     )
     parser.add_argument(
-        "--dataset-field",
+        "--group-by",
+        dest="group_by",
         default="source_dataset",
-        help="Field name for dataset identifier (default: source_dataset)",
+        metavar="FIELD",
+        help="Record field whose value splits the per-group metrics "
+        "(default: source_dataset; any field works, e.g. speaker)",
     )
     parser.add_argument(
         "--no-normalize",
@@ -316,7 +319,7 @@ Examples:
             output_file=str(detailed_output),
             ref_field=args.ref_field,
             hyp_field=args.hyp_field,
-            source_dataset_field=args.dataset_field,
+            group_by=args.group_by,
             domain_config=domain_config,
             normalize=not args.no_normalize,
             collect_error_details=args.analysis,
@@ -335,7 +338,7 @@ Examples:
             )
             sys.exit(1)
 
-        # 6. Aggregate metrics with dataset splits
+        # 6. Aggregate metrics with per-group splits
         print("Computing aggregate metrics...")
         metrics = compute_aggregate_metrics(results)
 
