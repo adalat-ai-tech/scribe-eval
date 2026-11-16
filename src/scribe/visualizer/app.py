@@ -689,10 +689,13 @@ with tab_json:
                 # In-memory evaluation; bad records (missing/null/
                 # non-string text fields) are skipped rather than
                 # aborting the interactive session.
+                # The library assigns each result's group: "(None)"
+                # maps to group_by=None, a single "overall" group.
                 res_detailed = evaluate_records(
                     records,
                     ref_field=ref_col,
                     hyp_field=hyp_col,
+                    group_by=None if src_col in (None, "(None)") else src_col,
                     domain_config=domain_config,
                     normalize=normalize_enabled,
                     use_sandhi=use_sandhi_enabled,
@@ -718,15 +721,6 @@ with tab_json:
                         "field selection."
                     )
                     st.stop()
-
-                # Results are copies of the input records, so the
-                # group value is read from each result itself — an
-                # index zip against the raw records would misalign
-                # once any record is skipped.
-                for r in res_detailed:
-                    r["group"] = (
-                        r.get(src_col, "unknown") if src_col and src_col != "(None)" else "overall"
-                    )
 
                 agg = compute_aggregate_metrics(res_detailed)
                 all_error_details = aggregate_error_details(res_detailed)

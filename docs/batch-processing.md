@@ -10,7 +10,7 @@ Each line in the JSONL file must have:
 |---|---|---|
 | Reference text | `text` | Ground truth transcription (NeMo manifest convention) |
 | Hypothesis text | `pred_text` | ASR model output |
-| Group field | `source_dataset` | Optional; the field whose value splits the per-group metrics. Any record field can be chosen with `group_by=` (`--group-by` on the CLI). Missing or empty values fall into `unknown` |
+| Group field | `source_dataset` | Optional; the field whose value splits the per-group metrics. Any record field can be chosen with `group_by=` (`--group-by` on the CLI). Missing or empty values fall into `unknown`; when no record has the field (or `group_by=None`), everything is one `overall` group |
 
 ## Python API
 
@@ -200,7 +200,7 @@ With `--analysis --chart`:
 Each line is the original input record with the evaluation added. Three
 keys are reserved and written by evaluation — `group` holds the grouping
 value (copied from the `group_by` field, stringified, "unknown" when
-missing), `detailed_report` holds the per-category breakdown, and
+missing, "overall" when no record has the field), `detailed_report` holds the per-category breakdown, and
 `cer_scribe` holds the character error rate block (cer_scribe,
 char_errors, ref_chars, and character-level S/I/D counts, computed on
 normalized token streams); input fields with those names are replaced. Every other

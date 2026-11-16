@@ -343,6 +343,41 @@ def test_evaluate_records_canonicalizes_group_ids():
     assert [r["group"] for r in results] == ["7", "0", "unknown"]
 
 
+def test_group_by_none_puts_every_record_in_overall():
+    records = [
+        {"text": "a b", "pred_text": "a b", "source_dataset": "ds1"},
+        {"text": "c d", "pred_text": "c x", "source_dataset": "ds2"},
+    ]
+    results = evaluate_records(records, group_by=None)
+    assert [r["group"] for r in results] == ["overall", "overall"]
+    assert set(compute_aggregate_metrics(results)["by_group"]) == {"overall"}
+
+
+def test_group_field_absent_from_every_record_is_overall():
+    """Nothing to split by is one 'overall' group, not one 'unknown' group;
+    'unknown' is kept for records missing a field that others carry."""
+    records = [
+        {"text": "a b", "pred_text": "a b"},
+        {"text": "c d", "pred_text": "c x"},
+    ]
+    assert [r["group"] for r in evaluate_records(records, group_by="speaker")] == [
+        "overall",
+        "overall",
+    ]
+    assert [r["group"] for r in evaluate_records(records, workers=2)] == ["overall", "overall"]
+
+
+def test_group_by_a_field_named_group():
+    """A record field literally named 'group' is honoured, not replaced by
+    the default source_dataset grouping (PR review issue)."""
+    records = [
+        {"text": "a b", "pred_text": "a b", "source_dataset": "ds1", "group": "speakerA"},
+        {"text": "a b", "pred_text": "a c", "source_dataset": "ds1", "group": "speakerB"},
+    ]
+    results = evaluate_records(records, group_by="group")
+    assert set(compute_aggregate_metrics(results)["by_group"]) == {"speakerA", "speakerB"}
+
+
 def test_parallel_workers_match_sequential(sample_jsonl, legal_domain):
     """workers=2 must return exactly the sequential results, in input
     order, including error details."""

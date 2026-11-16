@@ -392,7 +392,7 @@ my-asr-eval/
 Batch evaluation expects JSONL files with these fields:
 - `text`: Reference text (ground truth; NeMo manifest convention)
 - `pred_text`: Hypothesis text (ASR output)
-- `source_dataset`: Default grouping field (optional, defaults to "unknown"); any field can be chosen with `group_by=` / `--group-by`
+- `source_dataset`: Default grouping field (optional; records without it fall into "unknown", or "overall" when no record has it); any field can be chosen with `group_by=` / `--group-by`
 
 ### Batch Evaluation CLI Arguments
 
@@ -434,7 +434,7 @@ The script includes:
 
 When using `batch_evaluate.py` (or `compute_sample_errors` with `output_file`), detailed per-sample reports are saved as JSONL. Each line is the original input record with the evaluation added:
 - All original record fields, verbatim (e.g. `text`, `pred_text`, plus whatever else the input carried, such as `audio_id` or `duration`) — except the reserved keys below, which evaluation writes and which replace any same-named input fields
-- `group`: Canonical grouping value (copied from the `group_by` field, stringified; `"unknown"` when missing)
+- `group`: Canonical grouping value (copied from the `group_by` field, stringified; `"unknown"` when missing, `"overall"` when `group_by=None` or no record has the field)
 - `detailed_report`: Dict mapping each category (`LEXICAL`, `NUMERAL`, `PUNCT`, plus the domain category, e.g. `LEGAL`) to:
   - `error_rate`: Normalized error rate (errors / combined total tokens)
   - `substitutions`, `insertions`, `deletions`, `correct`: Error and match counts

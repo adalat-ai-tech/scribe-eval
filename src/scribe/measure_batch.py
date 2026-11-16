@@ -17,6 +17,10 @@ from .tokenize import domain_aware_tokenizer
 
 # Default record field whose value groups results (NeMo manifest convention).
 DEFAULT_GROUP_BY = "source_dataset"
+# Group labels assigned by evaluation: "overall" when there is nothing to
+# split by, "unknown" for records missing a field that others carry.
+GROUP_OVERALL = "overall"
+GROUP_UNKNOWN = "unknown"
 
 
 def _resolve_group_by(group_by, source_dataset_field) -> str:
@@ -99,9 +103,10 @@ def _evaluate_one(
     # arrays/objects) are stringified — aggregation uses the value
     # as a dict key. Only a missing/null/empty field falls back to
     # "unknown"; falsy scalars like 0 or false are real group ids.
-    group_value = data.get(group_by)
+    # group_by=None puts every record in the single "overall" group.
+    group_value = data.get(group_by) if group_by is not None else GROUP_OVERALL
     if group_value is None or group_value == "":
-        group_value = "unknown"
+        group_value = GROUP_UNKNOWN
     data["group"] = group_value if isinstance(group_value, str) else str(group_value)
 
     ref = data[ref_field]
@@ -129,7 +134,7 @@ def evaluate_records(
     records,
     ref_field="text",
     hyp_field="pred_text",
-    group_by: str = DEFAULT_GROUP_BY,
+    group_by: Optional[str] = DEFAULT_GROUP_BY,
     domain_config: Optional[DomainConfig] = None,
     normalize: bool = True,
     use_sandhi: bool = True,
@@ -168,7 +173,9 @@ def evaluate_records(
             works — dataset, speaker, domain, duration bucket. Its value
             is copied to the reserved "group" key on each result
             ("unknown" when missing) so aggregation can split by group
-            regardless of the configured field name
+            regardless of the configured field name. None, or a field
+            that no record carries, puts every result in the single
+            "overall" group
         domain_config: Domain configuration (None for no domain)
         normalize: If True, apply normalization for matching (default: True)
         use_sandhi: If True, detect sandhi splits/merges (default: True)
@@ -211,9 +218,16 @@ def evaluate_records(
         # large record counts without starving anyone.
         chunksize = max(1, len(materialized) // (workers * 32))
         with ProcessPoolExecutor(max_workers=workers) as pool:
-            return list(pool.map(evaluate, materialized, chunksize=chunksize))
+            results = list(pool.map(evaluate, materialized, chunksize=chunksize))
+    else:
+        results = [evaluate(record) for record in valid]
 
-    return [evaluate(record) for record in valid]
+    # A grouping field that no record carries leaves nothing to split by:
+    # report one "overall" group rather than one "unknown" group.
+    if all(r["group"] == GROUP_UNKNOWN for r in results):
+        for r in results:
+            r["group"] = GROUP_OVERALL
+    return results
 
 
 def compute_sample_errors(
@@ -221,7 +235,7 @@ def compute_sample_errors(
     output_file=None,
     ref_field="text",
     hyp_field="pred_text",
-    group_by: str = DEFAULT_GROUP_BY,
+    group_by: Optional[str] = DEFAULT_GROUP_BY,
     domain_config: Optional[DomainConfig] = None,
     normalize: bool = True,
     use_sandhi: bool = True,
@@ -251,7 +265,8 @@ def compute_sample_errors(
         hyp_field: Field name for hypothesis text
         group_by: Record field whose value groups the results (default
             "source_dataset"); copied to the reserved "group" key on each
-            result ("unknown" when missing). See evaluate_records.
+            result ("unknown" when missing; "overall" when group_by is None
+            or no record has the field). See evaluate_records.
         domain_config: Domain configuration (None for no domain)
         normalize: If True, apply normalization for matching (default: True)
         use_sandhi: If True, detect sandhi splits/merges (default: True)
