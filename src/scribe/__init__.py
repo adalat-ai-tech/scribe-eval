@@ -135,10 +135,10 @@ from .reporting import (
     format_error_counts_table as format_error_counts_table,
 )
 from .reporting import (
-    format_group_table as format_group_table,
+    format_frequent_errors_table as format_frequent_errors_table,
 )
 from .reporting import (
-    format_frequent_errors_table as format_frequent_errors_table,
+    format_group_table as format_group_table,
 )
 from .reporting import (
     format_metrics_dict as format_metrics_dict,
