@@ -204,8 +204,10 @@ scribe-batch \
 Notes:
 
 - **Workers.** `--workers auto` (the default) starts one process per usable
-  CPU (respecting container/cgroup limits), never more than there are
-  samples. Results are identical for any worker count and stay in input
+  CPU, never more than there are samples. "Usable" means the scheduler
+  affinity (`taskset`, cpusets) further limited by a cgroup CPU quota such
+  as Docker's `--cpus=2`; on Windows the count is capped at 61, the process
+  pool's limit. Results are identical for any worker count and stay in input
   order; only wall time changes, and it is bounded by the longest sample,
   so gains flatten once there are more workers than long samples. On a
   shared machine pass a smaller number; a number above the CPU count is

@@ -147,7 +147,7 @@ The visualizer provides:
 
 7. **Batch CLI** (`src/scribe/batch_cli.py`, console script `scribe-batch`)
    - `main(argv=None, *, default_input=None, default_output="scribe-output")` returns the exit code; `--input` is required unless a default is supplied (the examples wrapper passes the bundled sample)
-   - `--top-n N|all` (default `all`: every row in `analysis_report.txt`, console capped at `CONSOLE_ROW_CAP` = 20 rows per table with a "more rows" note); `--workers N|auto` (default `auto` = `min(usable CPUs via os.sched_getaffinity, n_samples)`); `--no-sandhi`; `--group-by`
+   - `--top-n N|all` (default `all`: every row in `analysis_report.txt`, console capped at `CONSOLE_ROW_CAP` = 20 rows per table with a "more rows" note); `--workers N|auto` (default `auto` = `min(usable CPUs, n_samples)`; usable = `os.sched_getaffinity` further limited by the cgroup CPU quota read from `/sys/fs/cgroup`, and capped at 61 on Windows); `--no-sandhi`; `--group-by`
    - `format_analysis_report(summary, top_n, cer_scribe=None, *, console_cap=None)` renders the analysis text for both the file and the console
    - A run-info line (`Evaluation completed in Ns (N samples, workers=, sandhi=, normalize=, domain=, top_n=, scribe-eval X.Y.Z)`) is printed and appended to `summary_report.txt`
 

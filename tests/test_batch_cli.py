@@ -115,6 +115,57 @@ def test_usable_cpu_count_is_positive():
     assert batch_cli.usable_cpu_count() >= 1
 
 
+def _write(path, text):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="ascii")
+
+
+def test_cgroup_quota_v2(tmp_path):
+    _write(tmp_path / "cpu.max", "200000 100000\n")
+    assert batch_cli.cgroup_cpu_quota(str(tmp_path)) == 2.0
+    _write(tmp_path / "cpu.max", "max 100000\n")
+    assert batch_cli.cgroup_cpu_quota(str(tmp_path)) is None
+
+
+def test_cgroup_quota_v1(tmp_path):
+    _write(tmp_path / "cpu" / "cpu.cfs_quota_us", "150000\n")
+    _write(tmp_path / "cpu" / "cpu.cfs_period_us", "100000\n")
+    assert batch_cli.cgroup_cpu_quota(str(tmp_path)) == 1.5
+    _write(tmp_path / "cpu" / "cpu.cfs_quota_us", "-1\n")
+    assert batch_cli.cgroup_cpu_quota(str(tmp_path)) is None
+
+
+def test_cgroup_quota_absent_or_garbled(tmp_path):
+    assert batch_cli.cgroup_cpu_quota(str(tmp_path / "nope")) is None
+    _write(tmp_path / "cpu.max", "garbage\n")
+    assert batch_cli.cgroup_cpu_quota(str(tmp_path)) is None
+
+
+def test_usable_cpu_count_applies_cgroup_quota(tmp_path, monkeypatch):
+    monkeypatch.setattr(os, "sched_getaffinity", lambda pid: set(range(16)), raising=False)
+    _write(tmp_path / "cpu.max", "250000 100000\n")  # 2.5 CPUs -> 3 workers
+    assert batch_cli.usable_cpu_count(str(tmp_path)) == 3
+    _write(tmp_path / "cpu.max", "max 100000\n")
+    assert batch_cli.usable_cpu_count(str(tmp_path)) == 16
+
+
+def test_resolve_workers_respects_platform_cap(monkeypatch, capsys):
+    monkeypatch.setattr(batch_cli, "usable_cpu_count", lambda: 64)
+    monkeypatch.setattr(batch_cli, "platform_max_workers", lambda: 61)
+    assert resolve_workers(None, 100) == 61
+    assert capsys.readouterr().err == ""  # auto clamps silently
+    assert resolve_workers(64, 100) == 61
+    assert "exceeds the 61-process limit" in capsys.readouterr().err
+    assert resolve_workers(8, 100) == 8
+
+
+def test_resolve_workers_no_cap_elsewhere(monkeypatch):
+    monkeypatch.setattr(batch_cli, "usable_cpu_count", lambda: 64)
+    monkeypatch.setattr(batch_cli, "platform_max_workers", lambda: None)
+    assert resolve_workers(None, 100) == 64
+    assert resolve_workers(128, 100) == 128
+
+
 # --------------------------------------------------------------------------
 # End-to-end runs
 # --------------------------------------------------------------------------

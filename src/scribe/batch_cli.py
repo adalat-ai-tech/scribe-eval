@@ -11,6 +11,7 @@ the default input.
 """
 
 import argparse
+import math
 import os
 import sys
 import time
@@ -110,20 +111,67 @@ def parse_workers(value: str) -> Optional[int]:
     return n
 
 
-def usable_cpu_count() -> int:
-    """CPUs this process may run on.
+# concurrent.futures refuses more workers than this on Windows
+# (WaitForMultipleObjects handle limit).
+WINDOWS_MAX_WORKERS = 61
+CGROUP_ROOT = "/sys/fs/cgroup"
 
-    ``os.sched_getaffinity`` honours cgroup/container and ``taskset`` limits
-    (the convention pytest-xdist and joblib follow); it is Linux-only, so
-    fall back to ``os.cpu_count()`` elsewhere.
+
+def cgroup_cpu_quota(root: str = CGROUP_ROOT) -> Optional[float]:
+    """CPU quota of the current cgroup in CPUs (e.g. 2.0 for ``docker --cpus=2``).
+
+    Reads cgroup v2 ``cpu.max`` first, then cgroup v1 ``cpu.cfs_quota_us`` /
+    ``cpu.cfs_period_us``. Returns None when there is no quota or the files
+    are unavailable (non-Linux, unprivileged, or no cgroup limit).
+    """
+    try:
+        with open(os.path.join(root, "cpu.max"), encoding="ascii") as f:
+            quota, period = f.read().split()[:2]
+        if quota != "max" and int(period) > 0:
+            return int(quota) / int(period)
+        return None
+    except (OSError, ValueError):
+        pass
+    try:
+        with open(os.path.join(root, "cpu", "cpu.cfs_quota_us"), encoding="ascii") as f:
+            quota_us = int(f.read())
+        with open(os.path.join(root, "cpu", "cpu.cfs_period_us"), encoding="ascii") as f:
+            period_us = int(f.read())
+        if quota_us > 0 and period_us > 0:
+            return quota_us / period_us
+    except (OSError, ValueError):
+        pass
+    return None
+
+
+def usable_cpu_count(cgroup_root: str = CGROUP_ROOT) -> int:
+    """CPUs this process can actually use.
+
+    Starts from the scheduler affinity (``os.sched_getaffinity`` honours
+    cpusets and ``taskset``; Linux-only, so ``os.cpu_count()`` elsewhere) and
+    then applies the cgroup CPU quota, which affinity does not reflect: a
+    container run with ``--cpus=2`` on a 64-core host reports 64 CPUs in its
+    affinity mask but may only use two.
     """
     getaffinity = getattr(os, "sched_getaffinity", None)
+    count = None
     if getaffinity is not None:
         try:
-            return max(1, len(getaffinity(0)))
+            count = len(getaffinity(0))
         except OSError:
-            pass
-    return os.cpu_count() or 1
+            count = None
+    if not count:
+        count = os.cpu_count() or 1
+
+    quota = cgroup_cpu_quota(cgroup_root)
+    if quota is not None:
+        count = min(count, math.ceil(quota))
+    return max(1, count)
+
+
+def platform_max_workers() -> Optional[int]:
+    """Hard cap the process pool imposes on this platform, if any."""
+    return WINDOWS_MAX_WORKERS if sys.platform == "win32" else None
 
 
 def resolve_workers(requested: Optional[int], n_samples: int) -> int:
@@ -131,11 +179,24 @@ def resolve_workers(requested: Optional[int], n_samples: int) -> int:
 
     ``auto`` (None) uses every usable CPU, but never more workers than
     samples: a worker without a sample to evaluate only costs start-up time.
-    An explicit integer is passed through unchanged.
+    An explicit integer is passed through unchanged, except that both are
+    clamped to the platform's process-pool limit (61 on Windows), with a
+    warning when an explicit value had to be lowered.
     """
-    if requested is not None:
-        return requested
-    return max(1, min(usable_cpu_count(), n_samples))
+    if requested is None:
+        workers = max(1, min(usable_cpu_count(), n_samples))
+    else:
+        workers = requested
+    cap = platform_max_workers()
+    if cap is not None and workers > cap:
+        if requested is not None:
+            print(
+                f"Warning: --workers {requested} exceeds the {cap}-process limit on this "
+                f"platform; using {cap}.",
+                file=sys.stderr,
+            )
+        workers = cap
+    return workers
 
 
 def count_records(path: Path) -> int:
