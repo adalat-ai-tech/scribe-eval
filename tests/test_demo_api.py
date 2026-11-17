@@ -144,12 +144,15 @@ def test_plain_rates_match_jiwer():
 
 
 def test_readme_sandhi_rows_are_showcases():
-    # The README Sandhi Awareness table and the demo showcases must not drift.
-    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    section = readme.split("## Sandhi Awareness")[1].split("## Domain Configuration")[0]
+    # The sandhi examples table in the docs and the demo showcases must not drift.
+    # (The table lived in the README until 0.2.0; it is now in docs/architecture.md.)
+    doc = (REPO_ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
+    section = doc.split("### Sandhi examples from evaluation data")[1].split(
+        "### Sandhi detection: scope and limitations"
+    )[0]
     rows = re.findall(r"^\| \w+ \| (.+?) \| (.+?) \|", section, flags=re.MULTILINE)
     rows = [pair for pair in rows if pair != ("Reference", "Hypothesis")]
-    assert rows, "README Sandhi Awareness table not found"
+    assert rows, "sandhi examples table not found in docs/architecture.md"
     # A README row may be a fragment of a longer showcase utterance, so
     # containment (not equality) is the contract.
     for ref, hyp in rows:
