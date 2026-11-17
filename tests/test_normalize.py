@@ -5,6 +5,8 @@ import pytest
 from scribe import (
     normalize_currency,
     normalize_date,
+    normalize_indic_numerals,
+    normalize_kannada_numerals,
     normalize_numeral,
     normalize_subsection,
     normalize_token,
@@ -80,3 +82,55 @@ def test_normalize_token_dispatches_by_category():
 def test_normalize_token_word_category_unchanged():
     """LEXICAL-tagged text is not touched by numeral normalisation rules."""
     assert normalize_token("hello", "LEXICAL") == "hello"
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("೧೮೩", "183"),
+        ("೧೫.೦೫.೨೦೨೩", "15.05.2023"),
+        ("೧,೫೦೦", "1,500"),
+        ("൧൮൩", "183"),
+        ("൧൫.൦൫.൨൦൨൩", "15.05.2023"),
+        ("൧,൫൦൦", "1,500"),
+        ("१८३", "183"),
+        ("१५.०५.२०२३", "15.05.2023"),
+        ("१,५००", "1,500"),
+        ("42", "42"),
+        ("Section 302", "Section 302"),
+    ],
+)
+def test_normalize_indic_numerals(raw, expected):
+    assert normalize_indic_numerals(raw) == expected
+
+
+def test_normalize_kannada_numerals_backward_compatibility():
+    assert normalize_kannada_numerals("೧೮೩") == "183"
+    assert normalize_kannada_numerals("೧೫.೦೫.೨೦೨೩") == "15.05.2023"
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("೧೫.೦೫.೨೦೨೩", "15-05-2023"),
+        ("൧൫.൦൫.൨൦൨൩", "15-05-2023"),
+        ("१५.०५.२०२३", "15-05-2023"),
+        ("೧,೫೦೦", "1500"),
+        ("൧,൫൦൦", "1500"),
+        ("१,५००", "1500"),
+        ("೩೪ (೨)", "34(2)"),
+        ("൩൪ (൨)", "34(2)"),
+        ("३४ (२)", "34(2)"),
+    ],
+)
+def test_normalize_numeral_handles_indic_scripts(raw, expected):
+    assert normalize_numeral(raw) == expected
+
+
+def test_normalize_token_indic_numerals():
+    assert normalize_token("൧൫.൦൫.൨൦൨൩", "NUMERAL") == "15-05-2023"
+    assert normalize_token("೧೫.೦೫.೨೦೨೩", "NUMERAL") == "15-05-2023"
+    assert normalize_token("१५.०५.२०२३", "NUMERAL") == "15-05-2023"
+    assert normalize_token("൧,൫൦൦", "NUMERAL") == "1500"
+    assert normalize_token("೧,೫೦೦", "NUMERAL") == "1500"
+    assert normalize_token("१,५००", "NUMERAL") == "1500"

@@ -106,6 +106,12 @@ from .normalize import (
     normalize_date as normalize_date,
 )
 from .normalize import (
+    normalize_indic_numerals as normalize_indic_numerals,
+)
+from .normalize import (
+    normalize_kannada_numerals as normalize_kannada_numerals,
+)
+from .normalize import (
     normalize_numeral as normalize_numeral,
 )
 from .normalize import (
