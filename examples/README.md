@@ -7,9 +7,9 @@ inputs.
 | Script | Demonstrates | Public API |
 |---|---|---|
 | [`text_alignment.py`](text_alignment.py) | Side-by-side alignment for arbitrary text pairs (Malayalam sandhi, Kannada spelled-out numerals, English) | `domain_aware_tokenizer`, `align_arrays` |
-| [`error_report.py`](error_report.py) | Single-sample analog of `batch_evaluate.py --analysis` — token-by-token alignment plus per-category breakdown for one `(ref, hyp)` pair | `text_error_rates`, `compute_error_summary`, `format_contribution_table` |
+| [`error_report.py`](error_report.py) | Single-sample analog of `scribe-batch --analysis` — token-by-token alignment plus per-category breakdown for one `(ref, hyp)` pair | `text_error_rates`, `compute_error_summary`, `format_contribution_table` |
 | [`custom_domain_file.py`](custom_domain_file.py) | Three ways to configure a domain — bundled factory, `from_file()`, inline | `DomainConfig`, `DomainConfig.from_file` |
-| [`batch_evaluate.py`](batch_evaluate.py) | Full batch CLI: JSONL in, summary + analysis + charts out | `compute_sample_errors`, `compute_aggregate_metrics`, `compute_error_summary` |
+| [`batch_evaluate.py`](batch_evaluate.py) | Wrapper around the installed `scribe-batch` command with the bundled sample as default input: JSONL in, summary + analysis + charts out | `scribe.batch_cli.main` |
 
 ## Bundled data
 
@@ -35,9 +35,13 @@ uv run examples/batch_evaluate.py
 
 # Batch evaluation with detailed analysis and chart
 uv run examples/batch_evaluate.py --analysis --chart --top-n 15
+
+# The same, through the installed command (no checkout needed)
+scribe-batch --input examples/predictions.jsonl --output-dir examples/output \
+    --analysis --chart --top-n 15
 ```
 
 See [`docs/batch-processing.md`](../docs/batch-processing.md) for all
-`batch_evaluate.py` flags, and
+`scribe-batch` flags (the wrapper accepts every one of them), and
 [`docs/domain-configuration.md`](../docs/domain-configuration.md) for
 the domain-config file format.

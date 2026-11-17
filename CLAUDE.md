@@ -27,25 +27,27 @@ uv run text_alignment.py
 # Single-sample error report generation
 uv run error_report.py
 
-# Batch evaluation with detailed per-sample JSONL output
+# Batch evaluation with detailed per-sample JSONL output (wrapper around
+# the installed `scribe-batch` command, bundled sample as default input)
 uv run batch_evaluate.py
+```
 
-# Batch evaluation with custom arguments
-uv run batch_evaluate.py \
+### Batch CLI
+```bash
+# Installed console script (also: python -m scribe.batch_cli)
+uv run scribe-batch \
     --input ./my-data/predictions.jsonl \
     --output-dir ./results \
     --ref-field reference \
     --hyp-field hypothesis
 
-# Batch evaluation with detailed error analysis and charts
-uv run batch_evaluate.py \
+# Detailed error analysis and chart, sandhi detection off
+uv run scribe-batch \
     --input ./my-data/predictions.jsonl \
     --output-dir ./results \
-    --analysis \
-    --chart \
-    --top-n 15
+    --analysis --chart --no-sandhi
 
-# Generates: summary_report.txt, evaluation-detailed.jsonl,
+# Generates: summary_report.txt (+ run-info line), evaluation-detailed.jsonl,
 #            analysis_report.txt, category_breakdown.png
 ```
 
@@ -136,14 +138,20 @@ The visualizer provides:
    - `compute_error_summary(metrics, error_details, top_n)`: All of the above in one call; also includes `total_correct_pct`
 
 6. **Charts** (`src/scribe/charts.py`)
-   - Requires `matplotlib` (optional dependency; raises ImportError with install instructions if missing)
+   - Uses `matplotlib` (a core dependency; the ImportError guard is kept for stripped-down environments)
    - `category_breakdown_chart(contributions, output_path=None, title=...)`: typographic report-card figure in the editorial design system (paper canvas, muted palette, no axes/legend box)
      - One row per category + "All tokens": 100%-normalized outcome bar (Match / Substitutions / Deletions / Insertions) readable regardless of category size, ref-token count, "N match · N sub · N del · N ins" stat line, large ink accuracy figure, and contribution to WER_SCRIBE as an accent dot-and-stem
      - Header: accent tick, left-aligned serif title, tokens + WER_SCRIBE subtitle, inline color key; footnote states the normalization and combined denominator
      - Token-less categories render a dashed "nothing to measure" line
      - Category order: Lexical → Domain → Numeral → Punctuation, All tokens at bottom
 
-7. **Reporting** (`src/scribe/reporting.py`)
+7. **Batch CLI** (`src/scribe/batch_cli.py`, console script `scribe-batch`)
+   - `main(argv=None, *, default_input=None, default_output="scribe-output")` returns the exit code; `--input` is required unless a default is supplied (the examples wrapper passes the bundled sample)
+   - `--top-n N|all` (default `all`: every row in `analysis_report.txt`, console capped at `CONSOLE_ROW_CAP` = 20 rows per table with a "more rows" note); `--workers N|auto` (default `auto` = `min(usable CPUs via os.sched_getaffinity, n_samples)`); `--no-sandhi`; `--group-by`
+   - `format_analysis_report(summary, top_n, cer_scribe=None, *, console_cap=None)` renders the analysis text for both the file and the console
+   - A run-info line (`Evaluation completed in Ns (N samples, workers=, sandhi=, normalize=, domain=, top_n=, scribe-eval X.Y.Z)`) is printed and appended to `summary_report.txt`
+
+8. **Reporting** (`src/scribe/reporting.py`)
    - Shared formatting functions used across CLI and web UI
    - `format_metrics_dict()`: Convert error metrics to formatted dictionary (returns formatted strings)
    - `extract_error_rates()`: Extract raw numeric error rates (er_lex/er_domain/er_num/er_punct/sandhi) for UI components
@@ -195,7 +203,8 @@ The visualizer provides:
   - `measure.py`: Single-sample error rate calculation; includes `token_error_details()` and `text_error_details()`
   - `measure_batch.py`: Multi-sample aggregation; includes `aggregate_error_details()`
   - `analysis.py`: Analysis computations — category contributions, WER_SCRIBE, frequent errors
-  - `charts.py`: matplotlib chart generation (optional dependency); category breakdown and frequent error bar charts
+  - `batch_cli.py`: the `scribe-batch` command (argument parsing, run orchestration, analysis report text)
+  - `charts.py`: matplotlib chart generation (matplotlib is a core dependency); category breakdown chart
   - `reporting.py`: Shared formatting functions for CLI and web UI; includes `format_contribution_table()` and `format_frequent_errors_table()`
   - `constants.py`: Category constants and helper functions
 - `examples/`: Sample scripts and evaluation datasets
@@ -204,7 +213,7 @@ The visualizer provides:
   - `custom_domain_file.py`: Demonstrates factory methods, file-based, and inline domain configs
   - `sample_legal.txt`: The domain config file format example — the file referenced wherever docs show an explicit `--domain <file>` / `from_file()` path
   - `custom_domain.txt`: A second format example used by the demo scripts
-  - `batch_evaluate.py`: Batch evaluation with detailed JSONL output
+  - `batch_evaluate.py`: Thin wrapper over `scribe.batch_cli.main` with the bundled sample as default input
   - `visualizer/`: Streamlit interactive UI, exposed as the `scribe-visualizer` console script
     - `app.py`: The Streamlit application
     - `__main__.py`: CLI entry point (`scribe-visualizer`)
@@ -300,22 +309,22 @@ report = text_error_rates(ref, hyp, legal_config)
 
 ### Loading from CLI
 
-The `batch_evaluate.py` script takes a single `--domain` flag that accepts
+The `scribe-batch` command (wrapped by `examples/batch_evaluate.py`) takes a single `--domain` flag that accepts
 either a bundled domain name or a config file path (auto-detected;
 bundled names win, so a colliding file name needs a path prefix like `./legal`):
 
 ```bash
 # Bundled domains via the factories
-python batch_evaluate.py --input data/predictions.jsonl --domain medical
-python batch_evaluate.py --input data/predictions.jsonl --domain none
+scribe-batch --input data/predictions.jsonl --domain medical
+scribe-batch --input data/predictions.jsonl --domain none
 
 # File-based domain config
-python batch_evaluate.py \
+scribe-batch \
     --input data/predictions.jsonl \
     --domain examples/sample_legal.txt
 
 # Without --domain, uses the bundled legal domain by default
-python batch_evaluate.py --input data/predictions.jsonl
+scribe-batch --input data/predictions.jsonl
 ```
 
 ### Bundled Domains
@@ -396,43 +405,44 @@ Batch evaluation expects JSONL files with these fields:
 
 ### Batch Evaluation CLI Arguments
 
-The `batch_evaluate.py` script supports flexible configuration via command-line arguments:
+The `scribe-batch` command (`src/scribe/batch_cli.py`) supports flexible configuration via command-line arguments:
 
 ```bash
 # Show help
-python batch_evaluate.py --help
+scribe-batch --help
 
 # Common options:
--i, --input              Input JSONL file path (default: ./dictation-eval/predictions.jsonl)
--o, --output-dir         Output directory for results (default: ./dictation-eval)
+-i, --input              Input JSONL file path (required; the examples wrapper defaults to examples/predictions.jsonl)
+-o, --output-dir         Output directory for results (default: ./scribe-output)
 --ref-field              Field name for reference text (default: text)
 --hyp-field              Field name for hypothesis text (default: pred_text)
 --group-by FIELD         Record field that splits the per-group metrics (default: source_dataset)
 --domain                 Bundled domain name (legal, medical, technical, none) or path to a domain config file (default: legal)
 --no-normalize           Disable token normalization (strict matching)
+--no-sandhi              Disable Sandhi merge/split detection
 --analysis               Enable detailed error analysis (WER_SCRIBE, category contributions, frequent errors)
---top-n N                Number of top frequent errors to display (default: 10)
---chart                  Save error analysis charts as PNG (requires --analysis and matplotlib)
---workers N              Worker processes for parallel evaluation (default: 1)
+--top-n N|all            Frequent-error rows per table in the report file (default: all; console shows at most 20)
+--chart                  Save the category breakdown chart as PNG (requires --analysis)
+--workers N|auto         Worker processes for parallel evaluation (default: auto = usable CPUs, capped at the sample count)
 --skip-bad-records       Skip invalid lines/records with a warning instead of stopping
 ```
 
 **Analysis output** (when `--analysis` is passed):
-- Console: Overall X% correct | Y% WER_SCRIBE, token breakdown table, frequent substitutions/deletions/insertions
-- `analysis_report.txt`: Same content saved to output directory
+- Console: Overall X% correct | Y% WER_SCRIBE | Z% CER_SCRIBE, token breakdown table, frequent substitutions/deletions/insertions (capped at 20 rows per table)
+- `analysis_report.txt`: Same content with every row (or `--top-n N` rows) per table
 
 **Chart output** (when `--chart` is passed):
-- `category_breakdown.png`: 2-panel stacked bar figure (token matches + category contribution)
+- `category_breakdown.png`: category breakdown report card
 
-The script includes:
+The command includes:
 - Input file validation (existence, readability, non-empty)
-- Comprehensive error handling with friendly error messages
+- Comprehensive error handling with friendly error messages; `main()` returns 1 on failure
 - Automatic output directory creation
-- Safe file writing without stdout redirection
+- A run-info line appended to `summary_report.txt` so a run can be quoted and reproduced
 
 ## Detailed JSONL Output Format
 
-When using `batch_evaluate.py` (or `compute_sample_errors` with `output_file`), detailed per-sample reports are saved as JSONL. Each line is the original input record with the evaluation added:
+When using `scribe-batch` (or `compute_sample_errors` with `output_file`), detailed per-sample reports are saved as JSONL. Each line is the original input record with the evaluation added:
 - All original record fields, verbatim (e.g. `text`, `pred_text`, plus whatever else the input carried, such as `audio_id` or `duration`) — except the reserved keys below, which evaluation writes and which replace any same-named input fields
 - `group`: Canonical grouping value (copied from the `group_by` field, stringified; `"unknown"` when missing, `"overall"` when `group_by=None` or no record has the field)
 - `detailed_report`: Dict mapping each category (`LEXICAL`, `NUMERAL`, `PUNCT`, plus the domain category, e.g. `LEGAL`) to:
@@ -447,11 +457,12 @@ When using `batch_evaluate.py` (or `compute_sample_errors` with `output_file`), 
 This project uses `uv` for dependency management. Core dependencies:
 - `levenshtein>=0.27.1`: Character-level edit distance
 - `tabulate>=0.9.0`: Formatted table output
+- `matplotlib>=3.7.0`: Charts (`scribe-batch --chart`)
 
 Optional extras:
 - `jiwer>=4.0.0`: Baseline WER/CER comparison tile (`[visualizer]` extra; core computes its own metrics — native CER planned)
 - `streamlit>=1.53.0`, `pandas>=2.0.0`: Interactive visualization (`[visualizer]` extra)
-- `matplotlib>=3.7.0`: Chart generation (`[charts]` and `[visualizer]` extras; needed for `--chart` flag)
+- `[all]`: bundles every extra
 
 ## Visualizer Implementation Details
 

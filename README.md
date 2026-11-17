@@ -21,23 +21,37 @@ error rate (ER_LEX).
 ## Installation
 
 ```bash
-pip install scribe-eval                 # core library
-pip install 'scribe-eval[visualizer]'   # adds Streamlit UI
-pip install 'scribe-eval[charts]'       # adds matplotlib charts
+pip install scribe-eval
 ```
 
-The core library depends only on `levenshtein` and `tabulate`. The extras are
-optional and independent of each other.
+This installs the library and the `scribe-batch` command. For the
+interactive web UI, add the visualizer extra:
+
+```bash
+pip install 'scribe-eval[visualizer]'
+```
 
 To work on SCRIBE itself, install from source instead:
 
 ```bash
 git clone https://github.com/adalat-ai-tech/scribe-eval.git
 cd scribe-eval
-pip install -e '.[visualizer,charts]'
+uv sync --all-extras    # or: pip install -e '.[all]'
 ```
 
+Tests, lint and layout are described in
+[docs/development.md](https://github.com/adalat-ai-tech/scribe-eval/blob/main/docs/development.md).
+
 ## Quick Start
+
+Evaluate a JSONL file of predictions (one record per line with a `text`
+reference and a `pred_text` hypothesis):
+
+```bash
+scribe-batch --input predictions.jsonl --output-dir results --analysis --chart
+```
+
+Or score a single pair in Python:
 
 ```python
 from scribe import compute_cer_scribe, text_error_rates, DomainConfig
@@ -55,13 +69,54 @@ cer = compute_cer_scribe(ref, hyp, DomainConfig.legal())
 print(f"CER_SCRIBE: {cer['cer_scribe']:.2%}")
 ```
 
+### What you get
+
+For this three-record `predictions.jsonl`:
+
+```jsonl
+{"text": "charged u/s 302 IPC on 22.05.2023", "pred_text": "charged u/s 303 IPC on 22-05-2023", "source_dataset": "legal-dictation"}
+{"text": "witness PW1 deposed before the court", "pred_text": "witness PW 1 deposed before court", "source_dataset": "legal-dictation"}
+{"text": "എനിക്ക് അറിയാം", "pred_text": "എനിക്കറിയാം", "source_dataset": "malayalam-read"}
+```
+
+`scribe-batch` prints the aggregate table and saves it to
+`results/summary_report.txt`, one row overall and one per group
+(`source_dataset` by default, any field with `--group-by`):
+
+```
+GROUP                     |     ER_LEX |  ER_DOMAIN |     ER_NUM |   ER_PUNCT | WER_SCRIBE | CER_SCRIBE | SANDHI
+OVERALL                   |      6.67% |      0.00% |      6.67% |        N/A |     13.33% |      9.52% |      1
+legal-dictation           |      7.69% |      0.00% |      7.69% |        N/A |     15.38% |      7.14% |      0
+malayalam-read            |      0.00% |        N/A |        N/A |        N/A |      0.00% |     21.43% |      1
+```
+
+`N/A` means the category had nothing to measure. The SANDHI column counts
+merged or split compounds that were scored as matches, not errors.
+
+With `--analysis --chart` it also writes `analysis_report.txt` (accuracy,
+WER_SCRIBE, per-category breakdown and every frequent substitution, deletion
+and insertion), `evaluation-detailed.jsonl` (every record with its scores) and
+`category_breakdown.png`:
+
+![Category breakdown chart](https://raw.githubusercontent.com/adalat-ai-tech/scribe-eval/main/docs/images/category-breakdown.png)
+
+Each row shows how many reference tokens in that category were matched,
+substituted, deleted or inserted, the accuracy, and the category's share of
+the overall WER_SCRIBE.
+
+`scribe-batch --help` lists every flag with its default; other field names,
+`--no-sandhi`, `--group-by`, domains and workers are covered with the Python
+API in
+[docs/batch-processing.md](https://github.com/adalat-ai-tech/scribe-eval/blob/main/docs/batch-processing.md).
+
 ## Features
 
 - **Domain-aware tokenization** — shield domain terms from punctuation splitting; track errors separately
 - **Sandhi correction detection** — identifies merged/split words common in Indic ASR
 - **Normalized error rates** — combined denominator prevents misleading metrics for sparse categories
 - **CER_SCRIBE** — character error rate on normalized token streams; format variants cost nothing, and it needs no sandhi machinery to be robust to agglutination
-- **Batch evaluation** — evaluate in-memory records (`evaluate_records`) or JSONL files with per-sample detail and dataset-level aggregation
+- **`scribe-batch` CLI** — one command from JSONL to summary table, per-sample JSONL, full error analysis and chart, with a run-info line that makes the run reproducible
+- **Batch evaluation API** — evaluate in-memory records (`evaluate_records`) or JSONL files with per-sample detail and per-group aggregation
 - **Interactive visualizer** — Streamlit UI with color-coded alignment, WER_SCRIBE/CER_SCRIBE/Accuracy metric tiles, category breakdown chart, frequent-error tables, and per-sample drill-down
 
 ## Token Categories
@@ -84,25 +139,10 @@ Agglutination makes word boundaries unstable in Indic text: the same
 speech can be written as one word or two. SCRIBE detects such two-word
 merges and splits at alignment time and scores them as matches instead
 of errors.
-Real examples from evaluation data (each would count as 100% WER on its
-phrase without detection):
 
-| Language | Reference | Hypothesis | Junction |
-|---|---|---|---|
-| Malayalam | അന്യായ പട്ടിക | അന്യായപ്പട്ടിക | gemination |
-| Malayalam | എനിക്ക് അറിയാം | എനിക്കറിയാം | vowel elision |
-| Kannada | ಪ್ರಧಾನ ಮಂತ್ರಿಗಳ | ಪ್ರಧಾನಮಂತ್ರಿಗಳ | compound merge |
-| Kannada | ಮಿತ್ರರಾಷ್ಟ್ರಗಳು | ಮಿತ್ರ ರಾಷ್ಟ್ರಗಳು | compound split |
-| Hindi | भाई साहब | भाईसाहब | compound spacing |
-| Hindi | उस में | उसमें | postposition merge |
-
-On an internal benchmark of 48 Malayalam legal dictations (private
-data, not distributed with this repository), sandhi detection recovers
-**3.0 percentage points of WER_SCRIBE** across 377 events that would
-otherwise masquerade as recognition errors. The paired examples above
-are directly reproducible: score any row with `use_sandhi=True` vs
-`use_sandhi=False` in `text_error_rates`.
-
+Examples in Malayalam, Kannada and Hindi, and the measured effect on
+WER_SCRIBE, are in
+[docs/architecture.md](https://github.com/adalat-ai-tech/scribe-eval/blob/main/docs/architecture.md#sandhi-examples-from-evaluation-data).
 Detection is an orthographic heuristic, not a linguistic analysis — it
 is deliberately lenient and admits some false positives. See
 [Sandhi detection: scope and limitations](https://github.com/adalat-ai-tech/scribe-eval/blob/main/docs/architecture.md#sandhi-detection-scope-and-limitations)
@@ -114,73 +154,17 @@ Factory methods for bundled domains: `DomainConfig.legal()`, `DomainConfig.medic
 
 File-based and custom inline configs are also supported. See [docs/domain-configuration.md](https://github.com/adalat-ai-tech/scribe-eval/blob/main/docs/domain-configuration.md).
 
-## Batch Processing
+## Examples and Docs
 
-Evaluate a dataset from JSONL, one record per line:
-
-```jsonl
-{"text": "charged u/s 302 IPC on 22.05.2023", "pred_text": "charged u/s 303 IPC on 22-05-2023", "source_dataset": "legal-dictation"}
-{"text": "witness PW1 deposed before the court", "pred_text": "witness PW 1 deposed before court", "source_dataset": "legal-dictation"}
-{"text": "എനിക്ക് അറിയാം", "pred_text": "എനിക്കറിയാം", "source_dataset": "malayalam-read"}
-```
-
-```python
-from scribe import compute_sample_errors, compute_aggregate_metrics, print_evaluation_summary, DomainConfig
-
-results = compute_sample_errors(
-    "predictions.jsonl", domain_config=DomainConfig.legal(), collect_error_details=True
-)
-print_evaluation_summary(compute_aggregate_metrics(results))
-```
-
-```
-GROUP                     |     ER_LEX |  ER_DOMAIN |     ER_NUM |   ER_PUNCT | WER_SCRIBE | CER_SCRIBE | SANDHI
-OVERALL                   |      7.14% |      7.14% |      7.14% |        N/A |     21.43% |     10.84% |      1
-legal-dictation           |      8.33% |      8.33% |      8.33% |        N/A |     25.00% |      8.70% |      0
-malayalam-read            |      0.00% |        N/A |        N/A |        N/A |      0.00% |     21.43% |      1
-```
-
-The Malayalam hypothesis merges a two-word compound; it is counted as a Sandhi
-match, not as errors. `N/A` marks a category with no reference tokens and no
-errors.
-
-Rows below OVERALL are one per value of the `group_by` field, `source_dataset`
-by default. Any record field works: `group_by="speaker"` splits the table by
-speaker instead.
-
-`evaluate_records()` accepts a list of dicts instead of a file path.
-`output_file=` writes per-sample reports as JSONL. `workers=N` evaluates
-samples in parallel.
-
-### Charts
-
-Continuing from `results` above, with the `[charts]` extra installed:
-
-```python
-from scribe import aggregate_error_details, compute_error_summary
-from scribe.charts import category_breakdown_chart
-
-summary = compute_error_summary(
-    compute_aggregate_metrics(results)["overall"], aggregate_error_details(results), top_n=10
-)
-category_breakdown_chart(summary["contributions"], output_path="breakdown.png")
-```
-
-![Category breakdown chart](https://raw.githubusercontent.com/adalat-ai-tech/scribe-eval/main/docs/images/category-breakdown.png)
-
-One row per category: a normalized outcome bar, an accuracy figure, and that
-category's contribution to WER_SCRIBE. Punctuation is marked "nothing to
-measure" because the reference carries no punctuation tokens.
-
-## Examples
-
-Runnable scripts live in the repository under
-[`examples/`](https://github.com/adalat-ai-tech/scribe-eval/tree/main/examples),
-covering alignment, single-sample reports, domain configs, and a batch
-command-line tool. They are not installed with the package, so clone the
-repository to use them. See
-[docs/batch-processing.md](https://github.com/adalat-ai-tech/scribe-eval/blob/main/docs/batch-processing.md)
-for the full batch API and output schema.
+Short runnable scripts for alignment display, single-sample reports and
+domain configs live in the repository's
+[`examples/`](https://github.com/adalat-ai-tech/scribe-eval/tree/main/examples) directory (not installed with the package).
+[`docs/`](https://github.com/adalat-ai-tech/scribe-eval/tree/main/docs) covers the
+[batch workflow](https://github.com/adalat-ai-tech/scribe-eval/blob/main/docs/batch-processing.md),
+[domain configuration](https://github.com/adalat-ai-tech/scribe-eval/blob/main/docs/domain-configuration.md),
+the [visualizer](https://github.com/adalat-ai-tech/scribe-eval/blob/main/docs/visualizer.md),
+[development](https://github.com/adalat-ai-tech/scribe-eval/blob/main/docs/development.md) and the
+[architecture and glossary](https://github.com/adalat-ai-tech/scribe-eval/blob/main/docs/architecture.md).
 
 ## Interactive Visualizer
 
@@ -188,47 +172,8 @@ for the full batch API and output schema.
 scribe-visualizer    # requires the [visualizer] extra (see Installation)
 ```
 
+A hosted demo runs at <https://adalat-ai-tech.github.io/scribe-eval/>.
 See [docs/visualizer.md](https://github.com/adalat-ai-tech/scribe-eval/blob/main/docs/visualizer.md).
-
-## Dependencies
-
-Core: `levenshtein>=0.27.1`, `tabulate>=0.9.0`
-
-Optional extras: `matplotlib` (for `[charts]`), `streamlit`, `pandas`, `matplotlib`, and `jiwer` (for `[visualizer]` — jiwer powers the baseline WER/CER comparison tile).
-
-## Development
-
-```bash
-git clone https://github.com/adalat-ai-tech/scribe-eval.git
-cd scribe-eval
-uv sync --all-extras    # core + [charts] + [visualizer] + dev tooling
-```
-
-### Running tests
-
-```bash
-uv run pytest                              # full suite
-uv run pytest tests/test_analysis.py       # one file
-uv run pytest -k sandhi                    # name pattern (-k matches by substring)
-uv run pytest -v                           # verbose, with each test name
-uv run pytest --cov=scribe                 # with coverage
-```
-
-Tests are organised one file per library module under [`tests/`](https://github.com/adalat-ai-tech/scribe-eval/blob/main/tests/), plus
-[`tests/test_paper_cases.py`](https://github.com/adalat-ai-tech/scribe-eval/blob/main/tests/test_paper_cases.py) for end-to-end golden
-cases from the SCRIBE paper. `pytest` itself is part of the `dev` dependency
-group, which `uv sync` installs by default.
-
-### Lint and format
-
-```bash
-uv run ruff check src tests examples       # lint
-uv run ruff format src tests examples      # auto-format
-```
-
-See [`docs/architecture.md`](https://github.com/adalat-ai-tech/scribe-eval/blob/main/docs/architecture.md) for the module map and a
-glossary of project-specific terminology (sandhi, combined denominator, WER_SCRIBE, CER_SCRIBE,
-Accuracy, ...).
 
 ## Citation
 

@@ -75,7 +75,7 @@ For batch evaluation across a JSONL dataset, see
 | `measure_batch.py` | JSONL ingestion, per-sample running, per-dataset & overall aggregation | `compute_sample_errors`, `compute_aggregate_metrics`, `aggregate_error_details` |
 | `analysis.py` | Category contributions, frequent substitutions / deletions / insertions / sandhi merges / sandhi splits, the composite WER_SCRIBE | `compute_error_summary`, `compute_category_contributions`, `compute_frequent_sandhi_merges`, `compute_frequent_sandhi_splits` |
 | `reporting.py` | Formatters shared by the CLI and Streamlit UI | `format_metrics_dict`, `format_contribution_table`, `format_alignment_table` |
-| `charts.py` | matplotlib chart generation (optional `[charts]` extra) | `category_breakdown_chart` |
+| `charts.py` | matplotlib chart generation (matplotlib is a core dependency) | `category_breakdown_chart` |
 | `visualizer/` | Streamlit app and `scribe-visualizer` console script (optional `[visualizer]` extra) | `app.py`, `__main__.py` |
 | `constants.py` | Category names and helpers | `CAT_LEXICAL`, `CAT_NUMERAL`, `get_categories(domain_config)` |
 
@@ -128,6 +128,27 @@ ref, hyp, _ = align_arrays(t1, g1, t2, g2)
 The aligner tags merge / split events with `MERGE:` / `SPLIT:` prefixes
 on the affected side. Downstream, `measure.py` reads those prefixes and
 records the event as a *sandhi correction* — not an error.
+
+### Sandhi examples from evaluation data
+
+Real examples from evaluation data (each would count as 100% WER on its
+phrase without detection):
+
+| Language | Reference | Hypothesis | Junction |
+|---|---|---|---|
+| Malayalam | അന്യായ പട്ടിക | അന്യായപ്പട്ടിക | gemination |
+| Malayalam | എനിക്ക് അറിയാം | എനിക്കറിയാം | vowel elision |
+| Kannada | ಪ್ರಧಾನ ಮಂತ್ರಿಗಳ | ಪ್ರಧಾನಮಂತ್ರಿಗಳ | compound merge |
+| Kannada | ಮಿತ್ರರಾಷ್ಟ್ರಗಳು | ಮಿತ್ರ ರಾಷ್ಟ್ರಗಳು | compound split |
+| Hindi | भाई साहब | भाईसाहब | compound spacing |
+| Hindi | उस में | उसमें | postposition merge |
+
+On an internal benchmark of 48 Malayalam legal dictations (private
+data, not distributed with this repository), sandhi detection recovers
+**3.0 percentage points of WER_SCRIBE** across 377 events that would
+otherwise masquerade as recognition errors. The paired examples above
+are directly reproducible: score any row with `use_sandhi=True` vs
+`use_sandhi=False` in `text_error_rates`.
 
 ### Sandhi detection: scope and limitations
 
@@ -311,9 +332,9 @@ merge_rows = format_frequent_errors_table(
 `compute_error_summary` returns a single dict with all per-category
 contributions, top-N substitutions / deletions / insertions, and the
 two new top-N sandhi tables (`frequent_sandhi_merges`,
-`frequent_sandhi_splits`). The CLI (`examples/batch_evaluate.py
---analysis`) and the Streamlit visualizer both render straight from
-this dict.
+`frequent_sandhi_splits`). The CLI (`scribe-batch --analysis`, in
+`src/scribe/batch_cli.py`) and the Streamlit visualizer both render
+straight from this dict.
 
 ## Where to make a change
 
@@ -323,7 +344,7 @@ this dict.
 | Recognise a new numeral form (e.g. ISO-8601 dates) | The numeral regex in `tokenize.py`, plus a matching `normalize_*` in `normalize.py` |
 | Tweak alignment scoring | `DEFAULT_WEIGHTS` in `align.py` |
 | Add a new aggregate metric | The math in `analysis.py`, the formatter in `reporting.py` |
-| Add a CLI flag | `examples/batch_evaluate.py` — the CLI lives in `examples/`, not in the library |
+| Add a CLI flag | `src/scribe/batch_cli.py` (installed as `scribe-batch`); `examples/batch_evaluate.py` is only a wrapper |
 | Add a UI element | `src/scribe/visualizer/app.py` |
 
 ## Tests mirror the pipeline
