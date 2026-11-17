@@ -6,7 +6,7 @@
 
 `scribe-eval` is the open-source evaluation framework introduced in the SCRIBE
 paper (*Diagnostic Evaluation and Rich Transcription Models for Indic ASR*,
-accepted at Interspeech 2026). It provides fine-grained error metrics for
+[Interspeech 2026](https://doi.org/10.21437/Interspeech.2026-3436)). It provides fine-grained error metrics for
 ASR systems on Indic languages (Malayalam, Kannada, Hindi, ...) and on
 domain-specific transcription (legal, medical, technical).
 
@@ -15,6 +15,8 @@ optional domain classes (LEGAL, MEDICAL, TECH, or custom). Domain-critical
 terminology is shielded from incorrect splitting and tracked separately — so a
 single misrecognized legal term doesn't inflate your general lexical
 error rate (ER_LEX).
+
+**Try it in the browser:** <https://adalat-ai-tech.github.io/scribe-eval/>
 
 ## Installation
 
@@ -230,15 +232,19 @@ Accuracy, ...).
 
 ## Citation
 
-The SCRIBE paper is accepted at Interspeech 2026. A preprint is available on
-arXiv: <https://arxiv.org/abs/2605.20712>
+The SCRIBE paper was presented at Interspeech 2026 and is published in the
+ISCA Archive: <https://doi.org/10.21437/Interspeech.2026-3436>
+(preprint: <https://arxiv.org/abs/2605.20712>).
 
 ```bibtex
-@article{manohar2026scribe,
-  title={SCRIBE: Diagnostic Evaluation and Rich Transcription Models for Indic ASR},
-  author={Manohar, Kavya and Bhattacharya, Arghya and Juvekar, Kush and Nethil, Kumarmanas},
-  journal={arXiv preprint arXiv:2605.20712},
-  year={2026}
+@inproceedings{manohar26_interspeech,
+  title     = {{SCRIBE: Diagnostic Evaluation and Rich Transcription Models for Indic ASR}},
+  author    = {Kavya Manohar and Arghya Bhattacharya and Kush Juvekar and Kumarmanas Nethil},
+  year      = {2026},
+  booktitle = {{Interspeech 2026}},
+  pages     = {4773--4778},
+  doi       = {10.21437/Interspeech.2026-3436},
+  issn      = {2958-1796},
 }
 ```
 
