@@ -2281,16 +2281,18 @@ version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "levenshtein" },
+    { name = "matplotlib" },
     { name = "tabulate" },
 ]
 
 [package.optional-dependencies]
-charts = [
-    { name = "matplotlib" },
+all = [
+    { name = "jiwer" },
+    { name = "pandas" },
+    { name = "streamlit" },
 ]
 visualizer = [
     { name = "jiwer" },
-    { name = "matplotlib" },
     { name = "pandas" },
     { name = "streamlit" },
 ]
@@ -2309,13 +2311,13 @@ dev = [
 requires-dist = [
     { name = "jiwer", marker = "extra == 'visualizer'", specifier = ">=4.0.0" },
     { name = "levenshtein", specifier = ">=0.27.1" },
-    { name = "matplotlib", marker = "extra == 'charts'", specifier = ">=3.7.0" },
-    { name = "matplotlib", marker = "extra == 'visualizer'", specifier = ">=3.7.0" },
+    { name = "matplotlib", specifier = ">=3.7.0" },
     { name = "pandas", marker = "extra == 'visualizer'", specifier = ">=2.0.0" },
+    { name = "scribe-eval", extras = ["visualizer"], marker = "extra == 'all'" },
     { name = "streamlit", marker = "extra == 'visualizer'", specifier = ">=1.53.0" },
     { name = "tabulate", specifier = ">=0.9.0" },
 ]
-provides-extras = ["charts", "visualizer"]
+provides-extras = ["visualizer", "all"]
 
 [package.metadata.requires-dev]
 dev = [
