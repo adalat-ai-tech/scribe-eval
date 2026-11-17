@@ -52,9 +52,13 @@ examples/custom_*.txt
 src/scribe/config/custom_*.txt
 # Ad-hoc test scripts dropped in examples/ (separate from the tests/ tree)
 examples/test_*.py
-# Root-level eval result directory
+# Root-level eval result directories (scribe-output/ is the scribe-batch default)
 malayalam-model-results/
 
 # demo site build outputs
 site/wheels/
 site/data/showcase_results.json
+scribe-output/
+
+# Internal evaluation data (never committed)
+test-data/

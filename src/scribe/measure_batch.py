@@ -15,6 +15,13 @@ from .measure import _cer_scribe_from_tokens, token_error_details, token_error_r
 from .reporting import format_summary_lines
 from .tokenize import domain_aware_tokenizer
 
+# Default record field whose value groups results (NeMo manifest convention).
+DEFAULT_GROUP_BY = "source_dataset"
+# Group labels assigned by evaluation: "overall" when there is nothing to
+# split by, "unknown" for records missing a field that others carry.
+GROUP_OVERALL = "overall"
+GROUP_UNKNOWN = "unknown"
+
 
 def _validate_record(record, ref_field, hyp_field) -> Optional[str]:
     """Return the reason a record cannot be evaluated, or None if it can.
@@ -56,11 +63,17 @@ def _iter_valid_records(records, ref_field, hyp_field, skip_bad_records):
             )
 
 
+def _is_group_value(value) -> bool:
+    """True when a record's grouping field holds a usable value
+    (anything but missing, null or the empty string)."""
+    return value is not None and value != ""
+
+
 def _evaluate_one(
     record,
     ref_field,
     hyp_field,
-    source_dataset_field,
+    group_by,
     domain_config,
     normalize,
     use_sandhi,
@@ -71,17 +84,17 @@ def _evaluate_one(
     # Shallow-copy so the caller's dicts are left untouched.
     data = dict(record)
 
-    # Canonicalize the dataset id under "source_dataset" so
-    # downstream aggregation works regardless of which field
-    # name the caller configured. Non-string ids (numbers, JSON
-    # arrays/objects) are stringified — aggregation uses the
-    # value as a grouping key. Only a missing/null/empty field
-    # falls back to "unknown"; falsy scalars like 0 or false
-    # are real dataset ids.
-    ds_value = data.get(source_dataset_field)
-    if ds_value is None or ds_value == "":
-        ds_value = "unknown"
-    data["source_dataset"] = ds_value if isinstance(ds_value, str) else str(ds_value)
+    # Canonicalize the grouping value under the reserved "group" key
+    # so downstream aggregation works regardless of which record
+    # field the caller grouped by. Non-string values (numbers, JSON
+    # arrays/objects) are stringified — aggregation uses the value
+    # as a dict key. Only a missing/null/empty field falls back to
+    # "unknown"; falsy scalars like 0 or false are real group ids.
+    # group_by=None puts every record in the single "overall" group.
+    group_value = data.get(group_by) if group_by is not None else GROUP_OVERALL
+    if not _is_group_value(group_value):
+        group_value = GROUP_UNKNOWN
+    data["group"] = group_value if isinstance(group_value, str) else str(group_value)
 
     ref = data[ref_field]
     hyp = data[hyp_field]
@@ -108,7 +121,7 @@ def evaluate_records(
     records,
     ref_field="text",
     hyp_field="pred_text",
-    source_dataset_field="source_dataset",
+    group_by: Optional[str] = DEFAULT_GROUP_BY,
     domain_config: Optional[DomainConfig] = None,
     normalize: bool = True,
     use_sandhi: bool = True,
@@ -140,10 +153,14 @@ def evaluate_records(
         ref_field: Field name for reference text (default "text",
             following the NeMo manifest convention)
         hyp_field: Field name for hypothesis text (default "pred_text")
-        source_dataset_field: Field name for dataset identifier; its value
-            is copied to the canonical "source_dataset" key on each result
-            ("unknown" when missing) so aggregation can group by dataset
-            regardless of the configured field name
+        group_by: Record field whose value groups the results (default
+            "source_dataset", the NeMo manifest convention). Any field
+            works — dataset, speaker, domain, duration bucket. Its value
+            is copied to the reserved "group" key on each result
+            ("unknown" when missing) so aggregation can split by group
+            regardless of the configured field name. None, or a field
+            that no record fills (missing, null or empty everywhere),
+            puts every result in the single "overall" group
         domain_config: Domain configuration (None for no domain)
         normalize: If True, apply normalization for matching (default: True)
         use_sandhi: If True, detect sandhi splits/merges (default: True)
@@ -165,7 +182,7 @@ def evaluate_records(
         _evaluate_one,
         ref_field=ref_field,
         hyp_field=hyp_field,
-        source_dataset_field=source_dataset_field,
+        group_by=group_by,
         domain_config=domain_config,
         normalize=normalize,
         use_sandhi=use_sandhi,
@@ -173,6 +190,20 @@ def evaluate_records(
     )
 
     valid = _iter_valid_records(records, ref_field, hyp_field, skip_bad_records)
+
+    # Note whether any record supplies a grouping value, so the fallback
+    # below depends on the input rather than on the finished labels
+    # (a supplied value may itself be "unknown").
+    seen_group_value = False
+
+    def track_group_values(records):
+        nonlocal seen_group_value
+        for record in records:
+            if group_by is not None and _is_group_value(record.get(group_by)):
+                seen_group_value = True
+            yield record
+
+    valid = track_group_values(valid)
 
     if workers is not None and workers > 1:
         # The pool needs the full record list for chunking; only the
@@ -184,9 +215,16 @@ def evaluate_records(
         # large record counts without starving anyone.
         chunksize = max(1, len(materialized) // (workers * 32))
         with ProcessPoolExecutor(max_workers=workers) as pool:
-            return list(pool.map(evaluate, materialized, chunksize=chunksize))
+            results = list(pool.map(evaluate, materialized, chunksize=chunksize))
+    else:
+        results = [evaluate(record) for record in valid]
 
-    return [evaluate(record) for record in valid]
+    # A grouping field that no record fills leaves nothing to split by:
+    # report one "overall" group rather than one "unknown" group.
+    if not seen_group_value:
+        for r in results:
+            r["group"] = GROUP_OVERALL
+    return results
 
 
 def compute_sample_errors(
@@ -194,7 +232,7 @@ def compute_sample_errors(
     output_file=None,
     ref_field="text",
     hyp_field="pred_text",
-    source_dataset_field="source_dataset",
+    group_by: Optional[str] = DEFAULT_GROUP_BY,
     domain_config: Optional[DomainConfig] = None,
     normalize: bool = True,
     use_sandhi: bool = True,
@@ -220,10 +258,10 @@ def compute_sample_errors(
         output_file: Optional path to save detailed results
         ref_field: Field name for reference text
         hyp_field: Field name for hypothesis text
-        source_dataset_field: Field name for dataset identifier; its value
-            is copied to the canonical "source_dataset" key on each result
-            ("unknown" when missing) so aggregation can group by dataset
-            regardless of the configured field name
+        group_by: Record field whose value groups the results (default
+            "source_dataset"); copied to the reserved "group" key on each
+            result ("unknown" when missing; "overall" when group_by is None
+            or no record has the field). See evaluate_records.
         domain_config: Domain configuration (None for no domain)
         normalize: If True, apply normalization for matching (default: True)
         use_sandhi: If True, detect sandhi splits/merges (default: True)
@@ -278,7 +316,7 @@ def compute_sample_errors(
         records,
         ref_field=ref_field,
         hyp_field=hyp_field,
-        source_dataset_field=source_dataset_field,
+        group_by=group_by,
         domain_config=domain_config,
         normalize=normalize,
         use_sandhi=use_sandhi,
@@ -328,20 +366,22 @@ def compute_aggregate_metrics(
         sample_results: List of result dictionaries from compute_sample_errors
 
     Returns:
-        Dictionary with 'overall' and 'by_dataset' aggregated metrics
+        Dictionary with 'overall' and 'by_group' aggregated metrics; the
+        'by_group' keys are the values of the field the batch was
+        grouped by (see evaluate_records(group_by=...))
     """
     overall_agg = init_stat_dict()
-    dataset_aggs = defaultdict(init_stat_dict)
+    group_aggs = defaultdict(init_stat_dict)
 
     for res in sample_results:
-        ds = res.get("source_dataset", "unknown")
+        group = res.get("group", "unknown")
         report = res["detailed_report"]
 
         # Aggregate every category present in the data. Dropping an
         # unexpected category would also shrink the combined denominator
         # and silently deflate every other category's rate.
         for cat, counts in report.items():
-            for agg in (overall_agg, dataset_aggs[ds]):
+            for agg in (overall_agg, group_aggs[group]):
                 if cat not in agg:
                     agg.update(init_stat_dict([cat]))
                 agg[cat]["substitutions"] += counts["substitutions"]
@@ -373,7 +413,7 @@ def compute_aggregate_metrics(
 
     result = {
         "overall": calculate_rates(overall_agg),
-        "by_dataset": {ds: calculate_rates(stats) for ds, stats in dataset_aggs.items()},
+        "by_group": {g: calculate_rates(stats) for g, stats in group_aggs.items()},
     }
 
     # CER_SCRIBE aggregates (micro-averaged: summed counts, divided
@@ -389,15 +429,15 @@ def compute_aggregate_metrics(
         }
 
     cer_overall = _zero()
-    cer_datasets = defaultdict(_zero)
+    cer_groups = defaultdict(_zero)
     has_cer = False
     for res in sample_results:
         block = res.get("cer_scribe")
         if not block:
             continue
         has_cer = True
-        ds = res.get("source_dataset", "unknown")
-        for target in (cer_overall, cer_datasets[ds]):
+        group = res.get("group", "unknown")
+        for target in (cer_overall, cer_groups[group]):
             for key in ("char_errors", "ref_chars", "substitutions", "deletions", "insertions"):
                 target[key] += block[key]
 
@@ -408,7 +448,7 @@ def compute_aggregate_metrics(
 
         result["cer_scribe"] = {
             "overall": _with_rate(cer_overall),
-            "by_dataset": {ds: _with_rate(c) for ds, c in cer_datasets.items()},
+            "by_group": {g: _with_rate(c) for g, c in cer_groups.items()},
         }
 
     return result
