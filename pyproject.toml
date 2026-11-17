@@ -48,6 +48,7 @@ visualizer = ["streamlit>=1.53.0", "pandas>=2.0.0", "matplotlib>=3.7.0", "jiwer>
 dev = ["pytest>=8.0", "pytest-cov", "ruff>=0.6", "mypy", "build", "twine"]
 
 [project.scripts]
+scribe-batch = "scribe.batch_cli:main"
 scribe-visualizer = "scribe.visualizer.__main__:main"
 
 [project.urls]
